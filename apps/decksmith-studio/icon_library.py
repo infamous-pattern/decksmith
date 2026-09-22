@@ -9,9 +9,13 @@ from artwork import source_image,MAX_BYTES
 ROOT=Path(__file__).resolve().parents[2]/'assets/icons/tabler'
 FULL_SET_URL='https://github.com/tabler/tabler-icons/releases/latest'
 
+class SafeSvgTree(ET.TreeBuilder):
+    def doctype(self, name, pubid, system):
+        raise ValueError('SVG document types and entities are not supported.')
+
 def svg_png(raw,size=120,color='#ffffff'):
     if len(raw)>MAX_BYTES or b'<!DOCTYPE' in raw.upper() or b'<!ENTITY' in raw.upper():raise ValueError('Unsupported SVG document.')
-    root=ET.fromstring(raw)
+    root=ET.fromstring(raw,parser=ET.XMLParser(target=SafeSvgTree()))
     allowed={'svg','g','path','rect','circle','ellipse','line','polyline','polygon','title','desc'}
     for e in root.iter():
         if e.tag.split('}')[-1] not in allowed:raise ValueError('Use a self-contained SVG made of simple shapes.')

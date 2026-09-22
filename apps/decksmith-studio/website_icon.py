@@ -1,7 +1,7 @@
 """Prefer high-resolution website icons over small browser favicons."""
 from html.parser import HTMLParser
 from urllib.parse import urljoin,urlsplit
-from urllib.request import Request,urlopen
+from urllib.request import Request,build_opener,HTTPRedirectHandler
 from time import monotonic
 from artwork import dimensions
 
@@ -18,9 +18,21 @@ class Icons(HTMLParser):
             score=max(sizes,default=180 if 'apple-touch-icon' in attrs.get('rel','') else 0)
             self.links.append((score,attrs['href']))
 
+def web_url(url):
+    parts=urlsplit(url)
+    if parts.scheme not in ('http','https') or not parts.hostname or parts.username or parts.password:
+        raise ValueError('Not an anonymous website URL')
+    return url
+
+class WebRedirects(HTTPRedirectHandler):
+    def redirect_request(self,req,fp,code,msg,headers,newurl):
+        web_url(newurl)
+        return super().redirect_request(req,fp,code,msg,headers,newurl)
+
 def read(url,limit):
-    if urlsplit(url).scheme not in ('http','https'): raise ValueError('Not a website URL')
-    with urlopen(Request(url,headers={'User-Agent':'Decksmith/0.1'}),timeout=2) as response:
+    web_url(url)
+    with build_opener(WebRedirects()).open(Request(url,headers={'User-Agent':'Decksmith/0.1'}),timeout=2) as response:
+        web_url(response.geturl())
         data=response.read(limit+1)
         if len(data)>limit: raise ValueError('Resource too large')
         return data,response.geturl()

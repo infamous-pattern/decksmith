@@ -4,9 +4,9 @@
 
 > A polished, Linux-native control application for Elgato Stream Deck hardware, with the Stream Deck + as the reference device.
 
-**Status:** `v0.1.0-preview.1` — early preview for testing and feedback, not V1.
+**Status:** `v0.1.0-preview.2` — early preview for testing and feedback, not V1.
 
-[Download the preview](https://github.com/infamous-pattern/decksmith/releases/tag/v0.1.0-preview.1) · [Installation and dependencies](docs/installation.md) · [Reviewer guide and known limits](docs/preview-release.md) · [Report an issue](https://github.com/infamous-pattern/decksmith/issues)
+[Download the preview](https://github.com/infamous-pattern/decksmith/releases/tag/v0.1.0-preview.2) · [Installation and dependencies](docs/installation.md) · [Reviewer guide and known limits](docs/preview-release.md) · [Report an issue](https://github.com/infamous-pattern/decksmith/issues)
 
 **Reference platform:** Fedora Workstation 44, GNOME, Wayland  
 **Reference hardware:** Elgato Stream Deck +  
@@ -18,7 +18,7 @@
 Run as your normal desktop user:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/infamous-pattern/decksmith/v0.1.0-preview.1/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/infamous-pattern/decksmith/v0.1.0-preview.2/scripts/install.sh | sh
 ```
 
 The script checks Fedora dependencies (DNF asks for confirmation if packages are
@@ -28,6 +28,8 @@ reference platform; Fedora 45 is accepted but less extensively validated.
 [Inspect the script first](scripts/install.sh), or follow the
 [manual installation guide](docs/installation.md). Run downloaded code only from
 sources you trust; checksums detect corruption and are not a digital signature.
+
+[Security review and limitations](docs/security-review-2026-09-22.md).
 
 ## Interface preview
 

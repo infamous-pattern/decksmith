@@ -1,4 +1,4 @@
-# Decksmith v0.1.0-preview.1
+# Decksmith v0.1.0-preview.2
 
 An early reviewer preview for Fedora Workstation 44, GNOME/Wayland, x86_64 and
 Stream Deck +. This release is intended for feedback, not a declaration of V1

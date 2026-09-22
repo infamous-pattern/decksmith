@@ -31,3 +31,10 @@ class IconLibraryTests(unittest.TestCase):
             key.update(icon_source=item['id'],icon_tint=True,icon_png=list(library.image(item)),artwork='application_icon')
             data,_=encode(layout);self.assertEqual(decode(data),layout)
             with ZipFile(BytesIO(data)) as z:self.assertIn((ROOT/'LICENSE').read_bytes(),z.read('asset-notices.txt'))
+
+class SvgSecurityTests(unittest.TestCase):
+    def test_encoded_doctype_is_rejected_before_entity_expansion(self):
+        document='<!DOCTYPE svg [<!ENTITY payload "expanded">]><svg xmlns="http://www.w3.org/2000/svg"><title>&payload;</title></svg>'
+        for encoding in ('utf-8','utf-16','utf-16-le','utf-16-be'):
+            with self.subTest(encoding=encoding),self.assertRaises(ValueError):
+                svg_png(document.encode(encoding))

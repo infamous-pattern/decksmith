@@ -374,6 +374,7 @@ async def main(connection_file=None, hardware=False, managed=False):
             self.send_header('Content-Length', str(len(raw)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'nonce-" + token + "'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'")
             self.end_headers()
             self.wfile.write(raw)
@@ -384,7 +385,7 @@ async def main(connection_file=None, hardware=False, managed=False):
         def do_GET(self):
             if not self.valid_host():
                 self.respond(403, '{}'); return
-            if self.path == '/':
+            if self.path.startswith('/?token=') and secrets.compare_digest(self.path, '/?token=' + token):
                 self.respond(200, (ROOT / 'live_panel.html').read_text().replace('__TOKEN__', token), 'text/html; charset=utf-8')
             elif self.path == '/catalog':
                 if self.headers.get('X-Lab-Token') != token:
@@ -395,6 +396,8 @@ async def main(connection_file=None, hardware=False, managed=False):
                     return result
                 self.respond(200, json.dumps(asyncio.run_coroutine_threadsafe(catalog(), loop).result(3)))
             elif self.path == '/state':
+                if self.headers.get('X-Lab-Token') != token:
+                    self.respond(403, '{}'); return
                 async def state():
                     return panel.snapshot()
                 self.respond(200, json.dumps(asyncio.run_coroutine_threadsafe(state(), loop).result(3)))
@@ -434,7 +437,7 @@ async def main(connection_file=None, hardware=False, managed=False):
             fd = os.open(connection_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, 'w') as output:
                 json.dump(descriptor, output)
-        print(f'http://127.0.0.1:{web.server_port}/', flush=True)
+        if not managed:print(f'http://127.0.0.1:{web.server_port}/?token={token}', flush=True)
         await stop.wait()
     finally:
         # shutdown only after serve_forever has started.

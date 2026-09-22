@@ -32,3 +32,14 @@ class IconTests(unittest.TestCase):
     def test_ico_uses_largest_frame(self):
         output=BytesIO();Image.new('RGBA',(256,256),'red').save(output,format='ICO',sizes=[(16,16),(128,128),(256,256)])
         self.assertEqual(dimensions(output.getvalue()),(256,256))
+
+class RedirectSecurityTests(unittest.TestCase):
+    def test_redirects_cannot_change_to_non_web_schemes_or_include_credentials(self):
+        from website_icon import WebRedirects
+        from urllib.request import Request
+        request=Request('https://example.com/icon')
+        for url in ('file:///etc/passwd','ftp://example.com/icon','http://user:secret@example.com/icon','data:image/png;base64,AA=='):
+            with self.subTest(url=url),self.assertRaises(ValueError):
+                WebRedirects().redirect_request(request,None,302,'Found',{},url)
+        redirected=WebRedirects().redirect_request(request,None,302,'Found',{},'https://example.org/icon.png')
+        self.assertEqual(redirected.full_url,'https://example.org/icon.png')

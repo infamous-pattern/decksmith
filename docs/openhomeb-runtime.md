@@ -156,3 +156,10 @@ reports that cleanup was not confirmed; unlock Keyring and retry removal with
 the checkbox selected. Deletion cannot be undone; a restored config backup may
 need a newly entered password. No real credential or active connection is removed
 by the automated regression tests.
+
+## Security boundary
+
+The optional companion is updated separately from the main app. Include the
+preview.2 panel authorization fix when rebuilding it. See the
+[security review](security-review-2026-09-22.md). Homebridge HTTP connections are
+unencrypted; prefer HTTPS where available or restrict use to a trusted LAN.
