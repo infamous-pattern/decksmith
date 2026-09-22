@@ -24,6 +24,7 @@ def call(method,args=None):
  raise ValueError(method)
 panel.call=call;panel.read_status=lambda:status.copy()
 Gtk.Settings.get_default().set_property('gtk-enable-animations',False)
+if '--large-text' in sys.argv:Gtk.Settings.get_default().set_property('gtk-xft-dpi',144*1024)
 if '--compact' in sys.argv:
  import workspace_shell
  original_shell=workspace_shell.WorkspaceShell.__init__
@@ -45,6 +46,12 @@ def snapshot(ed,name):
  ed.allocate(ed.get_width(),ed.get_height(),-1,None)
  snap=Gtk.Snapshot();ed.snapshot_child(ed.get_child(),snap)
  ed.get_renderer().render_texture(snap.to_node(),None).save_to_png(str(Path.cwd()/('local/ui-'+name+'.png')))
+
+def visible_fields(ed):
+ adjustment=ed.property_column.get_hadjustment()
+ assert adjustment.get_upper()<=adjustment.get_page_size()+1, 'Settings require horizontal scrolling'
+ field=ed.label if ed.control_kind=='key' else ed.dial_controls.label
+ assert field.translate_coordinates(ed,0,0)[0]>=ed.property_column.translate_coordinates(ed,0,0)[0], 'Field label clipped on the left'
 
 def stable_geometry(ed):
  return (ed.get_width(),ed.get_height(),tuple((w.get_width(),w.get_height(),w.translate_coordinates(ed,0,0))
@@ -84,6 +91,7 @@ def tick():
     assert ed.history_shortcut(None,panel.Gdk.KEY_1+i,0,panel.Gdk.ModifierType.ALT_MASK)
     assert ed.shell.section==name and ed.shell.nav[name].has_focus()
    ed.shell.navigate('keys');ed.shell.nav['keys'].grab_focus()
+   ed.allocate(ed.get_width(),ed.get_height(),-1,None);visible_fields(ed)
    snapshot(ed,'keys');ed.history_step(False);assert ed.label.get_text()!='Test label'
    stage=11;return True
   if stage==11:
@@ -105,6 +113,7 @@ def tick():
   if stage==2:
    geometry=stable_geometry(ed)
    assert geometry==ed.geometry_before, f'Key/dial size shift: {ed.geometry_before} -> {geometry}'
+   visible_fields(ed)
    snapshot(ed,'dials');ed.select_key(3);stage=21;return True
   if stage==21:
    geometry=stable_geometry(ed)

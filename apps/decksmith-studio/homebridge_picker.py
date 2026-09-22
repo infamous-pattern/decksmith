@@ -45,7 +45,9 @@ class HomebridgePicker(Adw.ExpanderRow):
         self.targets.connect('notify::selected',self.select);self.add_row(self.targets)
         self.actions=Adw.ComboRow(title='Action',model=Gtk.StringList.new([]));self.add_row(self.actions)
         self.note=Adw.ActionRow(title='Discovery is read-only',subtitle='Assigning changes the draft. Save and Apply activates it.');self.note.set_subtitle_lines(0);self.add_row(self.note)
-        row=Gtk.Box(spacing=8,margin_top=8,margin_bottom=8)
+        # Expanded children still contribute to the collapsed row's minimum width.
+        # Stack the actions so they cannot push every key/dial form sideways.
+        row=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8,margin_top=8,margin_bottom=8)
         self.refresh=Gtk.Button(label='Refresh accessories');self.refresh.connect('clicked',self.fetch);row.append(self.refresh)
         self.use=Gtk.Button(label='Use assignment');self.use.set_sensitive(False);self.use.connect('clicked',self.apply);row.append(self.use);self.add_row(row)
         self.connect('notify::expanded',lambda *_:self.fetch() if self.get_expanded() and not self.items else None)

@@ -38,6 +38,25 @@ active-meter acceptance still need observation; see the
 Longer multi-device/authentication/session-lifecycle acceptance remains open.
 See [measurements, fixes and limits](homebridge-reliability-2026-09-22.md).
 
+### Active-audio follow-up — September 22
+
+A ten-minute reference-desktop run with one active playback stream completed with
+zero service restarts and 41/41 healthy connection/display checks. Main service
+CPU averaged 9.87% of one core; companion CPU averaged 0.56%. Memory and persistent
+helper resources remained within a small range. Seventeen isolated recovery,
+helper and queue tests passed afterward; no code fix was indicated. Continue the
+V1 usability/accessibility review. Longer runs, multiple active meters and physical
+session/USB recovery remain open; see the [results and limits](active-audio-reliability-2026-09-22.md).
+
+### Accessibility and compact-layout follow-up — September 22
+
+The native pass found and fixed clipped field beginnings caused by side-by-side
+Homebridge buttons forcing a collapsed settings panel too wide. Compact native
+high-contrast and 150% enlarged-text dark-mode checks now pass, including keyboard
+navigation, draft retention and stable key/dial geometry; all 142 editor tests
+passed. See the [checkpoint and remaining limits](accessibility-checkpoint-2026-09-22.md).
+Screen-reader acceptance and actual compositor fractional scaling remain open.
+
 ## Current plugin work — native review bridge
 
 **Current status:** the managed experimental Homebridge runtime, saved key/dial
