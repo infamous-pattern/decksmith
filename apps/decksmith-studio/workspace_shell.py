@@ -1,6 +1,7 @@
 """Native workspace. One editor, one draft, no hidden duplicate previews."""
 from gi.repository import Adw, Gtk, Gdk, Gio, GLib, Pango
 from i18n import gettext as tr
+from validation_announcements import ValidationAnnouncements
 
 SECTIONS=(('home',tr('Home'),'go-home-symbolic'),('pages',tr('Pages'),'view-list-symbolic'),
           ('keys',tr('Keys & Dials'),'input-dialpad-symbolic'),
@@ -52,6 +53,7 @@ class WorkspaceShell:
         ed.save_button.set_size_request(145,-1);ed.save_button.set_tooltip_text('Save and apply the layout · Ctrl+S')
         actions.append(saves);top.pack_end(actions)
         self.save_reason=Gtk.Label(label='Loading layout…',xalign=0,hexpand=True,ellipsize=Pango.EllipsizeMode.END)
+        self.validation_speech=ValidationAnnouncements(GLib.timeout_add,GLib.source_remove,self.announce_validation)
         self.save_reason.set_margin_start(22);self.save_reason.set_margin_end(22)
         self.save_reason.set_size_request(-1,30)
         right.append(self.save_reason)
@@ -294,6 +296,7 @@ class WorkspaceShell:
         text=reason or 'Ready to save and apply · Ctrl+S'
         self.save_reason.set_text(text);self.save_reason.set_tooltip_text(text)
         ed.save_button.set_tooltip_text(text)
+        self.validation_speech.update(text if ed.draft.dirty and not ed.pending and not getattr(ed,'layout_valid',False) else None)
         from dial_model import effective
         key_names=tuple(key['label'] for key in ed.draft.data['pages'][ed.page]['keys'])
         dial_names=tuple(dial['label'] for dial in effective(ed.draft.data,ed.page))
@@ -315,7 +318,12 @@ class WorkspaceShell:
         ed.request(lambda:ed.call('TestControl',GLib.Variant('(syy)',(payload,ed.page,slot))),done,
                    'Could not test this control. Check the device, saved page and audio target; push to talk must be tested on the physical device.')
 
+    def announce_validation(self,message):
+        if self.ed.get_mapped() and self.ed.is_active():
+            self.save_reason.announce(message,Gtk.AccessibleAnnouncementPriority.MEDIUM)
+
     def cleanup(self):
+        self.validation_speech.close()
         if hasattr(self, 'plugin_lab'):self.plugin_lab.close()
         self.style.disconnect(self.style_handler)
         Gtk.StyleContext.remove_provider_for_display(Gdk.Display.get_default(),self.css)

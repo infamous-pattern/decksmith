@@ -119,3 +119,19 @@ The invalid empty-label step blocked saving, but no spoken validation reason was
 captured; automatic error-announcement behavior needs a focused follow-up before
 claiming full screen-reader support. Evidence: the `orca-paced` logs under
 `local/reviewer-readiness-2026-09-22/`.
+
+### Validation-announcement implementation
+
+The development editor now sends the visible validation explanation through GTK's
+accessible announcement API at medium priority after a 700 ms pause. Identical
+errors are announced once, and changing/correcting the error or closing the editor
+cancels the pending message. Valid drafts, startup state and background polling do
+not generate repeated validation speech. The active editor keeps its input focus.
+
+The Fedora 44 Orca follow-up captured the actual speech output: “Cannot save: Key
+1 on HOME needs 1–24 letters, numbers or spaces.” The paced run completed without
+callback exceptions. Five focused tests cover deduplication, cancellation,
+replacement, recurrence after correction and cleanup; all 147 editor tests passed.
+This closes the previously unverified empty-label error announcement. A complete
+human screen-reader usability review remains open. This is a development update;
+the already published preview.3 archive is unchanged.

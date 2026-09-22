@@ -599,3 +599,10 @@ See [reviewer readiness](reviewer-readiness-2026-09-22.md). Missing-package inst
 and a human-paced screen-reader listen-through remain explicit limits. The latest
 compact-editor fix is in development source; a new preview must be built and
 validated before those improvements are advertised for the binary download.
+
+### Validation speech follow-up — September 22
+
+Implemented debounced validation announcements with no focus movement or repeated
+status-poll speech. Orca in Fedora 44 confirmed the empty-label reason was spoken;
+147 editor tests passed. Keep full human screen-reader review on the V1 checklist.
+The change is in development and is not part of the existing preview.3 download.
