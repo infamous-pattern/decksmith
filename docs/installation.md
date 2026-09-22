@@ -30,6 +30,20 @@ the locked dependency graph and hardware features. `--binaries DIR` packages alr
 built hardware-enabled binaries. Development bundles record the source commit and
 whether uncommitted changes were present.
 
+## One-command installation
+
+On Fedora 44 or 45 x86_64, run as your normal desktop user:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/infamous-pattern/decksmith/v0.1.0-preview.1/scripts/install.sh | sh
+```
+
+[Review the script](../scripts/install.sh) before running it if preferred. It asks
+DNF to install missing dependencies, downloads the pinned preview over HTTPS,
+verifies the release checksums, and runs the per-user installer. It does not use
+root for Decksmith installation, start controls, or enable login startup. Fedora
+44 remains the primary tested platform. The manual steps below remain available.
+
 ## First installation
 
 Obtain the bundle and the matching `decksmith-install.py` and `package_io.py`

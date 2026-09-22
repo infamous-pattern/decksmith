@@ -9,10 +9,10 @@ import tempfile
 
 
 def git(*args, cwd=None):
-    return subprocess.check_output(['git', *args], cwd=cwd, text=True).strip()
+    return subprocess.check_output(['git', *args], cwd=cwd, text=True, timeout=60).strip()
 
 
-def publish(push=False):
+def publish(push=False, github_only=False):
     root = Path(git('rev-parse', '--show-toplevel'))
     if git('status', '--porcelain', '--untracked-files=no'):
         raise RuntimeError('Commit tracked changes before exporting.')
@@ -27,7 +27,7 @@ def publish(push=False):
     archive = subprocess.check_output(['git', 'archive', source])
     with tempfile.TemporaryDirectory(prefix='decksmith-public-') as temporary:
         checkout = Path(temporary) / 'source'
-        subprocess.run(['git', 'clone', '--no-checkout', public_url, str(checkout)], check=True)
+        subprocess.run(['git', 'clone', '--no-checkout', public_url, str(checkout)], check=True, timeout=60)
         existing = subprocess.run(['git', 'rev-parse', '--verify', 'HEAD'], cwd=checkout,
                                   capture_output=True, text=True).returncode == 0
         if existing:
@@ -51,17 +51,21 @@ def publish(push=False):
         if not push:
             print('Dry run: neither repository was pushed.')
             return
-        subprocess.run(['git', 'push', 'origin', source + ':refs/heads/main'], cwd=root, check=True)
-        subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/main'], cwd=checkout, check=True)
-        for remote, expected in [('origin', source), ('github', public_commit)]:
+        if not github_only:
+            subprocess.run(['git', 'push', 'origin', source + ':refs/heads/main'], cwd=root, check=True, timeout=60)
+        subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/main'], cwd=checkout, check=True, timeout=60)
+        for remote, expected in ([('github', public_commit)] if github_only else [('origin', source), ('github', public_commit)]):
             actual = git('ls-remote', remote, 'refs/heads/main').split()[0]
             if actual != expected:
                 raise RuntimeError(f'{remote} changed during publication; inspect before retrying.')
         git('config', 'decksmith.publicTree', tree)
-        print('Both hosts verified: identical source trees, separate histories.')
+        print('GitHub verified; Gitea synchronization is still pending.' if github_only else 'Both hosts verified: identical source trees, separate histories.')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--publish', action='store_true')
-    publish(parser.parse_args().publish)
+    parser.add_argument('--github-only', action='store_true', help='Publish while Gitea is unavailable; synchronization remains pending')
+    args = parser.parse_args()
+    if args.github_only and not args.publish:parser.error('--github-only requires --publish')
+    publish(args.publish, args.github_only)

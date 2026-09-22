@@ -13,6 +13,22 @@
 **Languages:** Currently English-only. Support for English, German, French, Spanish and Italian is planned for a future release.<br>
 **License:** Apache-2.0 for original project code; see [LICENSE](LICENSE).
 
+## Quick install (Fedora x86_64)
+
+Run as your normal desktop user:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/infamous-pattern/decksmith/v0.1.0-preview.1/scripts/install.sh | sh
+```
+
+The script checks Fedora dependencies (DNF asks for confirmation if packages are
+missing), downloads the preview and verifies its checksums before installation.
+It preserves saved layouts and leaves login startup unchanged. Fedora 44 is the
+reference platform; Fedora 45 is accepted but less extensively validated.
+[Inspect the script first](scripts/install.sh), or follow the
+[manual installation guide](docs/installation.md). Run downloaded code only from
+sources you trust; checksums detect corruption and are not a digital signature.
+
 ## Interface preview
 
 The current native GTK4/libadwaita interface follows your GNOME light or dark

@@ -27,3 +27,7 @@ rerunning can finish the public update. New maintainer clones must configure the
 remotes and retain the last exported tree marker in local Git configuration.
 Release tags live in their respective histories and therefore have different
 commit IDs, but should identify the same source tree.
+
+If Gitea is temporarily unavailable, `--publish --github-only` explicitly publishes
+just GitHub and reports Gitea as pending. Run the normal `--publish` command after
+recovery to synchronize both. Network operations have bounded timeouts.
