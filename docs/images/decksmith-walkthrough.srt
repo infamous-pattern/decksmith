@@ -1,0 +1,35 @@
+1
+00:00:00,000 --> 00:00:10,000
+Your device. Your controls. Check connection status, manage background controls and choose your startup preferences.
+
+2
+00:00:10,000 --> 00:00:20,000
+Organize your workspace. Name your pages, choose a default and assign automatic switching for your applications.
+
+3
+00:00:20,000 --> 00:00:30,000
+Make it your own. Set shared colors, fonts and appearance defaults. The app itself follows your GNOME theme.
+
+4
+00:00:30,000 --> 00:00:40,000
+Select a key. Choose its job. Click a key in the preview to edit it. Assign system, media, navigation or application actions.
+
+5
+00:00:40,000 --> 00:00:48,000
+Add a personal touch. Customize the label while keeping its action. Mixed case and separate words are supported.
+
+6
+00:00:48,000 --> 00:00:58,000
+Fine-tune the details. Adjust label position, transparency, color and artwork. Review your changes before Save and Apply.
+
+7
+00:00:58,000 --> 00:01:08,000
+Hands-on audio control. Select a dial to choose its target, rotation step and press action. The touch strip mirrors its assignment.
+
+8
+00:01:08,000 --> 00:01:16,000
+A control for each source. Assign a microphone or application independently. App volume changes its audio stream, not its own slider.
+
+9
+00:01:16,000 --> 00:01:24,000
+Open Control. Forged for Linux. Find the user guide, source code and project information. Try the preview and share your feedback.

@@ -31,6 +31,16 @@ sources you trust; checksums detect corruption and are not a digital signature.
 
 [Security review and limitations](docs/security-review-2026-09-22.md).
 
+## Interface walkthrough
+
+[![Watch the Decksmith interface walkthrough](docs/images/decksmith-walkthrough-thumbnail.png)](https://github.com/infamous-pattern/decksmith/releases/download/v0.1.0-preview.2/Decksmith-interface-walkthrough.mp4)
+
+**[Watch the 84-second walkthrough](https://github.com/infamous-pattern/decksmith/releases/download/v0.1.0-preview.2/Decksmith-interface-walkthrough.mp4)** · [Subtitles](docs/images/decksmith-walkthrough.srt)
+
+A captioned, silent 1080p tour of Home, Pages, Keys & Dials, and About, using a
+demonstration layout. Explore page organization, key labels and appearance, and
+audio dial assignments. Experimental plugin features are not covered.
+
 ## Interface preview
 
 The current native GTK4/libadwaita interface follows your GNOME light or dark
