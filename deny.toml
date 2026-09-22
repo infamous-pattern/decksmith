@@ -1,0 +1,39 @@
+[advisories]
+yanked = "deny"
+unmaintained = "all"
+maximum-db-staleness = "P7D"
+
+[licenses]
+allow = ["Apache-2.0", "MIT", "Unicode-3.0"]
+confidence-threshold = 0.95
+
+# ADR-0013: selected upstream adapter stays an unmodified, separately licensed crate.
+[[licenses.exceptions]]
+name = "elgato-streamdeck"
+version = "=0.13.1"
+allow = ["MPL-2.0"]
+
+# ADR-0015: exact permissive licenses for the maintained text rasterizer.
+[[licenses.exceptions]]
+name = "tiny-skia"
+version = "=0.12.0"
+allow = ["BSD-3-Clause"]
+[[licenses.exceptions]]
+name = "tiny-skia-path"
+version = "=0.12.0"
+allow = ["BSD-3-Clause"]
+[[licenses.exceptions]]
+name = "arrayref"
+version = "=0.3.9"
+allow = ["BSD-2-Clause"]
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+# ADR-0014: zbus macro dependencies still require syn 2 alongside existing syn 3.
+skip = [{ name = "syn", version = "=2.0.119" }]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

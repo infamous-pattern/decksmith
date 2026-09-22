@@ -1,0 +1,11 @@
+{
+  "uuid": "decksmith@senecal.cc",
+  "name": "Decksmith",
+  "description": "Decksmith controls and application-based page switching for GNOME.",
+  "shell-version": [
+    "50",
+    "51"
+  ],
+  "version": 2,
+  "url": "https://github.com/infamous-pattern/decksmith"
+}

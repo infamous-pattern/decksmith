@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "name": "HOME",
+      "background": [
+        105,
+        55,
+        25
+      ],
+      "keys": [
+        {
+          "label": "HOME",
+          "action": {
+            "type": "go_to_page",
+            "page": 0
+          },
+          "artwork": "makers_mark"
+        },
+        {
+          "label": "WORK",
+          "action": {
+            "type": "go_to_page",
+            "page": 1
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        }
+      ]
+    },
+    {
+      "name": "WORK",
+      "background": [
+        35,
+        65,
+        90
+      ],
+      "keys": [
+        {
+          "label": "HOME",
+          "action": {
+            "type": "go_to_page",
+            "page": 0
+          },
+          "artwork": "makers_mark"
+        },
+        {
+          "label": "WORK",
+          "action": {
+            "type": "go_to_page",
+            "page": 1
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{"op":"input","input":{"timestamp_ms":0,"event":{"type":"key","index":0,"pressed":true}}}
+{"op":"input","input":{"timestamp_ms":80,"event":{"type":"key","index":0,"pressed":false}}}
+{"op":"input","input":{"timestamp_ms":150,"event":{"type":"key","index":0,"pressed":true}}}
+{"op":"input","input":{"timestamp_ms":230,"event":{"type":"key","index":0,"pressed":false}}}
+{"op":"input","input":{"timestamp_ms":500,"event":{"type":"dial_push","index":1,"pressed":true}}}
+{"op":"advance","timestamp_ms":1100}
+{"op":"disconnect","timestamp_ms":1150}
+{"op":"advance","timestamp_ms":2000}
+{"op":"reconnect","timestamp_ms":2100}

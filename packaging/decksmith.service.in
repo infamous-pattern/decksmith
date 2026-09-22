@@ -1,0 +1,17 @@
+[Unit]
+Description=Decksmith device controls
+PartOf=graphical-session.target
+After=graphical-session-pre.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+ExecStart=@DAEMON@ --config @CONFIG@ --exclusive --run
+Environment=PYTHONDONTWRITEBYTECODE=1
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=10
+
+[Install]
+WantedBy=graphical-session.target

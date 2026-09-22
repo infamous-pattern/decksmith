@@ -1,0 +1,15 @@
+[package]
+name = "decksmith-device"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+decksmith-core.workspace = true
+elgato-streamdeck = { version = "=0.13.1", optional = true }
+image = { version = "0.25", default-features = false, features = ["jpeg", "bmp"], optional = true }
+
+[features]
+hardware = ["dep:elgato-streamdeck", "dep:image"]

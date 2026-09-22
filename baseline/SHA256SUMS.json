@@ -1,0 +1,23 @@
+{
+  "archive": {
+    "name": "Decksmith_Repo_Documentation_v0.4.zip",
+    "sha256": "3673b1e7876a2919adb5e2a376106728ddbb696b95c746e1a46e01455a1260f0"
+  },
+  "imported_files": {
+    "README.md": "eb6b172398eb0f4c9dbdcac7ffc1997df69d7bd623c05a29d11addda7aedac47",
+    "docs/TECHNICAL_ARCHITECTURE.md": "8ece0a9f75035898d2bc76ac3fbafde832f69f1d07ba8422e1a79e25302fd960",
+    "docs/PRODUCT_REQUIREMENTS.md": "5467d88329fc52940a62b239aa587025bb90153cb76bfd5b09f63b09ce6576e2",
+    "docs/REPOSITORY_STRATEGY.md": "66fd15d86f42ce73ab6be7cfbd9770ba769243bcb1ce09d924ba988a23cecbd5",
+    "docs/adr/0009-virtualdeck-hardware-in-loop.md": "87882a6b200584cb19adb7251f08349f95cb75bd256eceeb10814f2c292ae821",
+    "docs/adr/0006-customization-renderer.md": "67a9589452e8b6a4aa1dd036e24daff20ee8dfa15a5da6584cfaa0eb7f610d38",
+    "docs/adr/0007-shareable-assets-themes.md": "ef9968e3414590d163a3a036d3b8f2f89d35ee7d8a5e7d3dd05bbf06d404c4d8",
+    "docs/adr/0001-sqlite-persistence.md": "0166485057a6a9dc55f7e1b21455b3b9b8e1fc07b186271ab1f94f9439bc5b63",
+    "docs/adr/0008-trigger-resolution-semantics.md": "b7b9f0c169901b62436ef1276c8e17da57bb990aff56642da29be03057fc9336",
+    "docs/adr/0010-decksmith-product-naming.md": "b6876a7415ea1970ca56f139d07a952a590c1be1e478ec26d8f31ba781c05877",
+    "docs/adr/0004-reference-device-hid-adapter.md": "5c66fd1fbff05dcde23693eecc3806e28c21668de04eb12d0c003082591e814e",
+    "docs/adr/0005-capability-context-workspace-model.md": "ca329185a0e9c1eb57eacd874e528dc67a05ed3e63c427611459ba2942c4801b",
+    "docs/adr/0011-login-autostart-and-desktop-indicator.md": "a77306c95422b17ce6aea7ee947a37aab1e0128a9a67be6dee4c6b668e7e643f",
+    "docs/adr/0003-repository-hosting.md": "c0551ba8a5a7bd464233b4bcbaaf2d40bff498beee2cb1b3d170e82258fc76ff",
+    "docs/adr/0002-native-ui-daemon-split.md": "101e8b7fc5ebceca345fd310da92bf32647257710251636e77b439b99dcecb82"
+  }
+}

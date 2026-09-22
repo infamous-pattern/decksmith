@@ -1,0 +1,7 @@
+/target/
+/local/
+
+__pycache__/
+*.pyc
+
+/dist/

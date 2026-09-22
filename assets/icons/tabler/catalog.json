@@ -1,0 +1,1081 @@
+{
+  "source": "https://github.com/tabler/tabler-icons",
+  "version": "v3.46.0",
+  "release": "https://github.com/tabler/tabler-icons/releases/tag/v3.46.0",
+  "license": "MIT",
+  "archive_sha256": "ebb50a676311f16390c0a13cc5a102e010a3d082b3dc315bc0273ded0bd1cbf8",
+  "items": [
+    {
+      "id": "tabler:player-play",
+      "name": "Player Play",
+      "category": "Audio and media",
+      "tags": "player play audio and media",
+      "file": "player-play.svg",
+      "sha256": "0178cf0262ec89422d632f6122c6be34a8b57db32dd1aea38dd283bdeecbfc2f"
+    },
+    {
+      "id": "tabler:player-pause",
+      "name": "Player Pause",
+      "category": "Audio and media",
+      "tags": "player pause audio and media",
+      "file": "player-pause.svg",
+      "sha256": "d7ad7676cd255ce1032aec7af31c96ca99609dfee562a24f153475c0e992a664"
+    },
+    {
+      "id": "tabler:player-stop",
+      "name": "Player Stop",
+      "category": "Audio and media",
+      "tags": "player stop audio and media",
+      "file": "player-stop.svg",
+      "sha256": "28f36ad6f67c2392533d6dec02778aa0f55082f3b008b25804cdb97ec20c04cd"
+    },
+    {
+      "id": "tabler:player-track-next",
+      "name": "Player Track Next",
+      "category": "Audio and media",
+      "tags": "player track next audio and media",
+      "file": "player-track-next.svg",
+      "sha256": "55513e73d82648d9bbaf39beb8323d600340b00e3c9e6f790c9473baf39c180a"
+    },
+    {
+      "id": "tabler:player-track-prev",
+      "name": "Player Track Prev",
+      "category": "Audio and media",
+      "tags": "player track prev audio and media",
+      "file": "player-track-prev.svg",
+      "sha256": "37fcdfcd3444ed3102ca7242fc4ad899908271f1e3234d92df4fb6a72528f509"
+    },
+    {
+      "id": "tabler:player-skip-forward",
+      "name": "Player Skip Forward",
+      "category": "Audio and media",
+      "tags": "player skip forward audio and media",
+      "file": "player-skip-forward.svg",
+      "sha256": "d8c01ba08b678a446b499f107da7a8e0708af2ad9a0a02d13a900adbe103ab3d"
+    },
+    {
+      "id": "tabler:player-skip-back",
+      "name": "Player Skip Back",
+      "category": "Audio and media",
+      "tags": "player skip back audio and media",
+      "file": "player-skip-back.svg",
+      "sha256": "773ce8abae8fc2b521753115148907f551b15221b6cb6194a2b88c4fe96071d2"
+    },
+    {
+      "id": "tabler:volume",
+      "name": "Volume",
+      "category": "Audio and media",
+      "tags": "volume audio and media",
+      "file": "volume.svg",
+      "sha256": "2ee784a5d4b6ed0bd7cf5c46e5e40b73a5f80f2e2105c88a57de4b68fbdaca4a"
+    },
+    {
+      "id": "tabler:volume-2",
+      "name": "Volume 2",
+      "category": "Audio and media",
+      "tags": "volume 2 audio and media",
+      "file": "volume-2.svg",
+      "sha256": "54e8b83d53fec8af24b33e9f7271c12de2d7b0cea867b7c0aefcc104635eca53"
+    },
+    {
+      "id": "tabler:volume-3",
+      "name": "Volume 3",
+      "category": "Audio and media",
+      "tags": "volume 3 audio and media",
+      "file": "volume-3.svg",
+      "sha256": "8cf8c6c36f1b79e34c477fc4ae8599f7538ae3360da9d0a6b14e91fb68d30780"
+    },
+    {
+      "id": "tabler:volume-off",
+      "name": "Volume Off",
+      "category": "Audio and media",
+      "tags": "volume off audio and media",
+      "file": "volume-off.svg",
+      "sha256": "23a1fa72acd1e2ec0267cea2e2df1cfdbf545b0e4532c96275dafeef4877ccfb"
+    },
+    {
+      "id": "tabler:microphone",
+      "name": "Microphone",
+      "category": "Audio and media",
+      "tags": "microphone audio and media",
+      "file": "microphone.svg",
+      "sha256": "804b6189fea0ae697def236da6790d3ae81e99449cd5c056245c205eb7f333f2"
+    },
+    {
+      "id": "tabler:microphone-off",
+      "name": "Microphone Off",
+      "category": "Audio and media",
+      "tags": "microphone off audio and media",
+      "file": "microphone-off.svg",
+      "sha256": "74afc87734c32492d83791858291faad1e5afad0d515ce78ed733e2f67e4e42d"
+    },
+    {
+      "id": "tabler:headphones",
+      "name": "Headphones",
+      "category": "Audio and media",
+      "tags": "headphones audio and media",
+      "file": "headphones.svg",
+      "sha256": "bc9aea3b2e97e91f280bdc9e37c5cda72d3eed2a1d32c97e219177e154eeae97"
+    },
+    {
+      "id": "tabler:music",
+      "name": "Music",
+      "category": "Audio and media",
+      "tags": "music audio and media",
+      "file": "music.svg",
+      "sha256": "8b69aafb5497fc9773078aab151dda57434e89011e712bb24c10c9b66f80ab68"
+    },
+    {
+      "id": "tabler:playlist",
+      "name": "Playlist",
+      "category": "Audio and media",
+      "tags": "playlist audio and media",
+      "file": "playlist.svg",
+      "sha256": "03afeadbf27177e660fde27cc9a8c0f7664ea50e32a60a00f96537c172348f7c"
+    },
+    {
+      "id": "tabler:radio",
+      "name": "Radio",
+      "category": "Audio and media",
+      "tags": "radio audio and media",
+      "file": "radio.svg",
+      "sha256": "4625b93e8cb3bbcb124f382a4f2e3596554e24968a3a1d81b03ac79ecf423158"
+    },
+    {
+      "id": "tabler:video",
+      "name": "Video",
+      "category": "Audio and media",
+      "tags": "video audio and media",
+      "file": "video.svg",
+      "sha256": "3ad14302fa53dee21672ff2362970dc1c0a11da615243a29c6a095cc4fe76657"
+    },
+    {
+      "id": "tabler:video-off",
+      "name": "Video Off",
+      "category": "Audio and media",
+      "tags": "video off audio and media",
+      "file": "video-off.svg",
+      "sha256": "b763d046aabfdf0141e40d23e4e648332bbef2397767cecb4b976bc0a758ab04"
+    },
+    {
+      "id": "tabler:cast",
+      "name": "Cast",
+      "category": "Audio and media",
+      "tags": "cast audio and media",
+      "file": "cast.svg",
+      "sha256": "6f3ed9a2943e48b5eade5241872f6907fb4d9f6d051479c7d11bc41a844aae1c"
+    },
+    {
+      "id": "tabler:world",
+      "name": "World",
+      "category": "Browsers and web",
+      "tags": "world browsers and web",
+      "file": "world.svg",
+      "sha256": "ab71e6f58782ae4b2aa099ca869627c6051840f95e727d261f0d994c9fac7619"
+    },
+    {
+      "id": "tabler:browser",
+      "name": "Browser",
+      "category": "Browsers and web",
+      "tags": "browser browsers and web",
+      "file": "browser.svg",
+      "sha256": "e38ede74193753e5663634689164b385a0af6efb08483217311fdbcd30926603"
+    },
+    {
+      "id": "tabler:browser-check",
+      "name": "Browser Check",
+      "category": "Browsers and web",
+      "tags": "browser check browsers and web",
+      "file": "browser-check.svg",
+      "sha256": "91eb427d845aab2623e577599ffdfce761c75b03ed78e23d4eb95e6c3a1f9e55"
+    },
+    {
+      "id": "tabler:link",
+      "name": "Link",
+      "category": "Browsers and web",
+      "tags": "link browsers and web",
+      "file": "link.svg",
+      "sha256": "0c1448dddf85857b80da2c51ddb5a27399013d3830eb756654cce2eef93fff33"
+    },
+    {
+      "id": "tabler:external-link",
+      "name": "External Link",
+      "category": "Browsers and web",
+      "tags": "external link browsers and web",
+      "file": "external-link.svg",
+      "sha256": "951e270416621680e98e80224ef6466a43fc9db3f5105a2005bd621b02e30634"
+    },
+    {
+      "id": "tabler:search",
+      "name": "Search",
+      "category": "Browsers and web",
+      "tags": "search browsers and web",
+      "file": "search.svg",
+      "sha256": "e579b69a4b978f702908a48b1bef74d9ac73df4679cb1a6074c567bec2748c41"
+    },
+    {
+      "id": "tabler:bookmark",
+      "name": "Bookmark",
+      "category": "Browsers and web",
+      "tags": "bookmark browsers and web",
+      "file": "bookmark.svg",
+      "sha256": "eedc8578c04204c43d7af788a7c79833e2bde6c9267d54d1fb057e5fab7f7f68"
+    },
+    {
+      "id": "tabler:bookmarks",
+      "name": "Bookmarks",
+      "category": "Browsers and web",
+      "tags": "bookmarks browsers and web",
+      "file": "bookmarks.svg",
+      "sha256": "b4037b661788600526acf4af68d51734fc9df725c58cb5d57f19224fdb08874d"
+    },
+    {
+      "id": "tabler:download",
+      "name": "Download",
+      "category": "Browsers and web",
+      "tags": "download browsers and web",
+      "file": "download.svg",
+      "sha256": "4c3498b4dc4e7f007db234f293b396ae1b23f18646e1d36f8bc4e08a31bf97b1"
+    },
+    {
+      "id": "tabler:upload",
+      "name": "Upload",
+      "category": "Browsers and web",
+      "tags": "upload browsers and web",
+      "file": "upload.svg",
+      "sha256": "b6d9fe0e24b1c889d1edba29268ba8e3759792a381b43fb9268f603caaea98f1"
+    },
+    {
+      "id": "tabler:cloud",
+      "name": "Cloud",
+      "category": "Browsers and web",
+      "tags": "cloud browsers and web",
+      "file": "cloud.svg",
+      "sha256": "9b0f459e678245c64a1fb312f9f59109fb00f6dda15a36ea39a25a0bfa1d4f8b"
+    },
+    {
+      "id": "tabler:cloud-download",
+      "name": "Cloud Download",
+      "category": "Browsers and web",
+      "tags": "cloud download browsers and web",
+      "file": "cloud-download.svg",
+      "sha256": "994601fb1938a0132e8d87361262cf95eb15ea3b903fa7ffa3c020329e17ece7"
+    },
+    {
+      "id": "tabler:cloud-upload",
+      "name": "Cloud Upload",
+      "category": "Browsers and web",
+      "tags": "cloud upload browsers and web",
+      "file": "cloud-upload.svg",
+      "sha256": "fabaf470eea961151fa6f041912a0d7d1c8fb6877c51fb13c727817fdd7b057b"
+    },
+    {
+      "id": "tabler:brand-firefox",
+      "name": "Firefox",
+      "category": "Browsers and web",
+      "tags": "brand firefox browsers and web",
+      "file": "brand-firefox.svg",
+      "sha256": "b4e67d2871d60ef9695406a86eec61e7a7eddffa12bcb583bb54c7161c2958bb"
+    },
+    {
+      "id": "tabler:brand-chrome",
+      "name": "Chrome",
+      "category": "Browsers and web",
+      "tags": "brand chrome browsers and web",
+      "file": "brand-chrome.svg",
+      "sha256": "f29775334f65a7caba057f524148c534a30ba2b54d033f08de2a8f3a8e1918f4"
+    },
+    {
+      "id": "tabler:brand-edge",
+      "name": "Edge",
+      "category": "Browsers and web",
+      "tags": "brand edge browsers and web",
+      "file": "brand-edge.svg",
+      "sha256": "2b8ef7d456bb69abcd73adb3a4d1c0a781c8c30b0dd04b57c5ba7808c9e5edf3"
+    },
+    {
+      "id": "tabler:brand-safari",
+      "name": "Safari",
+      "category": "Browsers and web",
+      "tags": "brand safari browsers and web",
+      "file": "brand-safari.svg",
+      "sha256": "52525a2f857b5edc7fffc6edbcd68440583a073220ecef67a3dfc57715fc6e2c"
+    },
+    {
+      "id": "tabler:brand-opera",
+      "name": "Opera",
+      "category": "Browsers and web",
+      "tags": "brand opera browsers and web",
+      "file": "brand-opera.svg",
+      "sha256": "e94523a44981d60dba25ac4647f2854d363974c437b946dbe787bb35f843d66e"
+    },
+    {
+      "id": "tabler:brand-youtube",
+      "name": "Youtube",
+      "category": "Browsers and web",
+      "tags": "brand youtube browsers and web",
+      "file": "brand-youtube.svg",
+      "sha256": "c696638a0475e291a0f3fef2f9cf4275b25b8d48b13ce660a563516e9acb7813"
+    },
+    {
+      "id": "tabler:brand-spotify",
+      "name": "Spotify",
+      "category": "Browsers and web",
+      "tags": "brand spotify browsers and web",
+      "file": "brand-spotify.svg",
+      "sha256": "3bd728479017526c95d65bdb9d0e6dc0b0ee9db404f0527b0bd70b15c752a965"
+    },
+    {
+      "id": "tabler:brand-twitch",
+      "name": "Twitch",
+      "category": "Browsers and web",
+      "tags": "brand twitch browsers and web",
+      "file": "brand-twitch.svg",
+      "sha256": "36a82ff0fefd97c1cacfafbfe4c1a2915e186d30da3f3d581fff1ae9143d027b"
+    },
+    {
+      "id": "tabler:terminal",
+      "name": "Terminal",
+      "category": "Development and apps",
+      "tags": "terminal development and apps",
+      "file": "terminal.svg",
+      "sha256": "5d7e9b0d87d7268060df9fdd40b16b34c4979e7b385beb165fdcc3c086fb18ed"
+    },
+    {
+      "id": "tabler:terminal-2",
+      "name": "Terminal 2",
+      "category": "Development and apps",
+      "tags": "terminal 2 development and apps",
+      "file": "terminal-2.svg",
+      "sha256": "ad87e8361f3f1cf1fa64f0481edb24030d329a4656b0a970525a9355a150c2fe"
+    },
+    {
+      "id": "tabler:code",
+      "name": "Code",
+      "category": "Development and apps",
+      "tags": "code development and apps",
+      "file": "code.svg",
+      "sha256": "dcebc6b4a9ff0a4367624487b17bea6ac08468ae0a1b7eaf300243e780b5d119"
+    },
+    {
+      "id": "tabler:code-dots",
+      "name": "Code Dots",
+      "category": "Development and apps",
+      "tags": "code dots development and apps",
+      "file": "code-dots.svg",
+      "sha256": "140325dbe6ad60f7fea33d956a6c5b5f52c4b2e077eeb7e540a11d0555946cfb"
+    },
+    {
+      "id": "tabler:brackets",
+      "name": "Brackets",
+      "category": "Development and apps",
+      "tags": "brackets development and apps",
+      "file": "brackets.svg",
+      "sha256": "efb5e683ea42c6afa86d49bdde581d354aef403cf3e0b1118c25310b85bc72c1"
+    },
+    {
+      "id": "tabler:angle",
+      "name": "Angle",
+      "category": "Development and apps",
+      "tags": "angle development and apps",
+      "file": "angle.svg",
+      "sha256": "f0b3931125258bead414eb3e21f42ff755009e8882884f8290c3d50fee9e6765"
+    },
+    {
+      "id": "tabler:function",
+      "name": "Function",
+      "category": "Development and apps",
+      "tags": "function development and apps",
+      "file": "function.svg",
+      "sha256": "fc8b35f0e3999caa0f97c2a3147f5781d3b1d81c6268a35cf2567b660aaad30d"
+    },
+    {
+      "id": "tabler:git-branch",
+      "name": "Git Branch",
+      "category": "Development and apps",
+      "tags": "git branch development and apps",
+      "file": "git-branch.svg",
+      "sha256": "485a7aef87bd8f711455cc5fad59e4b011b7f02aed9f1c6d5108bece5305b588"
+    },
+    {
+      "id": "tabler:git-commit",
+      "name": "Git Commit",
+      "category": "Development and apps",
+      "tags": "git commit development and apps",
+      "file": "git-commit.svg",
+      "sha256": "e71b332f3909f1f8f637def6ba3427fc52271465ee617d122958bc72f1fcea1d"
+    },
+    {
+      "id": "tabler:git-merge",
+      "name": "Git Merge",
+      "category": "Development and apps",
+      "tags": "git merge development and apps",
+      "file": "git-merge.svg",
+      "sha256": "d18455eb12a8ed02d2ed54761cedf5f6f40b1d023b8c2121eba1e534a4baaa27"
+    },
+    {
+      "id": "tabler:git-pull-request",
+      "name": "Git Pull Request",
+      "category": "Development and apps",
+      "tags": "git pull request development and apps",
+      "file": "git-pull-request.svg",
+      "sha256": "a763fcdff0b3e01ddc46335c207a1492171259181ecd22b99c44599964c88be0"
+    },
+    {
+      "id": "tabler:brand-github",
+      "name": "Github",
+      "category": "Development and apps",
+      "tags": "brand github development and apps",
+      "file": "brand-github.svg",
+      "sha256": "5c6d0d81f0b91ead71db4a145d2446a33ef5f775434b2f84f173921a9c386e3a"
+    },
+    {
+      "id": "tabler:brand-gitlab",
+      "name": "Gitlab",
+      "category": "Development and apps",
+      "tags": "brand gitlab development and apps",
+      "file": "brand-gitlab.svg",
+      "sha256": "882650ae228327feca01f7d499d6a3ae44985631985460ac88180812f923c11a"
+    },
+    {
+      "id": "tabler:brand-vscode",
+      "name": "Vscode",
+      "category": "Development and apps",
+      "tags": "brand vscode development and apps",
+      "file": "brand-vscode.svg",
+      "sha256": "2e6d8cca1e9e32ca0b7c15fa8babd0a107f7c72b54e582e69aaec4bce4e55705"
+    },
+    {
+      "id": "tabler:brand-visual-studio",
+      "name": "Visual Studio",
+      "category": "Development and apps",
+      "tags": "brand visual studio development and apps",
+      "file": "brand-visual-studio.svg",
+      "sha256": "cc9f2937991ce8743405d3483eefcc17939b11c1d13c61c9233ce0edb5d9e2d5"
+    },
+    {
+      "id": "tabler:brand-docker",
+      "name": "Docker",
+      "category": "Development and apps",
+      "tags": "brand docker development and apps",
+      "file": "brand-docker.svg",
+      "sha256": "4a4410ec39d37fa21d4a605e7fede273db571978fe2c04c05547d944b84b6ace"
+    },
+    {
+      "id": "tabler:brand-python",
+      "name": "Python",
+      "category": "Development and apps",
+      "tags": "brand python development and apps",
+      "file": "brand-python.svg",
+      "sha256": "10f67887b6f1ea11e687ead00f46a349b08ae3ef79bcdc55ce8fdfd657bb2976"
+    },
+    {
+      "id": "tabler:brand-rust",
+      "name": "Rust",
+      "category": "Development and apps",
+      "tags": "brand rust development and apps",
+      "file": "brand-rust.svg",
+      "sha256": "c1b7c01b6bac8d9463031215b07408dfb5d11ea6965a0351e374d824f821df7e"
+    },
+    {
+      "id": "tabler:brand-discord",
+      "name": "Discord",
+      "category": "Development and apps",
+      "tags": "brand discord development and apps",
+      "file": "brand-discord.svg",
+      "sha256": "538cc011bc083379007c0b99ddc04a60bf9d55762a31b0078c5e7f90aa622928"
+    },
+    {
+      "id": "tabler:brand-zoom",
+      "name": "Zoom",
+      "category": "Development and apps",
+      "tags": "brand zoom development and apps",
+      "file": "brand-zoom.svg",
+      "sha256": "e91ff207d1cf96613c520ab3a345410ad078661351531ffff6b09789e62a58e7"
+    },
+    {
+      "id": "tabler:brand-slack",
+      "name": "Slack",
+      "category": "Development and apps",
+      "tags": "brand slack development and apps",
+      "file": "brand-slack.svg",
+      "sha256": "708a3e556023a191b6feb6b09b09c565316b2a2e3132b2a001e67dba45327508"
+    },
+    {
+      "id": "tabler:brand-teams",
+      "name": "Teams",
+      "category": "Development and apps",
+      "tags": "brand teams development and apps",
+      "file": "brand-teams.svg",
+      "sha256": "7721e13b0cb4c39cea5ac14e3bea7b513e87fc260c8d58a0b5b14c9736e59075"
+    },
+    {
+      "id": "tabler:apps",
+      "name": "Apps",
+      "category": "Development and apps",
+      "tags": "apps development and apps",
+      "file": "apps.svg",
+      "sha256": "51e2dc3e4a6c0f40371a4d405d8dda200ecac893e0b566ec0e55ba408f92273f"
+    },
+    {
+      "id": "tabler:app-window",
+      "name": "App Window",
+      "category": "Development and apps",
+      "tags": "app window development and apps",
+      "file": "app-window.svg",
+      "sha256": "2edd0cabf00b4f32d4511544627773cb6e0ea28d7bfff60993170045bd0a78c3"
+    },
+    {
+      "id": "tabler:command",
+      "name": "Command",
+      "category": "Development and apps",
+      "tags": "command development and apps",
+      "file": "command.svg",
+      "sha256": "9f3b4815c9d4f10e2c3ffddaf5cec4ca8f6f53b9191f129a4f6ec74bdd14104b"
+    },
+    {
+      "id": "tabler:keyboard",
+      "name": "Keyboard",
+      "category": "Development and apps",
+      "tags": "keyboard development and apps",
+      "file": "keyboard.svg",
+      "sha256": "8dcb52240a7f121651455a0a71322cb306c7e4695c70b4a9c14c453dc231c5da"
+    },
+    {
+      "id": "tabler:folder",
+      "name": "Folder",
+      "category": "Files and navigation",
+      "tags": "folder files and navigation",
+      "file": "folder.svg",
+      "sha256": "2dff6b74080049d05c695f75a443ffafa88fd7d3c94728f02d64451b2d9181eb"
+    },
+    {
+      "id": "tabler:folder-open",
+      "name": "Folder Open",
+      "category": "Files and navigation",
+      "tags": "folder open files and navigation",
+      "file": "folder-open.svg",
+      "sha256": "891d9a1f6309ca6ad1731be7b0cb12e5d6c678ec04c84808ecb98a4706b3a891"
+    },
+    {
+      "id": "tabler:folder-plus",
+      "name": "Folder Plus",
+      "category": "Files and navigation",
+      "tags": "folder plus files and navigation",
+      "file": "folder-plus.svg",
+      "sha256": "5de24f14fb3f72adff197ce08c462edd93bc5cd427bd3a6bddd7eb36ae8b4885"
+    },
+    {
+      "id": "tabler:file",
+      "name": "File",
+      "category": "Files and navigation",
+      "tags": "file files and navigation",
+      "file": "file.svg",
+      "sha256": "dafd413378bd36151892f59328e29b1e5fcd6b2a5de4f44a029a237161e2edb4"
+    },
+    {
+      "id": "tabler:file-code",
+      "name": "File Code",
+      "category": "Files and navigation",
+      "tags": "file code files and navigation",
+      "file": "file-code.svg",
+      "sha256": "bb5f7c1f8276556503176f3e31b84ee1f5b55d804de942002e0d8519c313235a"
+    },
+    {
+      "id": "tabler:file-music",
+      "name": "File Music",
+      "category": "Files and navigation",
+      "tags": "file music files and navigation",
+      "file": "file-music.svg",
+      "sha256": "1b225ffd51cdb9d77d6bf30fb9086eff641feabf94e3375e22b2c664b563fc65"
+    },
+    {
+      "id": "tabler:file-text",
+      "name": "File Text",
+      "category": "Files and navigation",
+      "tags": "file text files and navigation",
+      "file": "file-text.svg",
+      "sha256": "b76d018034764160f7661768f56a38003ed208a20843781a0a04aaae01dcbf66"
+    },
+    {
+      "id": "tabler:files",
+      "name": "Files",
+      "category": "Files and navigation",
+      "tags": "files files and navigation",
+      "file": "files.svg",
+      "sha256": "6dcd2e15d4e084d7990ff368270497818722671348be1f78702db7471baa5b8f"
+    },
+    {
+      "id": "tabler:home",
+      "name": "Home",
+      "category": "Files and navigation",
+      "tags": "home files and navigation",
+      "file": "home.svg",
+      "sha256": "6edebd7f9ac62a73e882f1bad7a4816fd4799e29bab2b27cf626b0f1708a9a20"
+    },
+    {
+      "id": "tabler:arrow-left",
+      "name": "Arrow Left",
+      "category": "Files and navigation",
+      "tags": "arrow left files and navigation",
+      "file": "arrow-left.svg",
+      "sha256": "058fc4190c178ecce118b6294b74235d4f88c4dfbd17c6159d67210a03222bc0"
+    },
+    {
+      "id": "tabler:arrow-right",
+      "name": "Arrow Right",
+      "category": "Files and navigation",
+      "tags": "arrow right files and navigation",
+      "file": "arrow-right.svg",
+      "sha256": "f3b14b2b1b68711e72864c3f231004c42a5317108dd480fe189bc98d5fad9f92"
+    },
+    {
+      "id": "tabler:arrow-up",
+      "name": "Arrow Up",
+      "category": "Files and navigation",
+      "tags": "arrow up files and navigation",
+      "file": "arrow-up.svg",
+      "sha256": "4f0871cbdd4c4fdad80f462954f8cb1dd635a826e6895fc878198591a6dfc2d9"
+    },
+    {
+      "id": "tabler:arrow-down",
+      "name": "Arrow Down",
+      "category": "Files and navigation",
+      "tags": "arrow down files and navigation",
+      "file": "arrow-down.svg",
+      "sha256": "0eb6108b39094aee3ea28e825248d55a87db010755c6df37b6ba8dcb6a6c7edc"
+    },
+    {
+      "id": "tabler:chevron-left",
+      "name": "Chevron Left",
+      "category": "Files and navigation",
+      "tags": "chevron left files and navigation",
+      "file": "chevron-left.svg",
+      "sha256": "a31fa17fbe7b3bfbe7951d55ca91933722af60372182a7ab95e0681b04662fdd"
+    },
+    {
+      "id": "tabler:chevron-right",
+      "name": "Chevron Right",
+      "category": "Files and navigation",
+      "tags": "chevron right files and navigation",
+      "file": "chevron-right.svg",
+      "sha256": "26b321e42c7c7ed5d5161d9af061033df1d49ef33b5d2fc2309e2f6ee3d4c81a"
+    },
+    {
+      "id": "tabler:refresh",
+      "name": "Refresh",
+      "category": "Files and navigation",
+      "tags": "refresh files and navigation",
+      "file": "refresh.svg",
+      "sha256": "12927e445fd886d0e0fd538ba60fbea56ff8a456204481e233f77ad322e65062"
+    },
+    {
+      "id": "tabler:reload",
+      "name": "Reload",
+      "category": "Files and navigation",
+      "tags": "reload files and navigation",
+      "file": "reload.svg",
+      "sha256": "b1ff33dc4057f40e639047f9943a5e802a9ea69ae42f1df8b2ec3911e5d3bd94"
+    },
+    {
+      "id": "tabler:copy",
+      "name": "Copy",
+      "category": "Files and navigation",
+      "tags": "copy files and navigation",
+      "file": "copy.svg",
+      "sha256": "b38a178d5ee74073f95b57ea33e7dab0624e314c1cc835c85ff35f1d1e5517e1"
+    },
+    {
+      "id": "tabler:clipboard",
+      "name": "Clipboard",
+      "category": "Files and navigation",
+      "tags": "clipboard files and navigation",
+      "file": "clipboard.svg",
+      "sha256": "36d96e59a486c033ac825f27d64166c0e9e4fd3ecbb57f0275c36ec8132508d0"
+    },
+    {
+      "id": "tabler:device-floppy",
+      "name": "Device Floppy",
+      "category": "Files and navigation",
+      "tags": "device floppy files and navigation",
+      "file": "device-floppy.svg",
+      "sha256": "3d15c3ac1b682a4a0ec9878ea94ecb4c2144bc16f8be6ba4e6e4c8fd140f101b"
+    },
+    {
+      "id": "tabler:trash",
+      "name": "Trash",
+      "category": "Files and navigation",
+      "tags": "trash files and navigation",
+      "file": "trash.svg",
+      "sha256": "28587eb685afab185034d3fe0e192000a38a4f384e5de8c5c6da2512991d89ff"
+    },
+    {
+      "id": "tabler:wifi",
+      "name": "Wifi",
+      "category": "Network and devices",
+      "tags": "wifi network and devices",
+      "file": "wifi.svg",
+      "sha256": "de89c60aaeeb7282d90a45a75fa1d134376deceb7f12945dfdd42686bd999a19"
+    },
+    {
+      "id": "tabler:wifi-off",
+      "name": "Wifi Off",
+      "category": "Network and devices",
+      "tags": "wifi off network and devices",
+      "file": "wifi-off.svg",
+      "sha256": "ddb9366b26d2d94cbece650a09ef8e12357828c422a08aeabdc36fb12e0ef2dd"
+    },
+    {
+      "id": "tabler:network",
+      "name": "Network",
+      "category": "Network and devices",
+      "tags": "network network and devices",
+      "file": "network.svg",
+      "sha256": "bc5ca95d7c1fdfb98dfb0cc91c87f3e2faccd9e8263c6d28f19120cd0fde8b3d"
+    },
+    {
+      "id": "tabler:router",
+      "name": "Router",
+      "category": "Network and devices",
+      "tags": "router network and devices",
+      "file": "router.svg",
+      "sha256": "8b1145aeb718f13bf2814854430ba76f482344ed1b7462669287605a84c4ac0d"
+    },
+    {
+      "id": "tabler:server",
+      "name": "Server",
+      "category": "Network and devices",
+      "tags": "server network and devices",
+      "file": "server.svg",
+      "sha256": "7b3a39f0b4fb748d543c185f810a8a184a85fb094f4afa0b213c74f8b930bed0"
+    },
+    {
+      "id": "tabler:database",
+      "name": "Database",
+      "category": "Network and devices",
+      "tags": "database network and devices",
+      "file": "database.svg",
+      "sha256": "cf6f390ac33cfa83f054547137ce20e1702f9cc69af10db314ee1dc879f86df7"
+    },
+    {
+      "id": "tabler:bluetooth",
+      "name": "Bluetooth",
+      "category": "Network and devices",
+      "tags": "bluetooth network and devices",
+      "file": "bluetooth.svg",
+      "sha256": "9e580e6b5b6c8af8408f841bf48c594ecfbd50a95c2130971c21876a84cd4d26"
+    },
+    {
+      "id": "tabler:bluetooth-off",
+      "name": "Bluetooth Off",
+      "category": "Network and devices",
+      "tags": "bluetooth off network and devices",
+      "file": "bluetooth-off.svg",
+      "sha256": "d759ae11770ceb7b9a2e892e3b57b3766e6a61f29e44f33b4861574470c3f2bc"
+    },
+    {
+      "id": "tabler:devices",
+      "name": "Devices",
+      "category": "Network and devices",
+      "tags": "devices network and devices",
+      "file": "devices.svg",
+      "sha256": "f97499414ffe1b0d5b79d15ab434592adc002f31db1c9712269a07af5d49fab4"
+    },
+    {
+      "id": "tabler:device-desktop",
+      "name": "Device Desktop",
+      "category": "Network and devices",
+      "tags": "device desktop network and devices",
+      "file": "device-desktop.svg",
+      "sha256": "67255e8944d771f52608f259706a898768bea34a42c7518a81d0a2a58c5e50a1"
+    },
+    {
+      "id": "tabler:device-laptop",
+      "name": "Device Laptop",
+      "category": "Network and devices",
+      "tags": "device laptop network and devices",
+      "file": "device-laptop.svg",
+      "sha256": "f773cac887378f6da0d2bfa206e62ce28c6ec6c723cb9f6c28db67ac9def9faf"
+    },
+    {
+      "id": "tabler:device-mobile",
+      "name": "Device Mobile",
+      "category": "Network and devices",
+      "tags": "device mobile network and devices",
+      "file": "device-mobile.svg",
+      "sha256": "b716bffe6840f23dd39a2b16fa9cc18bc24ba94e82464521f78269b7e21fe705"
+    },
+    {
+      "id": "tabler:device-tablet",
+      "name": "Device Tablet",
+      "category": "Network and devices",
+      "tags": "device tablet network and devices",
+      "file": "device-tablet.svg",
+      "sha256": "a2d8769ed0db304c79b16a8ed21c8f1ee847aa7e7b70adea3c3469ee1c3cad04"
+    },
+    {
+      "id": "tabler:device-gamepad",
+      "name": "Device Gamepad",
+      "category": "Network and devices",
+      "tags": "device gamepad network and devices",
+      "file": "device-gamepad.svg",
+      "sha256": "a2591eec1e15bbe8740ad349260c838abe55994e358030b3e5fec09b9a111682"
+    },
+    {
+      "id": "tabler:device-usb",
+      "name": "Device Usb",
+      "category": "Network and devices",
+      "tags": "device usb network and devices",
+      "file": "device-usb.svg",
+      "sha256": "7a2b5b4a695d1a8e719125b4de73bcb3112cb0fcbec25be63fcbcaa2c2198d9b"
+    },
+    {
+      "id": "tabler:plug",
+      "name": "Plug",
+      "category": "Network and devices",
+      "tags": "plug network and devices",
+      "file": "plug.svg",
+      "sha256": "73603bbe07c146c952a94788cf455f40dd8cbfccd3e9d59eae41413e3f7a9898"
+    },
+    {
+      "id": "tabler:power",
+      "name": "Power",
+      "category": "Network and devices",
+      "tags": "power network and devices",
+      "file": "power.svg",
+      "sha256": "2219766eddc754bcf2a21ff4f9170323a01db70d65e9af69851390d9d3db4fff"
+    },
+    {
+      "id": "tabler:battery",
+      "name": "Battery",
+      "category": "Network and devices",
+      "tags": "battery network and devices",
+      "file": "battery.svg",
+      "sha256": "ef5d2087f655c3a4c8919680cd8d52d8c471c74beb5c2c8122bf8f5672a01ec9"
+    },
+    {
+      "id": "tabler:battery-charging",
+      "name": "Battery Charging",
+      "category": "Network and devices",
+      "tags": "battery charging network and devices",
+      "file": "battery-charging.svg",
+      "sha256": "63182f2cc94e64b60a320cdd9e03675b4b116c0d38d20c486bbd0d944802b1ec"
+    },
+    {
+      "id": "tabler:printer",
+      "name": "Printer",
+      "category": "Network and devices",
+      "tags": "printer network and devices",
+      "file": "printer.svg",
+      "sha256": "103cf34903e75696eae774c3fca56049280401123a35b2e851b04445a846210c"
+    },
+    {
+      "id": "tabler:camera",
+      "name": "Camera",
+      "category": "Network and devices",
+      "tags": "camera network and devices",
+      "file": "camera.svg",
+      "sha256": "24c3560560e6177528dada3805efab129c5667ef97b0ea342a21d0a34032baa8"
+    },
+    {
+      "id": "tabler:settings",
+      "name": "Settings",
+      "category": "System controls",
+      "tags": "settings system controls",
+      "file": "settings.svg",
+      "sha256": "d71136dfd83ad19efe1777d01768a5d23d7b295de5dde3b1fccc50806809a423"
+    },
+    {
+      "id": "tabler:adjustments",
+      "name": "Adjustments",
+      "category": "System controls",
+      "tags": "adjustments system controls",
+      "file": "adjustments.svg",
+      "sha256": "98a4c23302f7feaf9f1bf84ad9dabcd1c6e6b811b38a5115bbf3dd39174ec470"
+    },
+    {
+      "id": "tabler:adjustments-horizontal",
+      "name": "Adjustments Horizontal",
+      "category": "System controls",
+      "tags": "adjustments horizontal system controls",
+      "file": "adjustments-horizontal.svg",
+      "sha256": "66b3be63d0ae4f75c6707ac802ef2bad9eb5f9c0af9ab77c7a1f9c7f1694a178"
+    },
+    {
+      "id": "tabler:sun",
+      "name": "Sun",
+      "category": "System controls",
+      "tags": "sun system controls",
+      "file": "sun.svg",
+      "sha256": "6d4dc625a54dea6c696e8320c35fcf7e235dc039f512ef2c30af9b0663a7ab3f"
+    },
+    {
+      "id": "tabler:moon",
+      "name": "Moon",
+      "category": "System controls",
+      "tags": "moon system controls",
+      "file": "moon.svg",
+      "sha256": "921d27bb214f2ec714ff4deeffa8a5efc4bb989e367df47f9f58351d2effee00"
+    },
+    {
+      "id": "tabler:bulb",
+      "name": "Bulb",
+      "category": "System controls",
+      "tags": "bulb system controls",
+      "file": "bulb.svg",
+      "sha256": "3617f3cd3f835b03b9d8d4feeaa180fa3d436a01de8e109ced052e419f9fa7e0"
+    },
+    {
+      "id": "tabler:brightness",
+      "name": "Brightness",
+      "category": "System controls",
+      "tags": "brightness system controls",
+      "file": "brightness.svg",
+      "sha256": "ff60d572193f9a0780ec1d397fbd279164a034e8d342900093a6c27f9e4f25dc"
+    },
+    {
+      "id": "tabler:brightness-up",
+      "name": "Brightness Up",
+      "category": "System controls",
+      "tags": "brightness up system controls",
+      "file": "brightness-up.svg",
+      "sha256": "f4f90bdbf48732aa411d508811c6bc9f9fab7d201163d2e26e124fb2fc1d6d71"
+    },
+    {
+      "id": "tabler:brightness-down",
+      "name": "Brightness Down",
+      "category": "System controls",
+      "tags": "brightness down system controls",
+      "file": "brightness-down.svg",
+      "sha256": "8717400416d38b7593ddcd2ae109c03d5401ebe9642601c0fc25480006951361"
+    },
+    {
+      "id": "tabler:lock",
+      "name": "Lock",
+      "category": "System controls",
+      "tags": "lock system controls",
+      "file": "lock.svg",
+      "sha256": "19ef0a4888688ea415b611b7c9e085134683a7fbdce5517be1f722a65e28928d"
+    },
+    {
+      "id": "tabler:lock-open",
+      "name": "Lock Open",
+      "category": "System controls",
+      "tags": "lock open system controls",
+      "file": "lock-open.svg",
+      "sha256": "91e8115cc397641e0ea529a073850179f8cbe6f28e86a64ca839e4be229b3450"
+    },
+    {
+      "id": "tabler:shield",
+      "name": "Shield",
+      "category": "System controls",
+      "tags": "shield system controls",
+      "file": "shield.svg",
+      "sha256": "98a7e284db5311c030b1dac736c9300e8c2799980ceb424806cc09894d373a0e"
+    },
+    {
+      "id": "tabler:shield-check",
+      "name": "Shield Check",
+      "category": "System controls",
+      "tags": "shield check system controls",
+      "file": "shield-check.svg",
+      "sha256": "9c3d5fac4793c7df5b3f2418037f16cd2bb7ba217ca5ee619e17b715b2720364"
+    },
+    {
+      "id": "tabler:eye",
+      "name": "Eye",
+      "category": "System controls",
+      "tags": "eye system controls",
+      "file": "eye.svg",
+      "sha256": "49dc6603fb775c31b004431972b66075b1a239dc98489f638db73c66386702e4"
+    },
+    {
+      "id": "tabler:eye-off",
+      "name": "Eye Off",
+      "category": "System controls",
+      "tags": "eye off system controls",
+      "file": "eye-off.svg",
+      "sha256": "4d84bc5601058a0374312c6f4c4fcd9b29433f4d2014149af63583373a74cea4"
+    },
+    {
+      "id": "tabler:bell",
+      "name": "Bell",
+      "category": "System controls",
+      "tags": "bell system controls",
+      "file": "bell.svg",
+      "sha256": "470d39082cfbf44f0b4b0588d8f9f1fd2c211b09dc60d0304e91a24a3aeef32e"
+    },
+    {
+      "id": "tabler:bell-off",
+      "name": "Bell Off",
+      "category": "System controls",
+      "tags": "bell off system controls",
+      "file": "bell-off.svg",
+      "sha256": "bd484b006e1db5bc11f21aac63d6888c43d17b00b36b3d64b386c1e4a4f27b3b"
+    },
+    {
+      "id": "tabler:clock",
+      "name": "Clock",
+      "category": "System controls",
+      "tags": "clock system controls",
+      "file": "clock.svg",
+      "sha256": "bb582eb2c9d6709d285623bea586e1f532872a9db3d2391308360636e93d199d"
+    },
+    {
+      "id": "tabler:calendar",
+      "name": "Calendar",
+      "category": "System controls",
+      "tags": "calendar system controls",
+      "file": "calendar.svg",
+      "sha256": "97faa5ae97a558ba4a427b3ec576b11670cc0d1dbcc128c44507fa54e831451f"
+    },
+    {
+      "id": "tabler:check",
+      "name": "Check",
+      "category": "System controls",
+      "tags": "check system controls",
+      "file": "check.svg",
+      "sha256": "fe359b27c74ed0f4f72bfabbe5ca969a8bb13a5f39648bae63f9e798034ebed3"
+    },
+    {
+      "id": "tabler:x",
+      "name": "X",
+      "category": "System controls",
+      "tags": "x system controls",
+      "file": "x.svg",
+      "sha256": "6b97b0d51512b84eee04c0644fd07059a9c21d537886cdb40ef48485d874abc3"
+    },
+    {
+      "id": "tabler:plus",
+      "name": "Plus",
+      "category": "System controls",
+      "tags": "plus system controls",
+      "file": "plus.svg",
+      "sha256": "ea2630f3d4b4800ed9e1f2818b7064bb62b27943c482e739d76bd2320f82632d"
+    },
+    {
+      "id": "tabler:minus",
+      "name": "Minus",
+      "category": "System controls",
+      "tags": "minus system controls",
+      "file": "minus.svg",
+      "sha256": "41b4d0e2e81757c0d8b8611208621aa0190280d5cffb25436f558a362474d0da"
+    },
+    {
+      "id": "tabler:dots",
+      "name": "Dots",
+      "category": "System controls",
+      "tags": "dots system controls",
+      "file": "dots.svg",
+      "sha256": "e0a3f950691ef2e3a4c5c35200eabded201eeb9980b61beab84dcb345c630d9a"
+    },
+    {
+      "id": "tabler:layout-dashboard",
+      "name": "Layout Dashboard",
+      "category": "System controls",
+      "tags": "layout dashboard system controls",
+      "file": "layout-dashboard.svg",
+      "sha256": "fa525ddc80d1df3411fe44685eeb3bd03d1b285581049931efe648450486eaf7"
+    }
+  ]
+}

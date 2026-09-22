@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Decksmith
+Comment=Manage your Stream Deck controls
+Exec=/usr/bin/python3 "@PANEL@"
+Icon=@ICON@
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+StartupWMClass=cc.senecal.Decksmith.Studio

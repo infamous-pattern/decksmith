@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/decksmith-core", "crates/decksmith-device", "apps/decksmith-cli", "apps/decksmith-daemon"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+decksmith-core = { path = "crates/decksmith-core" }
+decksmith-device = { path = "crates/decksmith-device" }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "registry", "std"] }

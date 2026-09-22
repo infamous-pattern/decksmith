@@ -1,0 +1,79 @@
+[
+  {
+    "family": "roboto",
+    "file": "Roboto[wdth,wght].ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/roboto/Roboto%5Bwdth%2Cwght%5D.ttf",
+    "sha256": "d7598e12c5dbef095ff8272cfc55da0250bd07fbdecbac8a530b9b277872a134",
+    "bytes": 488584
+  },
+  {
+    "family": "opensans",
+    "file": "OpenSans[wdth,wght].ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/opensans/OpenSans%5Bwdth%2Cwght%5D.ttf",
+    "sha256": "36643644f318a812aab2d2ed3bb98f8cf0872527f835fe9398d95fe6b9adb878",
+    "bytes": 532636
+  },
+  {
+    "family": "lato",
+    "file": "Lato-Bold.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/lato/Lato-Bold.ttf",
+    "sha256": "8a0aace75d33794eece4b28187bfc1df0bbd2888b5d8a56e01788c8d65d16be1",
+    "bytes": 656544
+  },
+  {
+    "family": "montserrat",
+    "file": "Montserrat[wght].ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf",
+    "sha256": "0f7b311b2f3279e4eef9b2f968bcdbab6e28f4daeb1f049f4f278a902bcd82f7",
+    "bytes": 744936
+  },
+  {
+    "family": "oswald",
+    "file": "Oswald[wght].ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/oswald/Oswald%5Bwght%5D.ttf",
+    "sha256": "5b38c246e255a12f5712d640d56bcced0472466fc68983d2d0410ec0457c2817",
+    "bytes": 172088
+  },
+  {
+    "family": "raleway",
+    "file": "Raleway[wght].ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/raleway/Raleway%5Bwght%5D.ttf",
+    "sha256": "8bbcc3eb8275c388f4bcd998832f8a4b943eadbaf6a595205312774b5951aefb",
+    "bytes": 312352
+  },
+  {
+    "family": "poppins",
+    "file": "Poppins-Bold.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf",
+    "sha256": "983676516167748b74de6f4771fb384c664fd913acb8b471122ecacf5da5ea6c",
+    "bytes": 155996
+  },
+  {
+    "family": "nunito",
+    "file": "Nunito[wght].ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/Nunito%5Bwght%5D.ttf",
+    "sha256": "bb55a5ca5c2042335b3991af27c4d0705d0ef41cac6164ac737fd8f2a1e85207",
+    "bytes": 276932
+  },
+  {
+    "family": "merriweather",
+    "file": "Merriweather[opsz,wdth,wght].ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/merriweather/Merriweather%5Bopsz%2Cwdth%2Cwght%5D.ttf",
+    "sha256": "d0ed0e359e396af7ad05e73dffd11a3a4c326ea0d0283c56bd9361cb2cc86a96",
+    "bytes": 4628080
+  },
+  {
+    "family": "sourcesans3",
+    "file": "SourceSans3[wght].ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/sourcesans3/SourceSans3%5Bwght%5D.ttf",
+    "sha256": "042fe2cc0b933e328410d7acbd0aa6a1873dca5aef81875f4bc214b08825c7b9",
+    "bytes": 646340
+  },
+  {
+    "family": "notosansrunic",
+    "file": "NotoSansRunic-Regular.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansrunic/NotoSansRunic-Regular.ttf",
+    "sha256": "615b6c1166a8c51816dc1536784acbf486547e3bed03dbfdd70910e10066793b",
+    "bytes": 55800
+  }
+]
