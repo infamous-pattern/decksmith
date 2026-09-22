@@ -35,7 +35,7 @@ whether uncommitted changes were present.
 On Fedora 44 or 45 x86_64, run as your normal desktop user:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/infamous-pattern/decksmith/v0.1.0-preview.2/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/infamous-pattern/decksmith/v0.1.0-preview.3/scripts/install.sh | sh
 ```
 
 [Review the script](../scripts/install.sh) before running it if preferred. It asks

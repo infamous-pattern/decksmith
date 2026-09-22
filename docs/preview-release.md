@@ -1,4 +1,4 @@
-# Decksmith v0.1.0-preview.2
+# Decksmith v0.1.0-preview.3
 
 An early reviewer preview for Fedora Workstation 44, GNOME/Wayland, x86_64 and
 Stream Deck +. This release is intended for feedback, not a declaration of V1
@@ -55,7 +55,7 @@ addresses and personal layout details from any logs or images before posting.
 
 See [installation and recovery](installation.md) for status, rollback and removal.
 
-## Release validation
+## Prior preview validation
 
 The release preparation passed 121 Rust tests (one hardware-dependent test
 ignored), strict Clippy checks, formatting, 140 Python editor tests and 13
@@ -71,3 +71,21 @@ introduce additional style diagnostics; compiler upgrades are reviewed separatel
 The published URL installer, preview.1 → preview.2 upgrade, rollback and retained-data
 uninstall were checked again in a fresh VM user account on September 22. See
 [reviewer readiness and scope](reviewer-readiness-2026-09-22.md).
+
+## Changes in preview.3
+
+- Fix compact key/dial forms shifting sideways and clipping field labels.
+- Preserve the accepted device preview and saved assignments.
+- Update installation, upgrade, rollback and accessibility evidence.
+
+This preview carries the compact-editor correction covered by the September 22
+Fedora 44 tests at 125% light, 150% dark and 150% high-contrast scaling. Paced Orca
+checks covered key/dial names, label fields and Save and Apply. Automatic spoken
+validation errors and a complete human screen-reader review remain open.
+
+The interface walkthrough remains hosted on preview.2; its URL remains valid.
+
+Preview.3 preparation passed 142 editor tests, 15 installer/companion tests, Rust
+formatting, strict Clippy, the workspace test suite and the current cargo-deny
+advisory/license/source checks. Engine binaries match the audited preview.2
+binaries; the release changes are in the native UI, installer version pin and docs.

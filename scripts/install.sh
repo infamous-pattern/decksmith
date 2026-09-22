@@ -2,7 +2,7 @@
 # Fedora preview bootstrap. Installs per user; never enables login startup.
 set -eu
 
-version=${DECKSMITH_VERSION:-v0.1.0-preview.2}
+version=${DECKSMITH_VERSION:-v0.1.0-preview.3}
 case "$version" in ''|*[!A-Za-z0-9._-]*) echo 'Invalid release version.' >&2; exit 1;; esac
 if [ "$(id -u)" -eq 0 ]; then
     echo 'Run this as your regular desktop user, not with sudo.' >&2
