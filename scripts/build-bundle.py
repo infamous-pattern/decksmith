@@ -12,7 +12,8 @@ def build(output,binaries=None):
         flags.extend([f'--remap-path-prefix={Path.home()}=/build/home',f'--remap-path-prefix={ROOT}=/build/decksmith'])
         env['CARGO_ENCODED_RUSTFLAGS']='\x1f'.join(flags)
         subprocess.run(['cargo','build','--release','--locked','-p','decksmithd','-p','decksmithctl','--features','decksmithd/hardware,decksmithctl/hardware'],cwd=ROOT,check=True,env=env)
-        binaries=ROOT/'target/release'
+        target=Path(env.get('CARGO_TARGET_DIR',ROOT/'target'))
+        binaries=(target if target.is_absolute() else ROOT/target)/'release'
     files=compiled_catalogs(ROOT)
     with tempfile.TemporaryDirectory() as temporary:
         for name in ('decksmithd','decksmithctl'):
