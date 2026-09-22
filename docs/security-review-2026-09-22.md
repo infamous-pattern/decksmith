@@ -26,6 +26,11 @@ Its panel fix must be included when that companion is rebuilt/reinstalled. The
 main public runtime does not include the external OpenHomeB executable or vendor
 wheel; those remain separately managed experimental components.
 
+A final archive scan also found build-machine home paths embedded in the
+preview.1 Rust binaries. Preview.2 rebuilds with compiler path remapping, and the
+packager rejects binaries containing the builder's home path. The older release
+is preserved for traceability; this metadata finding was not a credential leak.
+
 ## Checks performed
 
 - Cargo-deny 0.20.2 with refreshed advisory data: main locked dependency graph

@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 """Build a versioned Fedora development runtime; never installs or changes services."""
-import argparse,json,platform,shutil,subprocess,tempfile
+import argparse,json,os,platform,shlex,shutil,subprocess,tempfile
 from pathlib import Path
 from package_io import digest,tree_files,write_archive,atomic
 from localization import compiled_catalogs
 ROOT=Path(__file__).resolve().parents[1]
 def build(output,binaries=None):
     if binaries is None:
-        subprocess.run(['cargo','build','--release','--locked','-p','decksmithd','-p','decksmithctl','--features','decksmithd/hardware,decksmithctl/hardware'],cwd=ROOT,check=True)
+        env=dict(os.environ)
+        flags=env['CARGO_ENCODED_RUSTFLAGS'].split('\x1f') if env.get('CARGO_ENCODED_RUSTFLAGS') else shlex.split(env.get('RUSTFLAGS',''))
+        flags.extend([f'--remap-path-prefix={Path.home()}=/build/home',f'--remap-path-prefix={ROOT}=/build/decksmith'])
+        env['CARGO_ENCODED_RUSTFLAGS']='\x1f'.join(flags)
+        subprocess.run(['cargo','build','--release','--locked','-p','decksmithd','-p','decksmithctl','--features','decksmithd/hardware,decksmithctl/hardware'],cwd=ROOT,check=True,env=env)
         binaries=ROOT/'target/release'
     files=compiled_catalogs(ROOT)
     with tempfile.TemporaryDirectory() as temporary:
         for name in ('decksmithd','decksmithctl'):
             path=Path(temporary)/name;shutil.copy2(Path(binaries)/name,path);subprocess.run(['strip',str(path)],check=True)
-            files['bin/'+name]=path.read_bytes()
+            data=path.read_bytes()
+            if str(Path.home()).encode() in data:raise ValueError('Binary contains the build user home path; rebuild with path remapping.')
+            files['bin/'+name]=data
     for folder in ('apps/decksmith-studio','scripts','assets','brand','config','packaging','docs','extensions','plugins'):
         for name,data in tree_files(ROOT/folder).items():
             p=Path(name)
