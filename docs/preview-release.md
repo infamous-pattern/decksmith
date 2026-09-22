@@ -62,3 +62,6 @@ bans and sources. Native GTK checks passed the compact 1024×768 layout in light
 mode and dark mode with `GDK_DPI_SCALE=1.5`, including navigation, draft retention,
 save gating, page tools and stable key/dial geometry. This environment-variable
 check is not certification of compositor fractional scaling.
+
+The reference build and GitHub checks use Rust 1.97.1. Newer linter versions may
+introduce additional style diagnostics; compiler upgrades are reviewed separately.

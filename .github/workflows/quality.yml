@@ -15,10 +15,12 @@ jobs:
           persist-credentials: false
       - name: Build dependencies
         run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - name: Tested Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt --component clippy
       - name: Rust checks
         run: |
-          cargo fmt --all -- --check
-          cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-          cargo test --workspace --all-features --locked
+          cargo +1.97.1 fmt --all -- --check
+          cargo +1.97.1 clippy --workspace --all-targets --all-features --locked -- -D warnings
+          cargo +1.97.1 test --workspace --all-features --locked
       - name: Installer tests
         run: python3 -m unittest discover -s scripts -p 'test_*.py' -q
