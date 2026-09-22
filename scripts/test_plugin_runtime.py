@@ -25,6 +25,8 @@ class Runtime(unittest.TestCase):
             (root/'decksmith-plugin-state.json').symlink_to(target)
             with self.assertRaises(RuntimeError):runner.clean_stale(root)
             self.assertEqual(target.read_text(),'keep')
+    @unittest.skipUnless((ROOT/'local/plugin-runtime-stage.json').is_file(),
+                         'Optional packaged Homebridge companion has not been built')
     def test_packaged_python_dependency_imports_without_venv(self):
         import subprocess
         release=json.loads((ROOT/'local/plugin-runtime-stage.json').read_text())['release']

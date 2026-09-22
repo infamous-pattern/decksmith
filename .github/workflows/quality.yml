@@ -23,4 +23,6 @@ jobs:
           cargo +1.97.1 clippy --workspace --all-targets --all-features --locked -- -D warnings
           cargo +1.97.1 test --workspace --all-features --locked
       - name: Installer tests
-        run: python3 -m unittest discover -s scripts -p 'test_*.py' -q
+        run: |
+          sh -n scripts/install.sh
+          python3 -m unittest discover -s scripts -p 'test_*.py' -q
