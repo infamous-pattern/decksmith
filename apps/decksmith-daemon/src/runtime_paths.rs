@@ -8,10 +8,24 @@ pub fn root() -> PathBuf {
     if let Some(root) = installed_root(&executable) {
         return root;
     }
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap()
+    // Discover a development checkout at runtime; never embed the builder's home.
+    source_root(&executable)
+        .or_else(|| {
+            std::env::current_dir()
+                .ok()
+                .and_then(|cwd| source_root(&cwd))
+        })
+        .unwrap_or_else(|| executable.parent().unwrap_or(Path::new("/")).to_path_buf())
+}
+fn source_root(start: &Path) -> Option<PathBuf> {
+    start
+        .ancestors()
+        .find(|root| {
+            root.join("Cargo.toml").is_file()
+                && root.join("config/audio.json").is_file()
+                && root.join("apps/decksmith-studio/panel.py").is_file()
+        })
+        .map(Path::to_path_buf)
 }
 fn installed_root(executable: &Path) -> Option<PathBuf> {
     let executable = executable.canonicalize().ok()?;
@@ -54,6 +68,27 @@ pub fn check() -> Result<serde_json::Value, &'static str> {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn checkout_discovery_uses_runtime_paths() {
+        let dir =
+            std::env::temp_dir().join(format!("decksmith-source-path-test-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("apps/decksmith-studio")).unwrap();
+        std::fs::create_dir_all(dir.join("config")).unwrap();
+        for name in [
+            "Cargo.toml",
+            "config/audio.json",
+            "apps/decksmith-studio/panel.py",
+        ] {
+            std::fs::write(dir.join(name), b"fixture").unwrap();
+        }
+        assert_eq!(
+            super::source_root(&dir.join("target/release/decksmithd")),
+            Some(dir.clone())
+        );
+        std::fs::remove_file(dir.join("Cargo.toml")).unwrap();
+        assert!(super::source_root(&dir).is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn installed_root_is_derived_from_executable_not_working_directory() {
         let dir = std::env::temp_dir().join(format!("decksmith-path-test-{}", std::process::id()));

@@ -55,7 +55,7 @@ See [installation and recovery](installation.md) for status, rollback and remova
 
 ## Release validation
 
-The release preparation passed 120 Rust tests (one hardware-dependent test
+The release preparation passed 121 Rust tests (one hardware-dependent test
 ignored), strict Clippy checks, formatting, 140 Python editor tests and 13
 installer/companion tests. The pinned dependency audit passed advisories, licenses,
 bans and sources. Native GTK checks passed the compact 1024×768 layout in light
