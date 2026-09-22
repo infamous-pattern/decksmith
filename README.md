@@ -33,7 +33,7 @@ sources you trust; checksums detect corruption and are not a digital signature.
 
 ## Interface walkthrough
 
-[![Watch the Decksmith interface walkthrough](docs/images/decksmith-walkthrough-thumbnail.png)](https://github.com/infamous-pattern/decksmith/releases/download/v0.1.0-preview.2/Decksmith-interface-walkthrough.mp4)
+[![Watch the Decksmith interface walkthrough](docs/images/decksmith-walkthrough-thumbnail.png?v=9a67e981708e)](https://github.com/infamous-pattern/decksmith/releases/download/v0.1.0-preview.2/Decksmith-interface-walkthrough.mp4)
 
 **[Watch the 84-second walkthrough](https://github.com/infamous-pattern/decksmith/releases/download/v0.1.0-preview.2/Decksmith-interface-walkthrough.mp4)** · [Subtitles](docs/images/decksmith-walkthrough.srt)
 
@@ -62,28 +62,28 @@ editor leaves background controls running.
 
 **Home — device status, background controls, login startup and device settings.**
 
-![Decksmith Home with device preview and background-control settings](docs/images/decksmith-home.png)
+![Decksmith Home with device preview and background-control settings](docs/images/decksmith-home.png?v=914df36b4fe4)
 
 **Pages — organize pages, assign automatic switching and edit shared appearance.**
 
-![Decksmith Pages with page selection and theme settings](docs/images/decksmith-pages.png)
+![Decksmith Pages with page selection and theme settings](docs/images/decksmith-pages.png?v=3699dfce7f8b)
 
 **Keys — assign actions, edit labels and customize artwork in the same window.**
 
-![Decksmith key editor showing a Lock Desktop system action](docs/images/decksmith-keys.png)
+![Decksmith key editor showing a Lock Desktop system action](docs/images/decksmith-keys.png?v=398cb45aebf1)
 
 **Dials — choose audio targets, rotation and press behavior, and touch-strip styling.**
 
-![Decksmith dial editor with audio assignment and touch-strip preview](docs/images/decksmith-dials.png)
+![Decksmith dial editor with audio assignment and touch-strip preview](docs/images/decksmith-dials.png?v=e5c77595d635)
 
-[View the About page](docs/images/decksmith-about.png). The **Plugins** tab is a
+[View the About page](docs/images/decksmith-about.png?v=9f9747314fbe). The **Plugins** tab is a
 roadmap page when the experimental integration is not installed; general plugin
 support targets **V1.5**. With the managed
 [OpenHomeB companion](docs/openhomeb-runtime.md), it provides inline Homebridge
 connection settings and follows Decksmith startup and shutdown. The screenshot
 uses demonstration connection data. Capability-based accessory assignment is available in Keys & Dials; general
 plugin installation and marketplace browsing remain planned.
-[View the Plugins page](docs/images/decksmith-plugins.png).
+[View the Plugins page](docs/images/decksmith-plugins.png?v=aa258fd1616f).
 
 The experimental Homebridge integration supports inline server/account setup in
 **Plugins → Connection setup**. Password storage requires GNOME Keyring (Secret
