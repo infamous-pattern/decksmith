@@ -553,6 +553,14 @@ Verify no draft loss or layout shift; compare idle/active CPU and memory with th
 recorded baseline. These are planned checks, not claims of completed accessibility
 certification. Keep changes small and review the resulting native UI with the user.
 
+September 22 VM checkpoint: the native regression passed on Fedora 44 / GNOME
+50.4 at actual 125% light, 150% dark and 150% high-contrast display scaling.
+A compact run with Orca active also passed, with named controls in AT-SPI and
+representative announcements in Orca's speech log. A human-paced screen-reader
+listen-through remains open. See [accessibility results and limits](accessibility-checkpoint-2026-09-22.md).
+Use the testing VM wherever practical; restore temporary preferences and shut it
+down after testing, keeping autostart disabled.
+
 ### Follow-on editor candidates — after the V1 polish pass
 
 - **Searchable navigation and actions:** evaluate a keyboard-accessible search for
@@ -582,3 +590,12 @@ not part of this Decksmith usability milestone.
 ## V1 performance baseline — September 17
 
 The first bounded resource pass completed 100 isolated page changes with responsive previews and near-flat final warmed editor memory. Background service CPU averaged 44.7% of one core, with a separate attribution sample identifying short-lived helpers as the main contributor. Prioritize batched/persistent audio-state queries, then repeat measurements; sustained four-source testing and accessibility/lifecycle checks remain open. See [performance baseline and limitations](performance-checkpoint-2026-09-17.md).
+
+### Reviewer distribution checkpoint — September 22
+
+The published preview.2 installer passed fresh-user installation, preview.1 upgrade,
+rollback, retained-data uninstall and private-bus VirtualDeck checks in Fedora 44.
+See [reviewer readiness](reviewer-readiness-2026-09-22.md). Missing-package installation
+and a human-paced screen-reader listen-through remain explicit limits. The latest
+compact-editor fix is in development source; a new preview must be built and
+validated before those improvements are advertised for the binary download.

@@ -37,8 +37,8 @@ enlarged text; the final run explicitly used GTK Xft DPI.
 
 The native checks use isolated drafts and fake writes/actions. These results do
 not certify screen-reader announcements, every monitor/scaling combination or
-all third-party themes. No compositor or global desktop accessibility preference
-was changed. Full screen-reader and actual fractional-scaling checks remain open.
+all third-party themes. No host compositor or global desktop accessibility preference
+was changed. The subsequent VM checks below cover actual fractional scaling.
 
 Evidence and screenshots are retained under `local/accessibility-2026-09-22/`.
 
@@ -51,3 +51,71 @@ All five saved configuration files matched the backup byte for byte. A fresh
 isolated window loaded the installed code and passed the full compact native
 regression with read-only renderer previews and fake saves/actions. Existing
 user windows must be closed and reopened after saving edits to load the update.
+
+## Fedora 44 VM verification
+
+Tested the installed development build on Fedora Workstation 44 with GNOME 50.4.
+The native isolated editor regression passed at each actual Mutter display scale:
+
+| GNOME appearance | Display scale | Result |
+| --- | --- | --- |
+| Light | 125% | Passed |
+| Dark | 150% | Passed |
+| High contrast | 150% | Passed |
+
+The virtual monitor used 1920×1200 with logical display coordinates. Scale values
+were read back from Mutter after applying them. The editor remained 1024×768 in
+logical coordinates, and assertions covered visible fields, page controls, stable
+key/dial geometry, keyboard navigation, drafts and save/validation behavior.
+Eighteen screenshots were reviewed across Home, Pages, Keys, Dials, About and
+Plugins. The blank preview artwork in these runs is intentional fake renderer
+output; it is not a device rendering test.
+
+Setup attempts initially used physical coordinate mode, which Mutter rejected
+before the editor ran. Switching the test driver to logical coordinate mode
+resolved this. The rejected attempts are not application failures or passing runs.
+
+The VM's original 1280×800 display at 100%, color scheme, high contrast,
+accessibility preferences and experimental-feature list were restored and read
+back. The host desktop and physical Stream Deck were not changed. Test saves and
+actions were isolated from real assignments and services.
+
+Raw logs, display readbacks and screenshots are retained locally under
+`local/vm-accessibility-2026-09-22/guest-results/`.
+
+### Screen-reader check
+
+Orca 50.2 was run through its GNOME user service with temporary diagnostic
+logging. With Orca active, the full compact native regression passed. An AT-SPI
+snapshot exposed 80 named nodes, including navigation, save/discard controls,
+individual keys and dials. Orca's speech-output log contains the Decksmith window
+name, navigation descriptions and pressed/not-pressed selection states.
+
+An initial focused attempt failed its focus assertion because GNOME had
+idle-locked the VM. Unlocking the test session and rerunning passed. Earlier empty
+Orca diagnostic files are not counted as announcement evidence; the successful
+service-based run is in `local/vm-accessibility-2026-09-22/final-results/`.
+
+This is a bounded screen-reader smoke test, not certification of every field,
+announcement order or audible speech quality. A deliberate human-paced,
+keyboard-only listen-through remains open. The fast automated traversal can
+coalesce speech events and cannot substitute for that review.
+
+The temporary Orca service override was removed; screen-reader and toolkit
+accessibility preferences were restored to false, and Orca was confirmed inactive.
+
+### Paced announcement follow-up
+
+A separate four-second-per-step run on the unlocked VM desktop passed. Orca's
+speech log announced the key name, Label field and current text, text deletion,
+replacement text, Save and Apply and its ready-to-save description, dial name,
+Touch-strip label and current value, and Pages/About navigation. The initial
+attempt was in GNOME's overview and did not deliver useful focus announcements;
+that attempt is not counted. The accepted run followed dismissal of the overview.
+
+This improves control-level announcement coverage beyond the fast regression.
+It still does not certify audible quality or a complete human keyboard workflow.
+The invalid empty-label step blocked saving, but no spoken validation reason was
+captured; automatic error-announcement behavior needs a focused follow-up before
+claiming full screen-reader support. Evidence: the `orca-paced` logs under
+`local/reviewer-readiness-2026-09-22/`.

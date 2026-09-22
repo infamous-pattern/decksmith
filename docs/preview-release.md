@@ -6,7 +6,9 @@ stability. The v0.4 documentation remains the design baseline.
 
 ## Start here
 
-Download the runtime archive, its checksum, `decksmith-install.py`,
+For the simplest route, use the [one-command Fedora installer](installation.md#one-command-installation).
+
+For manual installation, download the runtime archive, its checksum, `decksmith-install.py`,
 `package_io.py`, and `INSTALL.md` from the GitHub release. Keep the installer files
 together, install the listed Fedora dependencies, and follow INSTALL.md.
 Installation preserves existing layouts and keeps login startup off unless you
@@ -65,3 +67,7 @@ check is not certification of compositor fractional scaling.
 
 The reference build and GitHub checks use Rust 1.97.1. Newer linter versions may
 introduce additional style diagnostics; compiler upgrades are reviewed separately.
+
+The published URL installer, preview.1 → preview.2 upgrade, rollback and retained-data
+uninstall were checked again in a fresh VM user account on September 22. See
+[reviewer readiness and scope](reviewer-readiness-2026-09-22.md).

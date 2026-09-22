@@ -176,3 +176,8 @@ older engine or storage-schema migrations. A fresh Fedora44 Workstation VM also 
 [clean runtime acceptance](clean-fedora-acceptance.md), including reboot persistence
 and retained-data removal/reinstallation. Guest physical USB access remains outside
 that result. Native RPM packaging and signed release distribution remain future work.
+
+The September 22 [reviewer-readiness check](reviewer-readiness-2026-09-22.md)
+verified the published URL installer, preview upgrade, rollback and uninstall in
+an empty user profile on the retained Fedora 44 VM. Required packages were already
+installed; this does not repeat a fresh-OS or missing-package installation test.
