@@ -173,6 +173,83 @@ A separate Fedora 44 VM lifecycle follow-up was not completed: the guest was
 started, but this test environment had no noninteractive guest login available.
 It was shut down without changing guest state; autostart remains disabled.
 
+### Production-use and passive resource sample — September 23, 2026
+
+The user reports six days of daily production use while replacing OpenDeck with
+Decksmith, across active development updates. This is valuable real-world
+acceptance evidence, not six days on one frozen candidate. The user also reports
+that page switching and their assigned audio/media/brightness controls worked as
+expected in a recent physical check.
+
+A separate ten-minute, read-only sample of the installed qualification build
+`0.1.0-9c8de697f85b` recorded 11 samples: the service stayed active on the same
+process with zero restarts and no error-level service log entries. RSS stayed at
+18.2 MiB, thread count at 18 and open-file count at 16. CPU use ranged from 4.317%
+to 4.717% of one core. The production workload was not controlled, so this does
+not establish the idle CPU target (normally below 1%) or performance with four
+active meters. The user confirmed audio was playing through one or more monitored
+targets during sampling; the number of active meters was not captured.
+
+With playback stopped, a ten-minute daemon-only sample recorded 11 samples with
+1.583–1.700% of one core, 18.2 MiB RSS, 18 threads and 16 open files. A subsequent
+five-minute cgroup sample included the daemon and helper processes: six samples
+showed 5.921–6.255% of one core, 46.7–49.2 MiB total service memory, four to five
+processes and 26–27 tasks, with no playback streams. The service remained active
+on the same main PID, with zero restarts and no error-level service logs. The
+daemon-only idle reading exceeds the documented below-1% target; the cgroup figure
+includes helpers and is not directly comparable to that daemon-only target. Treat
+this as an observed idle-resource gap requiring investigation and a repeatable
+idle/load benchmark before V1, not as a production change. The full-service sample
+log is `/tmp/decksmith-v1-cgroup-idle-20260923.jsonl`; the daemon-only idle log is
+`/tmp/decksmith-v1-physical-idle-20260923.jsonl`.
+
+A follow-up three-minute, read-only idle attribution sample on the same installed
+build found no playback streams and four stable service processes. Total CPU ranged
+from 2.963% to 3.097% of one core. Averaged across the sample, `decksmithd` used
+1.792%, `audio_meter.py` 0.655%, `audio_targets.py` 0.366%, and
+`control_health.py` 0.216%. The service remained active on one main PID with zero
+restarts and no error-level logs. Direct cgroup memory after the sample was 44.9
+MiB; summed per-process RSS was higher because RSS can count shared pages multiple
+times. This sample was lower than the prior five-minute idle result, so repeatable
+benchmark conditions still need to be established before attributing the difference
+or changing the performance target. No production settings or code were changed.
+
+The matching three-minute sample with one Brave playback stream active recorded
+6.026–6.358% of one core service-wide. Average per-process CPU was `decksmithd`
+4.794%, `audio_meter.py` 0.788%, `audio_targets.py` 0.372%, and
+`control_health.py` 0.227%. Direct cgroup memory after the sample was 47.1 MiB.
+The same main PID remained active with zero restarts, one playback stream remained
+present, and no error-level logs were recorded. Relative to the adjacent idle sample,
+service CPU rose by about three percentage points, mostly in the daemon; the meter
+helper rose by only about 0.13 points.
+
+A release-optimized isolated renderer benchmark processed 10,000 changing strip
+frames in 164 ms with one meter dial and 209 ms with four. That cost is below 0.05%
+of one core at 20 frames per second, so drawing the strip alone is unlikely to explain
+the playback increase. A second benchmark reproduced the physical adapter's RGB
+copies and upstream JPEG-quality-90 encoding for 1,000 changing 800x100 frames.
+Encoding and copies took 1.526–1.633 seconds total, equivalent to about 3.05–3.27%
+of one core if performed at 20 frames per second. The adapter performs this conversion
+for each changed touch-strip frame. This is a strong candidate for the daemon's
+playback-related CPU increase, not a confirmed stack profile: the benchmark omits
+USB transfer and the full service loop. A symbolized profile or equivalent isolated
+measurement of the physical update path is still needed before changing the adapter.
+All benchmarks were run from a temporary source copy; no production code or settings
+were changed.
+
+A follow-up isolated comparison encoded 200 changing four-dial 800x100 strip frames
+at JPEG qualities 90, 85, 80 and 75. Average encoded sizes were 23,906, 20,147,
+17,904 and 16,173 bytes per frame respectively. Relative to quality 90, decoded
+quality-75 frames measured 33.47 dB PSNR; a visual spot check of the generated strip
+showed no obvious difference at display size, though the sample was simple UI art and
+does not replace a physical-device readability check. Encoding cost was 1.656 ms per
+frame at quality 90 and 1.561 ms at quality 75, estimated at 3.31% and 3.12% of one
+core at 20 updates per second (1.66% and 1.56% at 10 updates per second). Thus lower
+quality reduces transfer size by about 32% but saves little CPU. Halving the update
+rate halves the encoder estimate, but may make the live meter feel less responsive;
+neither quality nor rate was changed in production. These are isolated estimates and
+need physical responsiveness and legibility review before tuning the shipping path.
+
 The host installer created a rollback backup and preserved the existing
 login-start preference. Fedora 44 and 45 VM autostart remains off;
 all four test VMs were shut down after qualification. These results are local
