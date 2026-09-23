@@ -13,11 +13,12 @@
 **Languages:** Currently English-only. Support for English, German, French, Spanish and Italian is planned for a future release.<br>
 **License:** Apache-2.0 for original project code; see [LICENSE](LICENSE).
 
-The [V1 release plan](docs/v1-release-scope.md) keeps Fedora GNOME/Wayland as the
-supported first release and requires documented tests on the Fedora 44, Fedora 45
-Beta, Debian 13 and Ubuntu 26.04 VMs. Broad supported GNOME/Wayland distribution
-compatibility is a **V1.5 goal**, alongside general plugin support; V1 VM testing
-does not itself make Debian or Ubuntu supported installations.
+**Testing is currently underway on:** Fedora Workstation 44, Fedora Workstation 45
+Beta, Ubuntu 26.04 and Debian 13. The [V1 release plan](docs/v1-release-scope.md)
+keeps Fedora GNOME/Wayland as the supported first release; testing the other
+systems does not itself make them supported V1 installations. Broad supported
+GNOME/Wayland distribution compatibility is a **V1.5 goal**, alongside general
+plugin support.
 
 ## Quick install (Fedora x86_64)
 
