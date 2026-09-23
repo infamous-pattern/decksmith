@@ -7,7 +7,9 @@ icons and documentation; it does not need the source checkout after installation
 The current build targets Fedora 44 x86_64. Other distributions/architectures need
 separate builds and verification. A fresh Fedora44 Workstation VM has passed
 [clean runtime acceptance](clean-fedora-acceptance.md); guest physical USB access
-was not part of that test.
+was not part of that test. Debian 13 and Ubuntu 26.04 are included in the
+[V1 diagnostic VM matrix](v1-release-scope.md#current-vm-test-matrix); broad,
+supported GNOME/Wayland distribution compatibility is a V1.5 goal.
 
 ## Dependencies
 

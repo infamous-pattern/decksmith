@@ -68,13 +68,56 @@ def restore_integrations(paths,snapshot):
         if item is None:
             if path.exists():path.unlink()
         else:atomic(path,base64.b64decode(item['bytes']),item['mode'])
-def assert_owned(paths,record):
+def assert_owned(paths,record,preserve_custom_desktop=False):
     for name,path in paths.integrations().items():
         if not path.exists():continue
         if path.is_symlink():raise ValueError('Refusing to overwrite a custom integration link: '+str(path))
         if name in record.get('managed',{}):
-            if digest(path.read_bytes())!=record['managed'][name]:raise ValueError('Integration was customized; keep a copy before updating: '+str(path))
+            actual=digest(path.read_bytes())
+            if name=='desktop' and preserve_custom_desktop and actual!=record['managed'][name]:continue
+            if actual!=record['managed'][name]:raise ValueError('Integration was customized; keep a copy before updating: '+str(path))
         elif name!='desktop' or 'Name=Decksmith' not in path.read_text():raise ValueError('Existing file is not managed by this installer: '+str(path))
+
+def compatible_custom_desktop(paths,data,files):
+    try:text=data.decode('utf-8')
+    except UnicodeDecodeError:return None
+    fields={};in_entry=False
+    for line in text.splitlines():
+        stripped=line.strip()
+        if stripped=='[Desktop Entry]':in_entry=True;continue
+        if stripped.startswith('['):in_entry=False;continue
+        if in_entry and stripped and not stripped.startswith('#') and '=' in stripped:
+            key,value=stripped.split('=',1);fields[key]=value
+    if fields.get('Type')!='Application' or fields.get('Name')!='Decksmith':return None
+    try:command=shlex.split(fields.get('Exec',''))
+    except ValueError:return None
+    expected=['/usr/bin/python3',str(paths.app/'current/apps/decksmith-studio/panel.py')]
+    command=[part.replace('%%','%') for part in command]
+    if command!=expected:return None
+    icon=fields.get('Icon','')
+    if not icon:return None
+    current=str(paths.app/'current')+os.sep
+    if icon.startswith(current):
+        relative=Path(icon).relative_to(paths.app/'current').as_posix()
+        if relative in files:return data
+        canonical='brand/decksmith-app.svg'
+        try:old_icon=Path(icon).read_bytes()
+        except OSError:return None
+        if relative.startswith('brand/') and files.get(canonical)==old_icon:
+            lines=text.splitlines(keepends=True);updated=[];in_entry=False
+            for line in lines:
+                stripped=line.strip()
+                if stripped=='[Desktop Entry]':in_entry=True
+                elif stripped.startswith('['):in_entry=False
+                if in_entry and stripped.startswith('Icon='):
+                    newline='\r\n' if line.endswith('\r\n') else '\n' if line.endswith('\n') else ''
+                    prefix=line[:len(line)-len(line.lstrip())]
+                    line=prefix+'Icon='+str(paths.app/'current'/canonical)+newline
+                updated.append(line)
+            return ''.join(updated).encode()
+        return None
+    if os.path.isabs(icon):return data if Path(icon).is_file() else None
+    return data if all(character.isalnum() or character in '._+-' for character in icon) else None
 
 def backup(paths):
     # Read twice to avoid taking a snapshot while the editor is saving.
@@ -134,19 +177,30 @@ def wait_ready(paths,release):
 def install(paths,source,activate=False):
     manifest,files=release_files(source)
     if manifest['architecture']!=platform.machine():raise ValueError('This bundle is for '+manifest['architecture'])
-    record=load_record(paths);assert_owned(paths,record);old=current(paths);before=integration_snapshot(paths)
+    record=load_record(paths);old=current(paths)
+    desktop_path=paths.integrations()['desktop'];custom_desktop=None
+    if old and record.get('managed',{}).get('desktop') and desktop_path.is_file():
+        current_desktop=desktop_path.read_bytes()
+        if record.get('preserved',{}).get('desktop') or digest(current_desktop)!=record['managed']['desktop']:
+            custom_desktop=compatible_custom_desktop(paths,current_desktop,files)
+    assert_owned(paths,record,preserve_custom_desktop=custom_desktop is not None);before=integration_snapshot(paths)
     paths.app.mkdir(parents=True,exist_ok=True);releases=paths.app/'releases';releases.mkdir(exist_ok=True);identity=manifest['id'];release=releases/identity
-    if release.exists():
+    new_release=not release.exists()
+    if not new_release:
         existing,_=release_files(release)
         if existing!=manifest:raise ValueError('Release identity collision')
+        desired=validate_install(paths,release);validate_saved(paths,release)
     else:
         temporary=Path(tempfile.mkdtemp(prefix='.install-',dir=releases))
         try:
             for name,data in files.items():atomic(temporary/name,data,0o755 if name.startswith('bin/') or name.endswith('.sh') else 0o644)
+            desired=validate_install(paths,temporary);validate_saved(paths,temporary);snapshot=backup(paths)
             os.replace(temporary,release)
         finally:
             if temporary.exists():shutil.rmtree(temporary)
-    desired=validate_install(paths,release);validate_saved(paths,release);snapshot=backup(paths);was_active=active(paths)
+    if custom_desktop is not None:desired['desktop']=custom_desktop
+    if release.exists() and not new_release:snapshot=backup(paths)
+    was_active=active(paths)
     legacy_unit=None
     if was_active and before['unit'] is None and not paths.staged:
         fragment=run('systemctl','--user','show','decksmith.service','--property=FragmentPath','--value').stdout.strip()
@@ -156,13 +210,14 @@ def install(paths,source,activate=False):
         for name,path in paths.integrations().items():atomic(path,desired[name],0o755 if name in ('launcher','manager','cli') else 0o644)
         point(paths,identity);reload(paths)
         if activate:service(paths,'reset-failed',False);service(paths,'start');wait_ready(paths,release)
-        updated={'format':'decksmith-install','version':1,'current':identity,'previous':old if old!=identity else record.get('previous'),'original':record.get('original',before),'managed':{n:digest(d) for n,d in desired.items()},'last_backup':str(snapshot)}
+        updated={'format':'decksmith-install','version':1,'current':identity,'previous':old if old!=identity else record.get('previous'),'original':record.get('original',before),'managed':{n:digest(d) for n,d in desired.items()},'preserved':({'desktop':True} if custom_desktop is not None else {}),'last_backup':str(snapshot)}
         save_record(paths,updated)
     except Exception:
         if activate:service(paths,'stop',False)
         restore_integrations(paths,before)
         if old:point(paths,old)
         elif (paths.app/'current').is_symlink():(paths.app/'current').unlink()
+        if new_release:shutil.rmtree(release,ignore_errors=True)
         if legacy_unit is not None:atomic(paths.integrations()['unit'],legacy_unit)
         reload(paths)
         if was_active and activate:service(paths,'start',False)
@@ -183,11 +238,18 @@ def rollback(paths,original=False):
         return {'restored':'pre-install launchers and service integration','preserved':'all configuration and release files','backup':str(snapshot),'service':'stopped; use the restored launcher when ready'}
     previous=record.get('previous')
     if not previous:raise ValueError('No previous installed release; use rollback --original for the pre-install integration')
-    release=paths.app/'releases'/previous;release_files(release);desired=validate_install(paths,release);validate_saved(paths,release)
+    release=paths.app/'releases'/previous;_,files=release_files(release);desired=validate_install(paths,release);validate_saved(paths,release)
+    custom_desktop=None
+    desktop_path=paths.integrations()['desktop']
+    if record.get('preserved',{}).get('desktop') and desktop_path.is_file():
+        current_desktop=desktop_path.read_bytes()
+        custom_desktop=compatible_custom_desktop(paths,current_desktop,files)
+        if custom_desktop is None:raise ValueError('The preserved launcher is not compatible with the rollback release')
+        desired['desktop']=custom_desktop
     snapshot=backup(paths);old=current(paths);before=integration_snapshot(paths)
     try:
         for name,path in paths.integrations().items():atomic(path,desired[name],0o755 if name in ('launcher','manager','cli') else 0o644)
-        point(paths,previous);record.update(current=previous,previous=old,last_backup=str(snapshot),managed={n:digest(d) for n,d in desired.items()});save_record(paths,record);reload(paths)
+        point(paths,previous);record.update(current=previous,previous=old,last_backup=str(snapshot),managed={n:digest(d) for n,d in desired.items()},preserved=({'desktop':True} if custom_desktop is not None else {}));save_record(paths,record);reload(paths)
     except Exception:
         restore_integrations(paths,before);point(paths,old);reload(paths);raise
     return {'current':previous,'previous':old,'backup':str(snapshot),'service':'stopped; start when ready'}

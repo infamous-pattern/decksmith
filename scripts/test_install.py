@@ -8,8 +8,9 @@ class InstallTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='Decksmith staged % ');self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name);self.paths=manager.Paths.create(self.root/'home')
         self.guard=patch.object(manager,'validate_install',side_effect=lambda p,r:manager.integrations(p,r));self.guard.start();self.addCleanup(self.guard.stop)
-    def bundle(self,identity):
-        files={'bin/decksmithd':b'#!/bin/sh\nexit 0\n','bin/decksmithctl':b'#!/bin/sh\nexit 0\n','apps/decksmith-studio/panel.py':b'# fixture','scripts/decksmith-install.py':b'# fixture','scripts/package_io.py':b'# fixture','config/audio.json':b'{}'}
+    def bundle(self,identity,include_custom_icon=True):
+        files={'bin/decksmithd':b'#!/bin/sh\nexit 0\n','bin/decksmithctl':b'#!/bin/sh\nexit 0\n','apps/decksmith-studio/panel.py':b'# fixture','scripts/decksmith-install.py':b'# fixture','scripts/package_io.py':b'# fixture','config/audio.json':b'{}','brand/decksmith-app.svg':b'<svg/>'}
+        if include_custom_icon:files['brand/custom-icon.svg']=b'<svg/>'
         for name in ('decksmith.service.in','cc.senecal.Decksmith.Studio.desktop.in'):files['packaging/'+name]=(ROOT/'packaging'/name).read_bytes()
         manifest={'format':'decksmith-release','version':1,'id':identity,'architecture':__import__('platform').machine(),'files':{n:digest(d) for n,d in files.items()}}
         files['release.json']=json.dumps(manifest).encode();path=self.root/(identity+'.tar.gz');write_archive(path,files);return path
@@ -73,3 +74,40 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(actions,['stop','reset-failed','start','stop','start'])
         self.assertEqual(manager.current(self.paths),'old')
         self.assertEqual(manager.load_record(self.paths)['current'],'old')
+    def test_failed_runtime_validation_does_not_persist_or_switch_release(self):
+        def reject(_paths,_release):raise ValueError('runtime unavailable')
+        with patch.object(manager,'validate_install',side_effect=reject):
+            with self.assertRaisesRegex(ValueError,'runtime unavailable'):manager.install(self.paths,self.bundle('fresh'))
+        self.assertFalse((self.paths.app/'releases/fresh').exists())
+        self.assertIsNone(manager.current(self.paths))
+        self.assertFalse(self.paths.record.exists())
+
+        manager.install(self.paths,self.bundle('working'))
+        with patch.object(manager,'validate_install',side_effect=reject):
+            with self.assertRaisesRegex(ValueError,'runtime unavailable'):manager.install(self.paths,self.bundle('incompatible'))
+        self.assertFalse((self.paths.app/'releases/incompatible').exists())
+        self.assertEqual(manager.current(self.paths),'working')
+        self.assertEqual(manager.load_record(self.paths)['current'],'working')
+    def test_safe_custom_desktop_is_preserved_across_update_and_rollback(self):
+        manager.install(self.paths,self.bundle('one'))
+        desktop=self.paths.integrations()['desktop']
+        current=str(self.paths.app/'current')
+        custom=desktop.read_text().replace(current+'/brand/decksmith-app.svg',current+'/brand/custom-icon.svg').replace('Name=Decksmith','Name=Decksmith\nX-Decksmith-Preference=custom')
+        desktop.write_text(custom)
+
+        manager.install(self.paths,self.bundle('two',include_custom_icon=False))
+        normalized=custom.replace(current+'/brand/custom-icon.svg',current+'/brand/decksmith-app.svg')
+        self.assertEqual(desktop.read_text(),normalized)
+        self.assertTrue(manager.load_record(self.paths)['preserved']['desktop'])
+        self.assertEqual(manager.load_record(self.paths)['managed']['desktop'],digest(normalized.encode()))
+
+        manager.rollback(self.paths)
+        self.assertEqual(manager.current(self.paths),'one')
+        self.assertEqual(desktop.read_text(),normalized)
+    def test_custom_desktop_with_changed_exec_is_not_preserved_or_overwritten(self):
+        manager.install(self.paths,self.bundle('one'))
+        desktop=self.paths.integrations()['desktop'];desktop.write_text(desktop.read_text().replace('/usr/bin/python3','/bin/sh'))
+        with self.assertRaisesRegex(ValueError,'Integration was customized'):
+            manager.install(self.paths,self.bundle('two'))
+        self.assertEqual(manager.current(self.paths),'one')
+        self.assertEqual(desktop.read_text().split('Exec=',1)[1].splitlines()[0].split()[0],'/bin/sh')

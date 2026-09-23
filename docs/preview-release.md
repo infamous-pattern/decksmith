@@ -35,7 +35,9 @@ Quit Decksmith stops them and clears the device.
 - The runtime bundle is for Fedora 44 x86_64; other platforms need validation.
   There is no signed RPM or automatic updater yet.
 - English only today; English, German, French, Spanish and Italian localization
-  is planned for V2. General plugin support targets V1.5.
+  is planned for V2. General plugin support and broad, individually validated
+  GNOME/Wayland distribution compatibility target V1.5. Debian and Ubuntu VM
+  testing is required for V1 but does not certify supported installations.
 - Homebridge is an optional experimental companion, not a general plugin store.
   Password storage requires Secret Service/GNOME Keyring and `secret-tool`.
 - Application audio controls change the application's PipeWire/PulseAudio stream;

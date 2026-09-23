@@ -1,9 +1,29 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap as of September 22, 2026. The v0.4 product
+This is the implementation roadmap as of September 23, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
+
+## Focused V1 boundary and release gates — September 23
+
+The [reconciled V1 scope and acceptance plan](v1-release-scope.md) is the current
+release checklist. V1 supports Fedora 44 GNOME/Wayland x86_64 with one Stream Deck +;
+Fedora 45 final-release support needs separate final-release validation. All four
+retained VMs — Fedora 44, Fedora 45 Beta, Debian 13 and Ubuntu 26.04 — must be
+tested for every V1 release candidate. Fedora checks are supported-platform gates;
+Debian and Ubuntu are compatibility diagnostics and must not be advertised as
+supported installers because a diagnostic run succeeds. Physical USB/audio and
+suspend acceptance still belongs on the reference desktop.
+
+The remaining V1 work is sustained core/audio/device reliability, a human-paced
+accessibility review, clean install and migration/rollback across changed builds,
+security and release-artifact verification, and a documented release-candidate
+matrix. Advanced profiles/workspaces, workflows, SQLite migration, panoramic
+canvases, general HTTP/MQTT and RPM packaging are post-V1 product goals. Plugins
+and broad GNOME/Wayland distribution compatibility target V1.5; full five-language
+localization targets V2. The earlier broader v0.4 V1 list must not be used to
+claim these features are already implemented.
 
 ## Agreed next steps — September 22
 
@@ -385,27 +405,38 @@ menu-control and reboot-persistence checks. See [Fedora 45 Beta acceptance](fedo
 A Fedora package-daemon shutdown delay was recorded separately. This beta sample
 does not extend physical-device certification or replace final-release testing.
 
-### Broader GNOME/Wayland distribution compatibility — future
+### Broad GNOME/Wayland distribution compatibility — V1.5 goal; V1 VM diagnostics
 
-Goal: support Linux distributions running GNOME on Wayland beyond Fedora. This
-is a compatibility target, not a claim of universal support today. Maintain a
-validated distribution, architecture, dependency and GNOME-version matrix;
-verify native UI, extension compatibility, audio/session services, USB access,
-installation and recovery on each advertised combination. Document prerequisites,
-known limitations and unsupported combinations before claiming support.
+V1.5 targets broad compatibility across Linux distributions running GNOME on
+Wayland, alongside its plugin milestone. Start with installable Debian 13 and
+Ubuntu 26.04 builds, using the V1 diagnostic VM results to identify ABI and
+package gaps. Maintain a tested distribution, architecture, dependency and GNOME
+version matrix. For each supported combination, verify the native editor, GNOME
+extension, background service, audio and session features, USB permissions,
+installation, upgrade and recovery. Document prerequisites and unsupported
+combinations. "Broad" is a goal, not a claim that every GNOME version or Linux
+distribution is already certified. The V1 gate requires Debian/Ubuntu VM test
+results without claiming support; see the [matrix](v1-release-scope.md#current-vm-test-matrix).
 
-### Curl-based shell installer — future
+V1.5 acceptance for each advertised distribution: provide a compatible binary
+or native build path and dependency mapping; verify installation/upgrade/rollback,
+the editor and GNOME extension on its shipped GNOME version, PipeWire/audio and
+system actions, session lock/login behavior, USB permissions/reconnect, and
+physical Stream Deck + use on representative hardware. A VM without USB/audio
+passthrough supplies only part of that evidence. Keep a public pass/limitation
+matrix, and do not silently reuse a Fedora binary that requires a newer glibc
+than the target distribution provides.
 
-Provide a documented curl-command installation path backed by an inspectable
-shell installer. Detect distribution, architecture, session and dependencies;
-select a compatible release and verify its integrity against trusted release
-metadata before installation. Fail clearly on unsupported platforms, missing
-dependencies, download failures or verification failures, with actionable recovery
-steps and no partial activation. Reuse the existing configuration-preserving
-installation/update, backup, rollback and removal workflow; validate fresh installs,
-repeat runs, upgrades and interrupted-install recovery on supported platforms.
+### Curl-based shell installer — implemented for Fedora; cross-distribution expansion later
 
-Both milestones are deferred; neither selects or replaces the next feature task.
+The published one-command Fedora installer detects Fedora/architecture and checks
+dependencies and release checksums. It fails on other distributions. For V1,
+finish missing-dependency and interrupted-install acceptance on a clean Fedora
+test system and add release authenticity beyond checksums. Distribution-aware
+package selection and native Debian/Ubuntu installation are V1.5 work.
+
+Broader distribution support targets V1.5; the four-VM V1 test obligation is
+not deferred.
 
 ### Auto-Lock and session lifecycle — initial implementation September 15
 
@@ -596,9 +627,10 @@ The first bounded resource pass completed 100 isolated page changes with respons
 The published preview.2 installer passed fresh-user installation, preview.1 upgrade,
 rollback, retained-data uninstall and private-bus VirtualDeck checks in Fedora 44.
 See [reviewer readiness](reviewer-readiness-2026-09-22.md). Missing-package installation
-and a human-paced screen-reader listen-through remain explicit limits. The latest
-compact-editor fix is in development source; a new preview must be built and
-validated before those improvements are advertised for the binary download.
+and a human-paced screen-reader listen-through remain explicit limits. The
+compact-editor fix was subsequently packaged in preview.3. The later validation
+speech change and rounded launcher icon are in source/installed development state;
+they require a new tested download before being advertised as release features.
 
 ### Validation speech follow-up — September 22
 

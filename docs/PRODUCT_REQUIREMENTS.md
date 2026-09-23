@@ -96,7 +96,9 @@ A Linux desktop user with one or more Stream Deck devices who wants reliable nat
 
 ### 4.1 Reference environment for V1
 
-- Fedora Workstation 44
+- Fedora Workstation 44 is the supported V1 reference. Fedora 45 final-release
+  support requires a separate final-release pass; the existing Fedora 45 Beta
+  VM is a forward-compatibility test, not that certification.
 - GNOME
 - Wayland
 - x86_64
@@ -104,7 +106,12 @@ A Linux desktop user with one or more Stream Deck devices who wants reliable nat
 - systemd user session
 - Stream Deck +
 
-Fedora 45 should be validated when available during the project lifecycle, but the first implementation target remains Fedora 44.
+The V1 candidate must also be tested in the retained Fedora 45 Beta, Debian 13
+and Ubuntu 26.04 GNOME VMs. Debian and Ubuntu results are diagnostic, not support
+claims; the required cases and pass rules are in the [V1 release scope and VM
+matrix](v1-release-scope.md). Broad supported GNOME/Wayland distribution
+compatibility is a V1.5 goal, starting with Debian and Ubuntu. Each advertised
+distribution/GNOME combination requires its own compatibility validation.
 
 ### 4.2 V1 hardware scope
 
@@ -112,7 +119,7 @@ Fedora 45 should be validated when available during the project lifecycle, but t
 
 - Stream Deck +
 
-**Architecturally supported but not required for 1.0 certification:**
+**Planned beyond the initial V1 certification; not yet claimed as supported:**
 
 - Stream Deck MK.2
 - Stream Deck XL
@@ -170,57 +177,31 @@ Additional Linux-native engineering ideas reinforced by StreamController include
 
 ### 6.1 V1 must include
 
-- reliable Stream Deck + detection, reconnect, suspend/resume behavior
-- eight LCD keys
-- four rotary encoders with turn and push events
-- Stream Deck + touch-strip rendering and touch gestures supported by the hardware protocol
-- brightness and sleep/device preferences where supported
-- background daemon
-- GTK4/libadwaita configurator
-- SQLite persistence
-- profiles
-- task-oriented workspaces inside profiles
-- pages
-- folders
-- global/profile/workspace/page binding scopes
-- Home Workspace per profile
-- deterministic trigger logic: short press, double press, long press, hold/repeat, and raw press/release
-- multi actions/workflows with ordered steps
-- multi-state controls
-- capability catalog separating commands, adjustments, stateful controls, navigation, and live providers
-- temporary Context Layers for reassignment of dials/touch feedback
-- generic Control Views for rich adjustment/state interaction
-- dial stacks
-- at least one dial-menu/action-wheel style interaction
-- application launching
-- file/folder/URL opening
-- shell command/script execution
-- keyboard shortcuts via a Wayland-compatible input path
-- PipeWire/WirePlumber audio controls
-- MPRIS media controls
-- systemd user/service capabilities
-- HTTP capabilities
-- MQTT capabilities
-- profile import/export
-- theme/appearance import/export
-- panoramic background image spanning the full key grid
-- independent full-width touch-strip background
-- per-control and per-state background overrides
-- SVG-first icon/theme assets with PNG/JPEG/WebP support
-- first-class VirtualDeck implementation using the same device/render contracts as physical hardware
-- live WYSIWYG visual preview on the virtual device and physical hardware
-- CLI input-event emulation and machine-readable JSON output for automation/testing
-- desktop session lock behavior with configurable disable/dim/idle presentation
-- idle/screensaver appearance state using the normal rendering/theme system
-- behavior/appearance separation in persistence and export formats
-- diagnostics bundle
-- GNOME/Wayland Smart Profiles
-- CLI and D-Bus control surface
-- native RPM packaging for Fedora
-- automated migration of application database schema
-Plugin delivery was moved from the original V1 scope to **V1.5** by the user on
-September 17, 2026. The following requirements remain planned for that milestone;
-see the [current roadmap](ROADMAP.md#plugin-support--v15-target) for delivery gates:
+The September 23 [V1 release scope and acceptance plan](v1-release-scope.md)
+supersedes the original all-features V1 list while preserving the broader product
+requirements below. The supported V1 must provide:
+
+- reliable single Stream Deck + key, dial and touch-strip operation, brightness,
+  disconnect/reconnect and suspend/resume on the Fedora reference desktop;
+- the integrated GTK editor with pages, application-based page switching, shared
+  dial defaults/page overrides, saved layout and appearance editing, import/export,
+  visible state/error feedback and stable Save and Apply behavior;
+- the currently implemented built-in application/website, audio, media and system
+  actions with safe unavailable-state reporting where a target is absent;
+- a background service, optional start at login, GNOME indicator, Auto-Lock and
+  safe stop/quit/lock behavior;
+- versioned saved-data compatibility, backup, recovery and rollback without loss
+  of existing user layouts, custom text, artwork or assignments;
+- reproducible VirtualDeck, Fedora VM and physical-device acceptance plus the
+  four-VM diagnostic matrix, accessibility review and security/release gates in
+  the linked plan.
+
+The original v0.4 list included advanced profile/workflow, storage, capability,
+appearance and packaging features not yet implemented. Their deferrals are mapped
+in the linked plan; they must not be described as V1 capabilities. General plugin
+delivery moved to **V1.5** by the user on September 17, 2026. Broad GNOME/Wayland
+distribution compatibility is also a **V1.5 goal** as of September 23. The plugin
+requirements for that milestone are:
 
 - plugin architecture
 - dynamic capability-provider API for native integrations/plugins
@@ -228,7 +209,10 @@ see the [current roadmap](ROADMAP.md#plugin-support--v15-target) for delivery ga
 - compatibility with a documented subset of unprotected Stream Deck plugins
 - WebKitGTK-hosted property inspectors for compatible plugins
 
-### 6.2 V1 should include if quality permits
+### 6.2 Later candidates, not V1 release gates
+
+The following ideas remain in the product plan. They should not expand or delay
+the focused V1 unless separately prioritized after the release gates pass:
 
 - Home Assistant built-in integration
 - SSH capability
@@ -856,16 +840,18 @@ A feature is not considered complete merely because it functions technically; it
 
 ### Phase 8 — Hardening and release engineering
 
-**Deliverables**
+For the focused V1, use the [release gates and four-VM matrix](v1-release-scope.md)
+as the acceptance checklist. RPM, COPR and a generic diagnostics bundle remain
+later goals rather than V1 blockers.
 
-- RPM packaging
-- COPR-ready build definition
-- migration testing
-- hardware-in-loop regression suite
-- diagnostics bundle
-- security policy
-- signed releases
-- contributor documentation
+**V1 deliverables**
+
+- tested per-user Fedora installation, update, rollback and data migration;
+- physical Stream Deck + regression and the four-VM test matrix;
+- security policy, release authenticity, release notes and contributor guidance.
+
+**Later packaging/support deliverables:** native RPM and COPR builds, plus a
+general-purpose redacted diagnostics bundle.
 
 **Exit criteria**
 
@@ -874,6 +860,10 @@ A feature is not considered complete merely because it functions technically; it
 - no release-blocking security or data-loss defects
 
 ### Phase 9 — Public 1.0
+
+This phase is complete only when the V1 plan's Fedora reference, physical
+Stream Deck +, VM, accessibility, security and release-candidate gates pass.
+Publishing source or a preview archive by itself does not satisfy the phase.
 
 **Deliverables**
 
@@ -917,7 +907,15 @@ A feature is not considered complete merely because it functions technically; it
 
 ## 12. Success criteria
 
-V1 is successful when a Fedora GNOME/Wayland user can install the application, connect a Stream Deck +, configure profiles/workspaces visually, control desktop/audio/media/system workflows, use the dials and touch strip meaningfully, deeply customize the device appearance (including panoramic key and touch-strip backgrounds), close Decksmith Studio, continue using the device reliably, and reopen Studio quickly from the desktop indicator without cloud services or Elgato software.
+The focused V1 succeeds when a Fedora 44 GNOME/Wayland user can install the
+application, connect one Stream Deck +, configure pages and supported controls
+visually, control desktop/audio/media/system actions, use the dials and touch strip
+meaningfully, customize the currently supported appearance, close Decksmith
+Studio, continue using the device reliably, and reopen Studio quickly from the
+desktop indicator without cloud services or Elgato software. The physical
+reference-host and four-VM acceptance in the [V1 release plan](v1-release-scope.md)
+must be complete. Profiles/workspaces and panoramic backgrounds remain broader
+product goals rather than claims of this V1.
 
 A stronger success signal is when the application is preferred even by Linux users who do not need Elgato plugin compatibility because the native Linux integrations are better than simply emulating Windows/macOS behavior.
 
