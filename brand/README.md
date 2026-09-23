@@ -15,4 +15,4 @@ This is a single raster reference sheet, not individual transparent icons or SVG
 Production icon exports and small-size legibility checks remain to be completed.
 No replacement artwork has been generated.
 
-The launcher uses `decksmith-app.svg`, a viewport onto the unchanged approved full-color app mark (the same artwork as About). The GNOME panel uses `extensions/decksmith-gnome/decksmith-symbolic.svg`, a small vector interpretation of the anvil and four-key mark, recolored by the desktop theme for legibility.
+The launcher uses `decksmith-app.svg`, a rounded viewport onto the unchanged approved full-color app mark (the same artwork as About). Its transparent outer corners follow the mark's rounded badge. The GNOME panel uses `extensions/decksmith-gnome/decksmith-symbolic.svg`, a small vector interpretation of the anvil and four-key mark, recolored by the desktop theme for legibility.
