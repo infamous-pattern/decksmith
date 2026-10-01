@@ -67,6 +67,8 @@ def tick():
   if stage==0:
    assert ed.shell.section=='home'
    if '--compact' in sys.argv:assert ed.get_width()<=1050,ed.get_width()
+   min_width,min_height=ed.get_size_request()
+   assert min_width<=900 and min_height<=540, (min_width,min_height)
    assert ed.shell.root.get_mapped(), 'Native shell must actually be visible'
    ed.shared_preview_geometry=(ed.device_preview.get_width(),ed.device_preview.translate_coordinates(ed,0,0))
    snapshot(ed,'home');ed.shell.navigate('keys');stage=1;return True

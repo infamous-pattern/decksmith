@@ -391,18 +391,62 @@ the sample. Across 61 observations, the service stayed active on main PID
 `58865`, with zero systemd restarts and no error-level journal entries. CPU
 averaged 3.629% of one core (range 3.546–3.792% across 60 valid readings).
 Cgroup memory averaged 45.82 MiB (range 44.67–47.49 MiB), task count was 23–24,
-and no audio streams were present. The idle stream state means this does not
-replace the outstanding continuous-playback four-meter soak. The user later
-confirmed that the physical display showed “Locked” while the desktop was locked.
-The sampler did not change power state, service settings or device settings. Raw
-data is retained locally and was not published.
+and no audio streams were present. The user later confirmed that the physical
+display showed “Locked” while the desktop was locked. The sampler did not change
+power state, service settings or device settings. Raw data is retained locally
+and was not published.
+
+### Candidate physical four-meter playback soak — October 1, 2026
+
+A controlled 30-minute passive soak ran on Fedora Workstation 44 with four
+configured audio-meter targets available throughout. Playback remained present
+on the configured application target during periodic continuity checks. The
+service remained active with no restarts or error-level journal entries; the
+device stayed connected and its display remained ready. Service-cgroup CPU
+averaged 9.60% of one core (range 9.24–10.17%), memory averaged 46.21 MiB
+(range 44.56–47.68 MiB), and task count was 23–24. This was a resource and
+continuity soak; no keys or dials were exercised. Raw data is retained locally
+and was not published.
+
+### Fedora 44 editor accessibility review — October 1, 2026
+
+The GTK editor was reviewed in the Fedora 44 VM with GNOME text scaling at 125%
+and 150%. The accessibility tree exposed 39 named interactive controls, 36
+focusable. Keyboard Tab navigation and the Alt+3 Keys & Dials shortcut worked.
+The GNOME high-contrast setting retained readable text and visible focus
+outlines. At an actual 125% monitor scale, the original window overflowed and
+clipped part of Save and Apply. The editor's fixed workspace sizing was removed
+and its minimum window size reduced. A local verification build then kept the
+Home and Keys & Dials views, preview, and Save and Apply control within the
+available area; focusing a dial scrolled the preview into view. The native GTK
+regression suite passed at 1024x768. These checks verify the local build; they
+must be repeated against the frozen V1 artifact.
+
+The VM had no audio output route, so Orca's spoken output could not be verified.
+Accessibility settings were restored after testing, and no saved layout edits
+were made.
+
+### Clean-user installer qualification — October 1, 2026
+
+A disposable Fedora 44 test account installed a fresh local verification bundle.
+Runtime doctor and release-integrity checks passed; startup remained disabled
+and background controls stayed inactive. The account then installed an earlier
+local bundle, upgraded back to the verification build, rolled back, reinstalled,
+uninstalled, and reinstalled again. The saved layout remained unchanged through
+upgrade and rollback; uninstall preserved the layout and release files. These
+checks were performed on a local verification build, not a frozen V1 artifact.
+
+The clean account's native first-run window remains unverified because this
+session could not access the VM console to perform the separate graphical login.
+No graphical-session credentials were copied. Repeat the first-run check when a
+console-accessible clean-user session is available.
 
 ## Work order
 
 The supported boundary and initial results are recorded above. Remaining work is
-to complete a continuous-playback four-meter soak, the human-paced keyboard,
-Orca and display-scaling review, and clean-user install/migration/rollback on a
-frozen release artifact. Then resolve any critical reliability, security,
-device-recovery or core-control findings; repeat affected checks on the exact V1
-candidate and publish that tested artifact with its own checksum. Optional
-features do not replace any gate.
+to repeat the corrected scaled-display layout and install/migration/rollback
+checks on a frozen V1 artifact, verify spoken Orca output with a suitable VM
+audio route, and complete the clean-user first-run check in a graphical session.
+Then resolve any critical reliability, security, device-recovery or core-control
+findings; repeat affected checks on the exact V1 candidate and publish that
+tested artifact with its own checksum. Optional features do not replace any gate.

@@ -72,7 +72,9 @@ class Editor(Adw.ApplicationWindow):
         bounds=monitor.get_geometry() if monitor else None
         self.set_default_size(min(1440,bounds.width-64) if bounds else 1440,
                               min(900,bounds.height-96) if bounds else 900)
-        self.set_size_request(940,600)
+        # Keep the workspace openable on displays with fractional scaling;
+        # individual panels scroll when the available logical height is small.
+        self.set_size_request(900,540)
         self.connect('close-request', self.close_requested)
         toolbar = Adw.ToolbarView()
         header = Adw.HeaderBar()

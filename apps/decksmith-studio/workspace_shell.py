@@ -13,7 +13,9 @@ TIPS={'home':tr('Device status, startup and brightness.'),'pages':tr('Organize p
 class WorkspaceShell:
     def __init__(self,ed,owner,toolbar,header,outer,page_scroll,preview_scroll,mode_row,intro,theme_button,layout_menu):
         self.ed=ed;self.owner=owner;self.status={};self.section='home';self.changing_page=False;self.loading_layout=False
-        ed.set_modal(False);ed.set_transient_for(None);ed.set_default_size(1280,860);ed.set_size_request(980,680)
+        # Preserve Editor's monitor-aware default size. A fixed 1280x860
+        # workspace can exceed the logical work area under GNOME display scale.
+        ed.set_modal(False);ed.set_transient_for(None)
         ed.add_css_class('decksmith-workspace')
         self.css=Gtk.CssProvider();self.style=Adw.StyleManager.get_default()
         self.style_handler=self.style.connect('notify::dark',lambda *_:self.colors())
