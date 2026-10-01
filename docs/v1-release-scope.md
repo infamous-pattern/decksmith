@@ -111,12 +111,13 @@ Use a Debian-native build or record the build/ABI blocker. Current Fedora-only
 installation remains an expected documented limitation on Debian and Ubuntu;
 these guests must still be exercised and their findings recorded.
 
-No V1 release candidate exists yet, so this matrix is **planned**, not a new test
-result. Prior preview and development checks are useful baselines but must be
-repeated or explicitly carried forward against an identified candidate build.
-For each row, record pass/fail/blocked, exact build and OS versions, evidence path,
-known limitations and whether a failure is shared with Fedora. Record the same
-details for the physical reference-host run.
+No frozen V1 release candidate exists yet. A local qualification bundle has now
+been exercised on these systems; its results are recorded below, but they are not
+V1 release certification. Prior preview and development checks remain baselines
+and must be repeated or explicitly carried forward against the eventual frozen
+V1 candidate. For each row, record pass/fail/blocked, exact build and OS versions,
+evidence path, known limitations and whether a failure is shared with Fedora.
+Record the same details for the physical reference-host run.
 
 ### Development baseline run — September 23, 2026
 
@@ -199,9 +200,8 @@ on the same main PID, with zero restarts and no error-level service logs. The
 daemon-only idle reading exceeds the documented below-1% target; the cgroup figure
 includes helpers and is not directly comparable to that daemon-only target. Treat
 this as an observed idle-resource gap requiring investigation and a repeatable
-idle/load benchmark before V1, not as a production change. The full-service sample
-log is `/tmp/decksmith-v1-cgroup-idle-20260923.jsonl`; the daemon-only idle log is
-`/tmp/decksmith-v1-physical-idle-20260923.jsonl`.
+idle/load benchmark before V1, not as a production change. The raw sample logs are
+retained with the local qualification evidence and are not part of the public repo.
 
 A follow-up three-minute, read-only idle attribution sample on the same installed
 build found no playback streams and four stable service processes. Total CPU ranged
@@ -255,9 +255,154 @@ login-start preference. Fedora 44 and 45 VM autostart remains off;
 all four test VMs were shut down after qualification. These results are local
 evidence only. Repeat the required release gates against a frozen V1 candidate.
 
+### Automated source quality checkpoint — October 1, 2026
+
+The automated checks were rerun on Fedora Workstation 44 from source commit
+`9ae11212c2837be460dbb4a8403a34455bb49696` using Rust 1.97.1. Formatting and
+strict Clippy checks passed; the Rust workspace reported 121 passing tests and
+one intentionally ignored virtual-microphone test because no disposable virtual
+input was configured. The GTK/editor suite passed all 147 tests, and the
+installer/security Python suite passed all 18 tests. Installer shell syntax and
+Python bytecode compilation passed. `cargo-deny` 0.20.2 passed advisory, ban,
+license and source checks after its archive checksum was verified.
+
+A release-mode development bundle, `0.1.0-500f2477accf`, was also built from
+this source tree. Its archive checksum and all manifest file digests verified;
+isolated staging-mode install, status and uninstall completed, retaining the
+generated backup and never activating startup. The bundle is marked dirty
+because this checkpoint itself is an uncommitted documentation update; it is
+not a release candidate and was not installed on the desktop or a VM.
+
+This is source-level automated evidence, not a release-candidate qualification.
+It does not close the physical-device and four-active-meter reliability runs,
+the human-paced Orca/display-scaling review, or clean-user release-artifact
+install, migration and rollback tests. The optional virtual-microphone path
+also remains untested by this run.
+
+### Local qualification bundle — October 1, 2026
+
+The release-mode qualification bundle `0.1.0-db5d598eefe4` was built from clean
+source commit `d43e3484b68d5e0cf02f82f338c0e8c2b7d2f29f`. Its rebuilt archive SHA-256
+is `a5aac22345fb1499cbe8f902b332a3ae71ee1e94b3ab4fc89b093f2e35c6b56a`; the
+archive checksum and manifest file digests verified. The isolated installer
+install/status/uninstall path passed and generated a backup without activating
+startup. This is a local qualification build, not a frozen V1 release candidate.
+
+The original temporary archive was lost when the host rebooted. The rebuilt
+bundle has the same release ID and source commit as the archive used for the VM
+checks immediately before that reboot, so the verified payload manifest is the
+same; the new compressed archive has a different outer checksum. The exact final
+V1 distribution archive must still be tested and its own digest published.
+
+| Target | Qualification result |
+| --- | --- |
+| Fedora 44 VM | **Pass for recorded smoke:** candidate install/upgrade, runtime doctor, VirtualDeck geometry, service start/stop, rollback to the previous build, candidate reinstall, and persistence across guest reboot. Saved layout hash remained unchanged. A separate native-editor screenshot attempt timed out under software rendering; it does not count as an editor/accessibility pass. |
+| Fedora 45 Beta VM | **Pass for recorded smoke:** install, doctor, VirtualDeck geometry, service start/stop. The VM is diagnostic only and does not certify final Fedora 45. |
+| Ubuntu 26.04 VM | **Pass for recorded smoke after adding `pulseaudio-utils` to the disposable guest:** install, doctor, VirtualDeck geometry, service start/stop. This does not make Ubuntu a supported V1 platform. |
+| Debian 13 VM | **Expected compatibility block:** the Fedora-built daemon needs glibc 2.43; the guest has glibc 2.41. The installer rejected it before creating install state or replacing the prior release. A Debian-native build remains untested. |
+
+All four VMs were shut off after the qualification run, and autostart remains
+disabled. A later attempt to re-enter the Fedora 44 guest over its forwarded SSH
+port timed out before the SSH banner; a console screenshot showed the GNOME
+session, so the VM was shut down without changes. This access issue did not alter
+the completed candidate smoke results. The GTK editor's human-paced accessibility
+and rendering review remains open.
+
+On the physical Fedora Workstation 44 host, the same release ID was installed and
+activated. The installer created a local rollback backup and retained
+`0.1.0-9c8de697f85b` for rollback. The saved layout in that backup matched the
+live file; its local path and hash are omitted from the public notes.
+The runtime doctor passed all checks, found the physical Stream Deck + with read
+access, and the service connected on the new process with zero restarts. The user
+then completed a five-minute physical check of display, page switching,
+audio/media controls and the brightness dial, and reported that everything
+worked. During a later natural GNOME idle lock, the read-only control API reported
+Auto-Lock available/enabled/locked and the device connected with its display
+ready on the saved page. The user visually confirmed that the physical display
+showed “Locked” after returning to the workstation. A 30-minute passive idle
+sample is recorded below.
+
+### Physical-host interactive control check — October 1, 2026
+
+The user reported a five-minute normal-use pass with audio controls and page
+switching, followed by a faster app-volume dial rotation while switching pages.
+Both checks worked as expected; no freeze, missed input, disconnection or
+unexpected value was observed. The dial was returned to its starting level.
+The exact running build could not be reverified during this pass because the
+local session could not access the user's systemd service bus. These user-observed
+checks do not cover suspend/resume recovery.
+
+The user also confirmed that unplugging and reconnecting the physical Stream
+Deck restored its display and controls. The exact running build was not
+independently verified during this check; suspend/resume remains outstanding.
+
+The user confirmed Auto-Lock worked across multiple desktop lock/unlock cycles
+today. The exact running build was not independently verified during this check.
+
+The user then suspended and resumed the Fedora desktop and confirmed Decksmith's
+display and controls recovered perfectly. This Codex session was interrupted
+during the host suspend and resumed afterward; that interruption was separate
+from Decksmith's recovery. The exact running build was not independently verified.
+
+The user confirmed that Quit blanked the physical Stream Deck, and reopening
+Decksmith allowed Background Controls to be started with the saved page restored.
+The exact running build was not independently verified.
+
+The user confirmed that start-at-login works as expected on the physical Fedora
+host. The exact running build was not independently verified.
+
+### Physical-host monitored-target sample — October 1, 2026
+
+A ten-minute passive sample ran on Fedora Workstation 44 against the already
+installed qualification build `0.1.0-9c8de697f85b`. Four configured audio-meter
+targets remained present for all 40 samples. Average CPU was 9.76% of one core
+(range 9.32–10.38%); cgroup memory ranged from 54.9 to 57.9 MiB. The observed
+process count peaked at five, with 24 threads and 47 open file descriptors.
+The systemd restart count stayed at zero and no error-level service log lines
+were recorded.
+
+This was a passive resource/stability observation: no keys or dials were used,
+playback state was not recorded, and target names were intentionally excluded
+from the sample. It is not the required sustained four-active-meter reliability
+run or a performance acceptance result; its CPU figure is workload-specific and
+should not be compared with the idle target. Raw process-statistics data is
+retained locally and was not published. No service, device setting or production
+file was changed.
+
+### Candidate physical mixed-playback/idle sample — October 1, 2026
+
+After activating `0.1.0-db5d598eefe4`, a ten-minute passive sample recorded 41
+observations while four configured audio-meter targets were present. Average
+service-cgroup CPU was 8.10% of one core (range 6.07–9.78%); cgroup memory ranged
+from 44.3 to 47.7 MiB, and `pids.current` ranged from 23 to 24 tasks. One playback
+stream was present for the first six minutes, briefly two streams were present,
+then no playback stream was observed for the remaining four minutes. The systemd
+main PID remained `58865`, the restart count stayed at zero, and no error-level
+service log entries appeared. These varying playback conditions make this a
+mixed-load observation, not a ten-minute continuous-playback soak or a performance
+acceptance result. No audio target, service or device setting was changed by the
+sampler. Raw data is retained locally and was not published.
+
+### Candidate physical idle soak — October 1, 2026
+
+A 30-minute passive idle soak ran on Fedora Workstation 44 with candidate
+`0.1.0-db5d598eefe4`; the desktop naturally entered GNOME's locked state during
+the sample. Across 61 observations, the service stayed active on main PID
+`58865`, with zero systemd restarts and no error-level journal entries. CPU
+averaged 3.629% of one core (range 3.546–3.792% across 60 valid readings).
+Cgroup memory averaged 45.82 MiB (range 44.67–47.49 MiB), task count was 23–24,
+and no audio streams were present. The idle stream state means this does not
+replace the outstanding continuous-playback four-meter soak. The user later
+confirmed that the physical display showed “Locked” while the desktop was locked.
+The sampler did not change power state, service settings or device settings. Raw
+data is retained locally and was not published.
+
 ## Work order
 
-First freeze this supported scope and create one results sheet for the four VMs
-and physical host. Then close reliability and accessibility findings, run the
-full installation/security gate on a release candidate, fix blockers, and repeat
-affected checks before naming V1. Optional features do not replace any gate.
+The supported boundary and initial results are recorded above. Remaining work is
+to complete a continuous-playback four-meter soak, the human-paced keyboard,
+Orca and display-scaling review, and clean-user install/migration/rollback on a
+frozen release artifact. Then resolve any critical reliability, security,
+device-recovery or core-control findings; repeat affected checks on the exact V1
+candidate and publish that tested artifact with its own checksum. Optional
+features do not replace any gate.
