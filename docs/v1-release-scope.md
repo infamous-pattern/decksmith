@@ -200,8 +200,8 @@ on the same main PID, with zero restarts and no error-level service logs. The
 daemon-only idle reading exceeds the documented below-1% target; the cgroup figure
 includes helpers and is not directly comparable to that daemon-only target. Treat
 this as an observed idle-resource gap requiring investigation and a repeatable
-idle/load benchmark before V1, not as a production change. The raw sample logs are
-retained with the local qualification evidence and are not part of the public repo.
+idle/load benchmark before V1, not as a production change. The raw sample logs
+are retained with local qualification evidence and are not included in public notes.
 
 A follow-up three-minute, read-only idle attribution sample on the same installed
 build found no playback streams and four stable service processes. Total CPU ranged
@@ -305,13 +305,14 @@ All four VMs were shut off after the qualification run, and autostart remains
 disabled. A later attempt to re-enter the Fedora 44 guest over its forwarded SSH
 port timed out before the SSH banner; a console screenshot showed the GNOME
 session, so the VM was shut down without changes. This access issue did not alter
-the completed candidate smoke results. The GTK editor's human-paced accessibility
-and rendering review remains open.
+the completed candidate smoke results. A focused keyboard, text-scaling and
+AT-SPI review was completed in a later Fedora 44 VM session; its evidence and
+remaining accessibility limits are recorded below.
 
 On the physical Fedora Workstation 44 host, the same release ID was installed and
 activated. The installer created a local rollback backup and retained
-`0.1.0-9c8de697f85b` for rollback. The saved layout in that backup matched the
-live file; its local path and hash are omitted from the public notes.
+`0.1.0-9c8de697f85b` for rollback. The saved layout in the backup matched the live
+file; its local path and hash are omitted from the public notes.
 The runtime doctor passed all checks, found the physical Stream Deck + with read
 access, and the service connected on the new process with zero restarts. The user
 then completed a five-minute physical check of display, page switching,
@@ -365,9 +366,9 @@ This was a passive resource/stability observation: no keys or dials were used,
 playback state was not recorded, and target names were intentionally excluded
 from the sample. It is not the required sustained four-active-meter reliability
 run or a performance acceptance result; its CPU figure is workload-specific and
-should not be compared with the idle target. Raw process-statistics data is
-retained locally and was not published. No service, device setting or production
-file was changed.
+should not be compared with the idle target. Raw process-statistics data is retained
+with local qualification evidence and is not included in public notes. No service,
+device setting or production file was changed.
 
 ### Candidate physical mixed-playback/idle sample — October 1, 2026
 
@@ -381,72 +382,126 @@ main PID remained `58865`, the restart count stayed at zero, and no error-level
 service log entries appeared. These varying playback conditions make this a
 mixed-load observation, not a ten-minute continuous-playback soak or a performance
 acceptance result. No audio target, service or device setting was changed by the
-sampler. Raw data is retained locally and was not published.
+sampler. Raw data is retained locally and is not included in public notes.
 
 ### Candidate physical idle soak — October 1, 2026
 
 A 30-minute passive idle soak ran on Fedora Workstation 44 with candidate
 `0.1.0-db5d598eefe4`; the desktop naturally entered GNOME's locked state during
-the sample. Across 61 observations, the service stayed active on main PID
-`58865`, with zero systemd restarts and no error-level journal entries. CPU
+the sample. Across 61 observations, the service stayed active with zero systemd
+restarts and no error-level journal entries. CPU
 averaged 3.629% of one core (range 3.546–3.792% across 60 valid readings).
 Cgroup memory averaged 45.82 MiB (range 44.67–47.49 MiB), task count was 23–24,
-and no audio streams were present. The user later confirmed that the physical
-display showed “Locked” while the desktop was locked. The sampler did not change
-power state, service settings or device settings. Raw data is retained locally
-and was not published.
+and no audio streams were present. This idle sample was followed by the controlled
+continuous-playback four-meter soak recorded below. The user later
+confirmed that the physical display showed “Locked” while the desktop was locked.
+The sampler did not change power state, service settings or device settings. Raw
+data is retained locally and is not included in public notes.
 
 ### Candidate physical four-meter playback soak — October 1, 2026
 
-A controlled 30-minute passive soak ran on Fedora Workstation 44 with four
-configured audio-meter targets available throughout. Playback remained present
-on the configured application target during periodic continuity checks. The
-service remained active with no restarts or error-level journal entries; the
-device stayed connected and its display remained ready. Service-cgroup CPU
-averaged 9.60% of one core (range 9.24–10.17%), memory averaged 46.21 MiB
-(range 44.56–47.68 MiB), and task count was 23–24. This was a resource and
-continuity soak; no keys or dials were exercised. Raw data is retained locally
-and was not published.
+A controlled 30-minute passive soak ran on Fedora Workstation 44 with candidate
+`0.1.0-db5d598eefe4` and the first page selected. All four distinct audio-meter
+targets were available at each of 60 recorded samples. A playback stream on the
+configured application target remained continuously present during five-second
+continuity checks. The service stayed active with zero restarts; no error-level
+journal entries appeared. The device remained connected
+and the display ready at the final status check. Service-cgroup CPU averaged
+9.604% of one core (range 9.235–10.165%), memory averaged 46.21 MiB (range
+44.56–47.68 MiB), and task count was 23–24. This is a resource and continuity
+soak; no keys or dials were exercised during it. Raw data is retained locally and
+is not included in public notes.
 
 ### Fedora 44 editor accessibility review — October 1, 2026
 
-The GTK editor was reviewed in the Fedora 44 VM with GNOME text scaling at 125%
-and 150%. The accessibility tree exposed 39 named interactive controls, 36
-focusable. Keyboard Tab navigation and the Alt+3 Keys & Dials shortcut worked.
-The GNOME high-contrast setting retained readable text and visible focus
-outlines. At an actual 125% monitor scale, the original window overflowed and
-clipped part of Save and Apply. The editor's fixed workspace sizing was removed
-and its minimum window size reduced. A local verification build then kept the
-Home and Keys & Dials views, preview, and Save and Apply control within the
-available area; focusing a dial scrolled the preview into view. The native GTK
-regression suite passed at 1024x768. These checks verify the local build; they
-must be repeated against the frozen V1 artifact.
+The installed GTK editor was reviewed in the Fedora 44 VM with Orca enabled and
+GNOME text scaling temporarily set to 125% and 150%. The accessibility tree
+exposed 39 interactive controls, all with names; 36 were focusable. Orca
+enumerated Decksmith, and keyboard Tab focus plus the Alt+3 Keys & Dials
+shortcut worked. At both tested text scales the fixed Save and Apply bar stayed
+visible; the device preview remained in the window, while lower editor settings
+require scrolling. Tab reached the Appearance section and device-preview
+controls. The GNOME high-contrast accessibility setting was also enabled; the
+editor retained readable text and visible keyboard focus outlines, while the
+custom device artwork remained unchanged.
 
-The VM had no audio output route, so Orca's spoken output could not be verified.
-Accessibility settings were restored after testing, and no saved layout edits
+An actual 125% monitor scale was applied through Mutter. The original
+`0.1.0-db5d598eefe4` window overflowed to the right and bottom, clipping part of
+Save and Apply. The fix removes the workspace shell's fixed 1280x860 sizing and
+reduces the window's minimum size to fit smaller logical work areas. A VM-only
+verification build, `0.1.0-c79af4afe46a` (archive SHA-256
+`c44cee6410a7158872d67b342bcd3a70ee9ce9b4d54c464dfb07a0ccedd5f223`), was
+launched after setting the monitor scale to 125%. Home and Keys & Dials fit
+horizontally, Save and Apply remained visible, keyboard focus reached Appearance
+and the dials, and focusing a dial scrolled the preview into view. The high-
+contrast screenshot retained readable labels and visible focus. This verifies
+the correction on the local build; it must be repeated on the frozen V1 artifact.
+The edited source also passed the native `check_workspace_gtk.py --compact`
+regression in the Fedora guest at 1024x768, covering workspace geometry,
+key/dial focus traversal, page changes, draft/history behavior, status gating and
+the five sections.
+
+The VM's audio backend is explicitly `type='none'`, so although Orca enumerated
+Decksmith, spoken output could not be heard or certified. Orca also logged
+display/AT-SPI warnings during startup. Text scale, monitor scale, high-contrast
+and screen-reader settings were restored to their original defaults, Orca was
+stopped, and the VM was shut down with autostart disabled. No saved layout edits
 were made.
 
 ### Clean-user installer qualification — October 1, 2026
 
-A disposable Fedora 44 test account installed a fresh local verification bundle.
-Runtime doctor and release-integrity checks passed; startup remained disabled
-and background controls stayed inactive. The account then installed an earlier
-local bundle, upgraded back to the verification build, rolled back, reinstalled,
-uninstalled, and reinstalled again. The saved layout remained unchanged through
-upgrade and rollback; uninstall preserved the layout and release files. These
-checks were performed on a local verification build, not a frozen V1 artifact.
+A disposable `v1test` account in the Fedora 44 VM installed verification bundle
+`0.1.0-c79af4afe46a` from a fresh profile. Installer status and runtime doctor
+passed (`ready: true`, including release integrity and VirtualDeck); startup
+remained disabled and the background service stayed inactive. Installing prior
+local bundle `0.1.0-9c8de697f85b` and upgrading back to `0.1.0-c79af4afe46a`
+created configuration backups. The backup contained `config/layout.json`, and
+its SHA-256 (`544c7b44d0d78159cc11b09b64dc1ac3e595f0f23efa408e24864efe14459159`)
+was unchanged through upgrade and rollback. Rollback selected the prior release;
+reinstall returned to the updated build. Uninstall removed managed integration
+while retaining the saved layout and release directories; reinstall succeeded.
+The disposable account and its files were removed after testing.
 
-The clean account's native first-run window remains unverified because this
-session could not access the VM console to perform the separate graphical login.
-No graphical-session credentials were copied. Repeat the first-run check when a
-console-accessible clean-user session is available.
+The clean account's native first-run window was not verified. This Codex session
+could not access the VM console to perform the separate graphical login, so the
+test stopped before opening the window. No graphical-session credentials were
+copied. A console-accessible graphical login for the clean test account is still
+needed. This local verification build is not a frozen V1 release candidate and
+does not close final artifact qualification.
+
+### Local candidate VM smoke — October 2, 2026
+
+Release bundle `0.1.0-377d2fdf128b` was built from clean source commit
+`c9744bd03ea105fbec0e96266c41391ce6992ea6` (`source_dirty: false`). Its archive
+SHA-256 is
+`99b137598798f3b98548ca9c781a74e094ae4efc2acd802ff23001cc01c3f3f3`. The same
+archive digest was verified in each guest before installation. This is a local
+qualification artifact, not a frozen V1 release candidate or public release.
+
+| VM | October 2 result |
+| --- | --- |
+| Fedora 44 | **Pass for this smoke:** candidate installed over `0.1.0-c79af4afe46a`; runtime doctor and release integrity passed; VirtualDeck reported 4×2 keys, four dials, 120×120 key images and an 800×100 touch area; the background service started and stopped. The private-bus smoke passed previews, navigation, save and layout validation. The native Wayland editor smoke passed key/dial selection and produced a rendered preview. The existing saved-layout checksum was unchanged. |
+| Fedora 45 Beta | **Pass for this smoke:** candidate installed over `0.1.0-db5d598eefe4`; runtime doctor, VirtualDeck geometry, service start/stop and private-bus preview/navigation/save/layout-validation smoke passed. The existing layout hash was unchanged. This remains a beta diagnostic result, not final Fedora 45 certification. |
+| Ubuntu 26.04 | **Pass for this smoke:** candidate installed over `0.1.0-db5d598eefe4`; runtime doctor, VirtualDeck geometry, service start/stop and private-bus preview/navigation/save/layout-validation smoke passed. No saved layout existed before installation, so there was no prior layout to compare. This is diagnostic evidence, not Ubuntu support. |
+| Debian 13 | **Expected unsupported-runtime rejection:** runtime validation reported that the Fedora-built daemon requires `GLIBC_2.43`, unavailable on Debian's glibc 2.41. The installer exited before creating an installed release or current-release link. |
+
+All four guests were shut down after testing; libvirt autostart remains disabled.
+The Fedora 44 native editor capture is retained at
+`docs/images/decksmith-v1-candidate-20261002.png`.
+The VMs have no physical Stream Deck USB passthrough or host audio backend, so
+this run does not cover physical hardware, audio routing, accessibility, upgrade
+rollback, reboot persistence or the required reference-host gates. The Fedora 44
+native GUI check used a private test bus and temporary XDG directories; it did
+not change the guest's saved layout. These results apply only to this artifact
+and do not by themselves certify V1.
 
 ## Work order
 
 The supported boundary and initial results are recorded above. Remaining work is
-to repeat the corrected scaled-display layout and install/migration/rollback
-checks on a frozen V1 artifact, verify spoken Orca output with a suitable VM
-audio route, and complete the clean-user first-run check in a graphical session.
-Then resolve any critical reliability, security, device-recovery or core-control
-findings; repeat affected checks on the exact V1 candidate and publish that
-tested artifact with its own checksum. Optional features do not replace any gate.
+to repeat the corrected scaled-display layout on the frozen V1 artifact, verify
+audible Orca output with a suitable VM audio path, verify first-run UI in a
+separately authorized clean-user graphical session, and repeat install,
+migration, rollback and uninstall on the frozen V1 artifact. Then resolve any
+critical reliability, security, device-recovery or core-control findings; repeat
+affected checks on the exact V1 candidate and publish that tested artifact with
+its own checksum. Optional features do not replace any gate.

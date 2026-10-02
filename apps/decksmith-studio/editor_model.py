@@ -198,6 +198,7 @@ class Draft:
                     key['label'] = name
 
     def validate(self):
+        from text_labels import valid_label
         from plugin_bindings import validate as validate_plugin
         for page in self.data['pages']:
             for key in page['keys']:
@@ -217,14 +218,12 @@ class Draft:
                     raise ValueError('Choose a valid application other than Decksmith.')
                 if app in assigned:raise ValueError('An application can be assigned to only one page.')
                 assigned.add(app)
-        def label_valid(text, mixed=False):
-            return 1 <= len(text) <= (24 if mixed else 8) and any(c != ' ' for c in text) and all(c == ' ' or 'A' <= c <= 'Z' or '0' <= c <= '9' or (mixed and 'a' <= c <= 'z') for c in text)
         for page in self.data['pages']:
-            if not label_valid(page['name'], mixed=True):
-                raise ValueError('Page names need 1–24 letters, numbers or spaces.')
+            if not valid_label(page['name']):
+                raise ValueError('Page names need 1–24 visible characters; emoji are supported.')
             for index, key in enumerate(page['keys']):
-                if not label_valid(key['label'], mixed=True):
-                    raise ValueError(f"Key {index+1} on {page['name']} needs 1–24 letters, numbers or spaces.")
+                if not valid_label(key['label']):
+                    raise ValueError(f"Key {index+1} on {page['name']} needs 1–24 visible characters; emoji are supported.")
                 action = key['action']
                 if action['type'] == 'go_to_page' and not 0 <= action['page'] < len(self.data['pages']):
                     raise ValueError(f"Key {index+1} on {page['name']}: Choose an existing destination page.")
@@ -267,8 +266,8 @@ class Draft:
                     image=bytes(dial['target_icon_png'])
                     if len(image)>8192 or image[:8]!=b'\x89PNG\r\n\x1a\n' or len(image)<24 or image[16:24]!=b'\0\0\0 \0\0\0 ':raise ValueError()
                 except (TypeError,ValueError):raise ValueError('Choose a valid 32-pixel audio application icon.')
-            if not label_valid(dial['label'], mixed=True):
-                raise ValueError(f'Dial {index+1} needs 1–24 letters, numbers or spaces.')
+            if not valid_label(dial['label']):
+                raise ValueError(f'Dial {index+1} needs 1–24 visible characters; emoji are supported.')
             if dial.get('rotation') not in ('none','volume','brightness') or not isinstance(dial.get('step'),int) or not 1<=dial['step']<=10:raise ValueError('Invalid dial rotation or step.')
             from audio_targets import validate
             validate(dial.get('audio_target','system'))

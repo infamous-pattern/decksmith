@@ -1,6 +1,5 @@
 """Edit shared and page-specific dial mappings without changing the active device."""
 from copy import deepcopy
-from unicodedata import normalize
 from audio_target_picker import AudioTargetPicker
 from media_picker import MediaPicker
 from gi.repository import Adw,Gtk
@@ -113,11 +112,10 @@ class DialControls(Gtk.Box):
         if index>=len(picker.visible_items):return
         item=picker.visible_items[index]
         name=item.get('name') or item['label'].split(' · ',1)[-1]
-        name=normalize('NFKD',name).encode('ascii','ignore').decode('ascii')
-        name=' '.join(''.join(c if c.isalnum() else ' ' for c in name).split())
-        # Keep generated labels within the same bounds as handwritten labels.
+        from text_labels import generated_label
+        name=generated_label(name,'Audio')
         self.syncing=True
-        self.label.set_text(name[:24].rstrip() or 'Audio')
+        self.label.set_text(name)
         self.syncing=False
         from applications import audio_icon_png
         icon=audio_icon_png(item['id'])
@@ -159,16 +157,17 @@ class DialControls(Gtk.Box):
             if _args and _args[0] is self.label:self.owner.history_group=('dial',getattr(self.owner,'page',0),self.index,'label')
             self.owner.render()
     def validate(self):
-        valid=all(1<=len(dial['label'])<=24 and dial['label'].strip() and all(c.isascii() and (c.isalnum() or c==' ') for c in dial['label']) for dial in self.data)
+        from text_labels import valid_label
+        valid=all(valid_label(dial['label']) for dial in self.data)
         self.icon_refresh.set_visible(self.target.value().startswith('app:') and (self.rotation.get_selected()==1 or self.press.get_selected()==1))
-        self.label_error.set_text('Use 1–24 letters, numbers or spaces.' if not valid else '')
+        self.label_error.set_text('Use 1–24 visible characters. Emoji are supported.' if not valid else '')
         self.label_error.set_visible(not valid)
         self.media_player.set_visible(self.press.get_selected() in (4,5,6))
         self.target.set_visible(self.rotation.get_selected()==1 or self.press.get_selected() in (1,7))
         if any(d['press']['type']=='push_to_talk' and not d.get('audio_target','').startswith('input:') for d in self.data):
             self.apply.set_sensitive(False);self.status.set_text('Choose a named microphone for push to talk.');return
         self.apply.set_sensitive(bool(valid));self.step.set_sensitive(self.rotation.get_selected()!=0 or bool(self.data[self.index].get('plugin_rotation')))
-        self.status.set_text(('Save and Apply sends your changes to the device.' if self.embedded else 'Done returns to Edit Layout. Save and Apply sends your changes to the device.') if valid else 'Labels need 1–24 letters, numbers or spaces.')
+        self.status.set_text(('Save and Apply sends your changes to the device.' if self.embedded else 'Done returns to Edit Layout. Save and Apply sends your changes to the device.') if valid else 'Labels need 1–24 visible characters. Emoji are supported.')
     def use(self,_button):
         for index,dial in enumerate(self.data):store(self.owner.draft.data,getattr(self.owner,'page',0),index,dial)
         self.owner.render()

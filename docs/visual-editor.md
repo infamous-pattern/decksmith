@@ -7,8 +7,10 @@ loads the daemon's active layout into a separate draft. Select a page and one of
 its eight keys to edit the label, choose text or the approved Maker's Mark artwork,
 and assign an action. Supported actions are no action, page navigation, volume
 up/down, mute toggle, and a nonzero volume step from -20 through 20 percent.
-Page names and key labels use 1–24 ASCII letters (uppercase or lowercase), numbers,
-or spaces. Entered case is preserved. Existing saved names are unchanged.
+Page names and key labels accept 1–24 printable characters, including emoji,
+Unicode text, letters, numbers, and spaces. Entered text is preserved. Emoji render
+in the desktop preview; the Stream Deck's bundled outline fonts use a question-mark
+fallback for glyphs they do not contain. Existing saved names are unchanged.
 
 **Add page** creates an eight-key page, up to the schema limit of 16. Page names
 can be changed without breaking numeric navigation destinations. **Discard changes**
@@ -307,7 +309,7 @@ clear and discard; model tests cover copied links after page rename/reorder/dele
 
 ## Longer key labels
 
-Key labels accept up to 24 ASCII letters, digits and spaces, preserving case.
+Key labels accept up to 24 printable characters, including emoji, preserving case.
 For example, `Volume Up` is valid. The physical key font automatically shrinks
 as needed. Page names retain their separate eight-character limit. Copy, Paste
 and Clear preserve any validation explanation instead of hiding it with a

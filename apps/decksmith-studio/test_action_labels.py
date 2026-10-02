@@ -23,4 +23,5 @@ class ActionLabelTests(unittest.TestCase):
         from action_labels import application_label
         self.assertEqual(application_label('Brave Web Browser'),'Brave Web Browser')
         self.assertEqual(application_label('Café — Player'),'Cafe Player')
+        self.assertEqual(application_label('🎵 MPZ Player'),'🎵 MPZ Player')
         self.assertLessEqual(len(application_label('An application with an extremely long name')),24)

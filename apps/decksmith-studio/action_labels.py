@@ -27,7 +27,6 @@ def uses_default(label, action, pages):
 
 
 def application_label(name):
-    """Fit discovered names to the device's current label character/length limits."""
-    import unicodedata
-    ascii_name=unicodedata.normalize('NFKD',name).encode('ascii','ignore').decode()
-    return ' '.join(''.join(c if c.isalnum() else ' ' for c in ascii_name).split())[:24].rstrip() or 'Open App'
+    """Fit discovered names to the label limit while preserving emoji."""
+    from text_labels import generated_label
+    return generated_label(name, 'Open App')

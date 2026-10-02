@@ -2,7 +2,6 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from unicodedata import normalize
 from gi.repository import Adw,Gtk,GLib,Gdk,GdkPixbuf
 from plugin_lab_client import LabClient
 
@@ -14,8 +13,8 @@ def binding(item,operation):
     return {'provider':'com.infamous-pattern.openhomeb','action':'com.infamous-pattern.openhomeb.'+operation,'schema':2,'settings':{'accessoryId':item['id']}}
 
 def label(name):
-    name=normalize('NFKD',name).encode('ascii','ignore').decode()
-    return ' '.join(''.join(c if c.isalnum() else ' ' for c in name).split())[:24].strip() or 'Homebridge'
+    from text_labels import generated_label
+    return generated_label(name, 'Homebridge')
 
 def icon_png(name,size=120):
     try:

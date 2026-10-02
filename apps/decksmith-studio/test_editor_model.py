@@ -90,6 +90,21 @@ class DraftTests(unittest.TestCase):
         draft.validate()
         self.assertEqual(draft.data['pages'][0]['keys'][0]['label'], 'PAGE 1')
 
+    def test_page_names_and_key_labels_accept_emoji_and_reject_controls(self):
+        draft=Draft(self.sample())
+        draft.rename_page(0,'🎵 Studio')
+        draft.data['pages'][0]['keys'][0]['label']='👩‍💻 Build'
+        draft.validate()
+        self.assertEqual(draft.data['pages'][0]['keys'][0]['label'],'👩‍💻 Build')
+        import json
+        restored=Draft(json.loads(json.dumps(draft.data,ensure_ascii=False)))
+        restored.validate()
+        self.assertEqual(restored.data['pages'][0]['name'],'🎵 Studio')
+        restored.data['pages'][0]['keys'][0]['label']='Bad\nLabel'
+        with self.assertRaisesRegex(ValueError,'visible characters'):restored.validate()
+        restored.data['pages'][0]['keys'][0]['label']='😀'*25
+        with self.assertRaisesRegex(ValueError,'visible characters'):restored.validate()
+
     def test_reorder_preserves_targets_and_device_mapping(self):
         draft = Draft(self.sample())
         draft.add_page()

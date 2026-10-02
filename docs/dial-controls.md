@@ -1,6 +1,6 @@
 # Four-dial controls
 
-In Edit Layout, choose **Edit dials…**. Dial 1 is leftmost. Each dial has an independent label (1–24 ASCII letters, digits or spaces), rotation action (none, output volume, device brightness), step size (1–10 percent per tick), and press/release action (none, mute, next page, previous page). Settings apply across all pages.
+In Edit Layout, choose **Edit dials…**. Dial 1 is leftmost. Each dial has an independent label (1–24 printable characters, including emoji), rotation action (none, output volume, device brightness), step size (1–10 percent per tick), and press/release action (none, mute, next page, previous page). Settings apply across all pages. The desktop preview preserves emoji; the Stream Deck's bundled outline fonts show a question-mark fallback for unsupported glyphs.
 
 **Done** keeps the dial changes in the editor draft and returns to Edit Layout; **Save and Apply** sends it to the device. Existing layouts retain their original dial behavior until explicit settings are saved. The touch strip then displays four labeled panels with current volume/mute, brightness, or page position. Swipes continue to navigate pages.
 

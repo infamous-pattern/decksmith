@@ -174,6 +174,24 @@ fn draw_canvas(rgb: &mut [u8], label: &str, color: [u8; 3], canvas: Canvas) {
     let location = font.axes().location([("wght", 700.0)]);
     let outlines = font.outline_glyphs();
     let charmap = font.charmap();
+    // Bundled outline fonts do not contain color emoji glyphs. Preserve the
+    // saved label, but display one readable fallback per unsupported sequence.
+    let mut rendered = String::with_capacity(label.len());
+    let mut in_missing_sequence = false;
+    for c in label.chars() {
+        if charmap.map(c).is_some_and(|id| id.to_u32() != 0) {
+            rendered.push(c);
+            in_missing_sequence = false;
+        } else if matches!(c as u32, 0x200d | 0xfe00..=0xfe0f | 0xe0100..=0xe01ef | 0xe0020..=0xe007f | 0x1f3fb..=0x1f3ff)
+        {
+            // Joiners, variation selectors, tags and skin-tone modifiers are
+            // part of the preceding emoji and have no standalone outline.
+        } else if !in_missing_sequence {
+            rendered.push('?');
+            in_missing_sequence = true;
+        }
+    }
+    let label = rendered.as_str();
     let measure = |text: &str| {
         let metrics = font.glyph_metrics(Size::new(initial_size), &location);
         text.chars()
@@ -372,5 +390,17 @@ mod font_tests {
         assert_eq!(decorative_runes(label), "ᚠᛁᚴᛁᚾᚴ 42");
         assert_eq!(decorative_runes(label), decorative_runes("VIKING 42"));
         assert_eq!(label, "Viking 42");
+    }
+
+    #[test]
+    fn unsupported_emoji_draws_a_safe_fallback_without_panicking() {
+        for label in ["🔊", "👩‍💻", "🎚️ Studio"] {
+            let mut emoji = vec![0; 120 * 120 * 3];
+            draw(&mut emoji, label, 1, false, false, [255; 3]);
+            assert!(
+                emoji.iter().any(|v| *v != 0),
+                "fallback rendering for {label}"
+            );
+        }
     }
 }

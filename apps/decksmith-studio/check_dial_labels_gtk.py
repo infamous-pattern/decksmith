@@ -23,10 +23,12 @@ with patch.object(AudioTargetPicker, 'refresh'), patch('applications.audio_icon_
     assert controls.label.get_text() == 'System sounds'
     assert layout['dials'][3]['label'] == 'System sounds'
     assert layout['dials'][3]['rotation'] == 'volume'
-    controls.label.set_text('My Alerts')
+    controls.label.set_text('🎙️ My Alerts')
+    assert controls.apply.get_sensitive(), controls.status.get_text()
+    assert controls.data[3]['label'] == '🎙️ My Alerts'
     controls.target.select('system')  # Inventory sync must keep custom text.
     controls.select()                # Revisiting this dial must keep it too.
-    assert controls.label.get_text() == 'My Alerts'
+    assert controls.label.get_text() == '🎙️ My Alerts'
     controls.target.select('microphone')
     controls.rotation.set_selected(2)
     assert controls.label.get_text() == 'Brightness'

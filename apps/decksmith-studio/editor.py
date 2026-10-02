@@ -229,7 +229,7 @@ class Editor(Adw.ApplicationWindow):
         self.edit_mode.connect('notify::active',lambda *_args:self.render() if self.draft else None)
         page_group = Adw.PreferencesGroup(title='Page settings')
         self.page_name = Adw.EntryRow(title='Page name')
-        self.page_name.set_tooltip_text('Up to 24 uppercase or lowercase letters, numbers or spaces.')
+        self.page_name.set_tooltip_text('Up to 24 visible characters, including emoji.')
         self.page_name.connect('changed', self.page_name_changed)
         page_group.add(self.page_name)
         self.page_default=Adw.SwitchRow(title='Use as default page')
@@ -258,7 +258,7 @@ class Editor(Adw.ApplicationWindow):
         self.label = Adw.EntryRow(title='Label')
         self.label.connect('changed', self.form_changed)
         self.form.add(self.label)
-        self.label.set_tooltip_text("Up to 24 letters, numbers or spaces. Words wrap automatically.")
+        self.label.set_tooltip_text("Up to 24 visible characters, including emoji. Words wrap automatically.")
         self.appearance=Adw.ExpanderRow(title="Appearance",subtitle="Artwork, label position and colors")
         self.label_position = Adw.ComboRow(title='Label position',model=Gtk.StringList.new(['Hidden','Top','Middle','Bottom']))
         self.label_position.connect('notify::selected',self.form_changed)
@@ -744,8 +744,9 @@ class Editor(Adw.ApplicationWindow):
         key=self.draft.data['pages'][self.page]['keys'][self.key]
         action=key['action'];kind=action['type'];errors={}
         label=key['label']
-        if not (1<=len(label)<=24 and label.strip() and all(c.isascii() and (c.isalnum() or c==' ') for c in label)):
-            errors['label']='Use 1–24 letters, numbers or spaces.'
+        from text_labels import valid_label
+        if not valid_label(label):
+            errors['label']='Use 1–24 visible characters. Emoji are supported.'
         if kind=='open_application' and not action.get('desktop_id'):errors['application']='Choose an application.'
         if kind=='open_website':
             try:

@@ -3,6 +3,42 @@ use decksmith_core::{RawEvent, TouchGesture};
 use decksmith_device::{DeckDevice, DeviceError};
 use serde::{Deserialize, Serialize};
 
+fn valid_label(s: &str) -> bool {
+    let valid_char = |c: char| {
+        c == ' '
+            || c.is_ascii_alphanumeric()
+            || (!c.is_ascii()
+                && !c.is_control()
+                && (c as u32 == 0x200d
+                    || !matches!(
+                        c as u32,
+                        0x00ad
+                            | 0x061c
+                            | 0x06dd
+                            | 0x070f
+                            | 0x0890..=0x0891
+                            | 0x08e2
+                            | 0x180e
+                            | 0x200b..=0x200f
+                            | 0x202a..=0x202e
+                            | 0x2060..=0x206f
+                            | 0xfeff
+                            | 0xfff9..=0xfffb
+                            | 0x110bd
+                            | 0x110cd
+                            | 0x13430..=0x1343f
+                            | 0x1bca0..=0x1bca3
+                            | 0x1d173..=0x1d17a
+                    ))
+                && !c.is_whitespace())
+    };
+    (1..=24).contains(&s.chars().count())
+        && s.chars().any(|c| {
+            !c.is_whitespace() && c != '\u{200d}' && !(0xe0020..=0xe007f).contains(&(c as u32))
+        })
+        && s.chars().all(valid_char)
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -281,12 +317,6 @@ impl Pages {
             return Err("config_too_large");
         }
         let mut config: Config = serde_json::from_slice(bytes).map_err(|_| "invalid_config")?;
-        let valid_label = |s: &str| {
-            !s.is_empty()
-                && s.len() <= 24
-                && !s.trim().is_empty()
-                && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b' ')
-        };
         if config.version != 1 || config.pages.is_empty() || config.pages.len() > 16 {
             return Err("invalid_config");
         }
@@ -357,12 +387,7 @@ impl Pages {
                 {
                     return Err("invalid_audio_target");
                 }
-                if dial.label.trim().is_empty()
-                    || dial.label.len() > 24
-                    || !dial
-                        .label
-                        .bytes()
-                        .all(|b| b.is_ascii_alphanumeric() || b == b' ')
+                if !valid_label(&dial.label)
                     || !(1..=10).contains(&dial.step)
                     || !matches!(
                         dial.press,
@@ -435,13 +460,7 @@ impl Pages {
                     _ => (),
                 }
 
-                if key.label.is_empty()
-                    || key.label.len() > 24
-                    || !key
-                        .label
-                        .bytes()
-                        .all(|b| b.is_ascii_alphanumeric() || b == b' ')
-                {
+                if !valid_label(&key.label) {
                     return Err("invalid_config");
                 }
                 if let Action::VolumeAdjust { percent } | Action::BrightnessAdjust { percent } =
@@ -2929,6 +2948,31 @@ mod tests {
         value["pages"][0]["name"] = "PAGE 1".into();
         value["pages"][0]["keys"][1]["label"] = "PAGE 2".into();
         assert!(Pages::parse(&serde_json::to_vec(&value).unwrap()).is_ok());
+    }
+    #[test]
+    fn page_key_and_dial_labels_accept_emoji_with_unicode_character_limits() {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../../../config/audio.json")).unwrap();
+        value["pages"][0]["name"] = "🎵 Studio".into();
+        value["pages"][0]["keys"][0]["label"] = "👩‍💻 Build".into();
+        value["dials"] = serde_json::json!([
+            {"label":"🔊 Volume","rotation":"none","step":1,"press":{"type":"none"}},
+            {"label":"Dial 2","rotation":"none","step":1,"press":{"type":"none"}},
+            {"label":"Dial 3","rotation":"none","step":1,"press":{"type":"none"}},
+            {"label":"Dial 4","rotation":"none","step":1,"press":{"type":"none"}}
+        ]);
+        let pages = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        let restored = Pages::parse(pages.json().as_bytes()).unwrap();
+        assert_eq!(restored.config.pages[0].name, "🎵 Studio");
+        assert_eq!(restored.config.pages[0].keys[0].label, "👩‍💻 Build");
+        assert_eq!(
+            restored.config.dials.as_ref().unwrap()[0].label,
+            "🔊 Volume"
+        );
+        value["pages"][0]["name"] = "😀".repeat(25).into();
+        assert!(Pages::parse(&serde_json::to_vec(&value).unwrap()).is_err());
+        value["pages"][0]["name"] = "Bad\nName".into();
+        assert!(Pages::parse(&serde_json::to_vec(&value).unwrap()).is_err());
     }
     #[test]
     fn mixed_case_page_names_roundtrip_with_linked_labels_and_render() {

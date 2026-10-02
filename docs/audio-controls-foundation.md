@@ -99,7 +99,7 @@ user check after assigning targets.
 
 ### Automatic touch-strip labels
 
-Selecting a different audio target in Dial controls fills the touch-strip label with its display name, without the App/Input/Output prefix. You can edit the label afterward. Refreshing the inventory, reopening the dialog, and switching between dials preserve your custom label. Selecting another target supplies a new default name. Generated names are normalized to supported letters, numbers and spaces and shortened to the 24-character limit. Use Done, then Save and Apply to send the change to the device.
+Selecting a different audio target in Dial controls fills the touch-strip label with its display name, without the App/Input/Output prefix. You can edit the label afterward. Refreshing the inventory, reopening the dialog, and switching between dials preserve your custom label. Selecting another target supplies a new default name. Generated names preserve emoji and printable Unicode, then shorten to the 24-character limit. Use Done, then Save and Apply to send the change to the device.
 
 Verified with the GTK fixture: target selection, manual override, inventory model refresh, dial switching, long device names, and saved layout serialization. All 31 Python tests passed.
 
