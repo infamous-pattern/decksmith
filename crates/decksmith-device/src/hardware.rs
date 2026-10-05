@@ -20,7 +20,7 @@ trait Transport: Send {
     fn read(&mut self) -> Result<StreamDeckInput, DeviceError>;
     fn firmware(&self) -> Result<String, DeviceError>;
     fn key(&mut self, index: u8, image: DynamicImage) -> Result<(), DeviceError>;
-    fn strip(&mut self, image: DynamicImage) -> Result<(), DeviceError>;
+    fn strip(&mut self, x: u16, y: u16, image: DynamicImage) -> Result<(), DeviceError>;
     fn brightness(&mut self, percent: u8) -> Result<(), DeviceError>;
 }
 struct UsbTransport(StreamDeck);
@@ -41,10 +41,10 @@ impl Transport for UsbTransport {
             .map_err(|_| DeviceError::Transport)?;
         self.0.flush().map_err(|_| DeviceError::Transport)
     }
-    fn strip(&mut self, image: DynamicImage) -> Result<(), DeviceError> {
+    fn strip(&mut self, x: u16, y: u16, image: DynamicImage) -> Result<(), DeviceError> {
         let rect = ImageRect::from_image(image).map_err(|_| DeviceError::ImageEncoding)?;
         self.0
-            .write_lcd(0, 0, &rect)
+            .write_lcd(x, y, &rect)
             .map_err(|_| DeviceError::Transport)
     }
     fn brightness(&mut self, percent: u8) -> Result<(), DeviceError> {
@@ -61,6 +61,7 @@ pub struct PhysicalDeck {
     queue: VecDeque<InputEvent>,
     epoch: Instant,
     _ownership: Option<std::fs::File>,
+    touch_frame: Option<Vec<u8>>,
 }
 impl PhysicalDeck {
     /// The caller must arrange sole application ownership before calling this.
@@ -88,6 +89,7 @@ impl PhysicalDeck {
             queue: VecDeque::new(),
             epoch: Instant::now(),
             _ownership: None,
+            touch_frame: None,
         }
     }
     pub fn info(&self) -> Result<HardwareInfo, DeviceError> {
@@ -109,8 +111,40 @@ impl DeckDevice for PhysicalDeck {
         self.transport.key(index, image)
     }
     fn set_touch_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError> {
-        let image = rgb_image(rgb, 800, 100).ok_or(DeviceError::InvalidTouchImage)?;
-        self.transport.strip(image)
+        if rgb.len() != 800 * 100 * 3 {
+            return Err(DeviceError::InvalidTouchImage);
+        }
+        let region = match &self.touch_frame {
+            Some(previous) => match changed_touch(previous, rgb) {
+                Some(region) => region,
+                None => return Ok(()),
+            },
+            None => TouchRegion {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 100,
+            },
+        };
+        if let Err(error) = self
+            .transport
+            .strip(region.x, region.y, region_image(rgb, region))
+        {
+            // A failed multi-report write may have changed part of the display.
+            // Repaint the full frame on retry; never advance an uncertain baseline.
+            self.touch_frame = None;
+            return Err(error);
+        }
+        match &mut self.touch_frame {
+            Some(previous) => previous.copy_from_slice(rgb),
+            None => self.touch_frame = Some(rgb.to_vec()),
+        }
+        Ok(())
+    }
+    fn blank(&mut self) -> Result<(), DeviceError> {
+        // Shutdown always clears the complete strip, even when cached pixels match.
+        self.touch_frame = None;
+        crate::blank_display(self)
     }
     fn set_brightness(&mut self, percent: u8) -> Result<(), DeviceError> {
         if percent > 100 {
@@ -133,6 +167,51 @@ impl DeckDevice for PhysicalDeck {
             }));
         Ok(self.queue.pop_front())
     }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TouchRegion {
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+}
+fn changed_touch(previous: &[u8], rgb: &[u8]) -> Option<TouchRegion> {
+    const ROW: usize = 800 * 3;
+    let mut rows = previous.chunks_exact(ROW).zip(rgb.chunks_exact(ROW));
+    let top = rows.position(|(a, b)| a != b)?;
+    let bottom = top + 1 + rows.rposition(|(a, b)| a != b).map_or(0, |i| i + 1);
+    let mut left = 800;
+    let mut right = 0;
+    for y in top..bottom {
+        let a = &previous[y * ROW..(y + 1) * ROW];
+        let b = &rgb[y * ROW..(y + 1) * ROW];
+        for (x, (a, b)) in a.chunks_exact(3).zip(b.chunks_exact(3)).enumerate() {
+            if a != b {
+                left = left.min(x);
+                right = right.max(x + 1);
+            }
+        }
+    }
+    // Preserve the full-frame JPEG block grid, including unchanged edge pixels.
+    let x = left / 8 * 8;
+    let y = top / 8 * 8;
+    Some(TouchRegion {
+        x: x as u16,
+        y: y as u16,
+        width: (right.div_ceil(8) * 8 - x) as u16,
+        height: ((bottom.div_ceil(8) * 8).min(100) - y) as u16,
+    })
+}
+fn region_image(rgb: &[u8], region: TouchRegion) -> DynamicImage {
+    let width = usize::from(region.width);
+    let mut pixels = Vec::with_capacity(width * usize::from(region.height) * 3);
+    for y in usize::from(region.y)..usize::from(region.y + region.height) {
+        let start = (y * 800 + usize::from(region.x)) * 3;
+        pixels.extend_from_slice(&rgb[start..start + width * 3]);
+    }
+    DynamicImage::ImageRgb8(
+        RgbImage::from_raw(u32::from(region.width), u32::from(region.height), pixels).unwrap(),
+    )
 }
 fn rgb_image(rgb: &[u8], width: u32, height: u32) -> Option<DynamicImage> {
     if rgb.len() != width as usize * height as usize * 3 {
@@ -342,7 +421,7 @@ mod tests {
         fn key(&mut self, _: u8, _: DynamicImage) -> Result<(), DeviceError> {
             Err(DeviceError::Transport)
         }
-        fn strip(&mut self, _: DynamicImage) -> Result<(), DeviceError> {
+        fn strip(&mut self, _: u16, _: u16, _: DynamicImage) -> Result<(), DeviceError> {
             Err(DeviceError::Transport)
         }
         fn brightness(&mut self, _: u8) -> Result<(), DeviceError> {
@@ -359,6 +438,200 @@ mod tests {
         assert_eq!(d.set_key_image(0, &[]), Err(DeviceError::InvalidKeyImage));
         assert_eq!(d.set_touch_image(&[]), Err(DeviceError::InvalidTouchImage));
         assert_eq!(d.poll_event(), Err(DeviceError::Transport));
+    }
+    #[derive(Default)]
+    struct Recording {
+        pixels: Vec<u8>,
+        writes: Vec<TouchRegion>,
+        fail: bool,
+        keys: usize,
+    }
+    struct Recorder(std::sync::Arc<std::sync::Mutex<Recording>>);
+    impl Transport for Recorder {
+        fn read(&mut self) -> Result<StreamDeckInput, DeviceError> {
+            Ok(StreamDeckInput::NoData)
+        }
+        fn firmware(&self) -> Result<String, DeviceError> {
+            Ok("fixture".into())
+        }
+        fn key(&mut self, _: u8, _: DynamicImage) -> Result<(), DeviceError> {
+            self.0.lock().unwrap().keys += 1;
+            Ok(())
+        }
+        fn brightness(&mut self, _: u8) -> Result<(), DeviceError> {
+            Ok(())
+        }
+        fn strip(&mut self, x: u16, y: u16, image: DynamicImage) -> Result<(), DeviceError> {
+            let mut state = self.0.lock().unwrap();
+            let image = image.into_rgb8();
+            state.writes.push(TouchRegion {
+                x,
+                y,
+                width: image.width() as u16,
+                height: image.height() as u16,
+            });
+            state.pixels.resize(800 * 100 * 3, 0);
+            for row in 0..image.height() as usize {
+                let start = ((usize::from(y) + row) * 800 + usize::from(x)) * 3;
+                let width = image.width() as usize * 3;
+                state.pixels[start..start + width]
+                    .copy_from_slice(&image.as_raw()[row * width..(row + 1) * width]);
+            }
+            if std::mem::take(&mut state.fail) {
+                Err(DeviceError::Transport)
+            } else {
+                Ok(())
+            }
+        }
+    }
+    #[test]
+    fn touch_regions_reconstruct_frames_skip_duplicates_and_handle_edges() {
+        let state = std::sync::Arc::new(std::sync::Mutex::new(Recording::default()));
+        let mut deck = PhysicalDeck::with_transport(Box::new(Recorder(state.clone())));
+        let mut frame = vec![25; 800 * 100 * 3];
+        deck.set_touch_image(&frame).unwrap();
+        assert_eq!(
+            state.lock().unwrap().writes,
+            vec![TouchRegion {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 100
+            }]
+        );
+        for (i, (x, y)) in [(0, 0), (799, 99), (193, 71), (398, 94), (400, 72)]
+            .into_iter()
+            .enumerate()
+        {
+            let at = (y * 800 + x) * 3;
+            frame[at..at + 3].copy_from_slice(&[200, i as u8, 0]);
+            deck.set_touch_image(&frame).unwrap();
+            let recorded = state.lock().unwrap();
+            assert_eq!(recorded.pixels, frame);
+            let region = recorded.writes.last().unwrap();
+            assert_eq!(region.x % 8, 0);
+            assert_eq!(region.y % 8, 0);
+            assert!(region.x + region.width <= 800 && region.y + region.height <= 100);
+            assert!(region.width <= 8 && region.height <= 8);
+        }
+        let count = state.lock().unwrap().writes.len();
+        deck.set_touch_image(&frame).unwrap();
+        assert_eq!(state.lock().unwrap().writes.len(), count);
+        assert_eq!(
+            deck.set_touch_image(&frame[..frame.len() - 1]),
+            Err(DeviceError::InvalidTouchImage)
+        );
+        assert_eq!(state.lock().unwrap().writes.len(), count);
+    }
+    #[test]
+    fn failed_touch_write_retries_full_frame_and_blank_always_clears_all_surfaces() {
+        let state = std::sync::Arc::new(std::sync::Mutex::new(Recording::default()));
+        let mut deck = PhysicalDeck::with_transport(Box::new(Recorder(state.clone())));
+        let mut frame = vec![50; 800 * 100 * 3];
+        deck.set_touch_image(&frame).unwrap();
+        frame[(72 * 800 + 205) * 3] = 200;
+        state.lock().unwrap().fail = true;
+        assert_eq!(deck.set_touch_image(&frame), Err(DeviceError::Transport));
+        assert!(deck.touch_frame.is_none());
+        deck.set_touch_image(&frame).unwrap();
+        assert_eq!(state.lock().unwrap().writes.last().unwrap().height, 100);
+        assert_eq!(state.lock().unwrap().pixels, frame);
+        deck.blank().unwrap();
+        deck.blank().unwrap();
+        let recorded = state.lock().unwrap();
+        assert_eq!(recorded.keys, 16);
+        assert_eq!(
+            recorded.writes.last().unwrap(),
+            &TouchRegion {
+                x: 0,
+                y: 0,
+                width: 800,
+                height: 100
+            }
+        );
+        assert!(recorded.pixels.iter().all(|n| *n == 0));
+        let fresh = PhysicalDeck::with_transport(Box::new(Recorder(state.clone())));
+        assert!(fresh.touch_frame.is_none());
+    }
+    #[test]
+    fn aligned_touch_regions_preserve_full_frame_jpeg_pixels() {
+        let mut frame = Vec::with_capacity(800 * 100 * 3);
+        for y in 0..100 {
+            for x in 0..800 {
+                frame.extend_from_slice(&[(x % 256) as u8, (y * 2) as u8, ((x + y) % 256) as u8]);
+            }
+        }
+        fn encoded(image: DynamicImage) -> RgbImage {
+            let region = ImageRect::from_image(image).unwrap();
+            image::load_from_memory(&region.data).unwrap().into_rgb8()
+        }
+        let mut device = encoded(rgb_image(&frame, 800, 100).unwrap());
+        for (x, y) in [(0, 0), (799, 99), (193, 71), (398, 94), (400, 72)] {
+            let previous = frame.clone();
+            let at = (y * 800 + x) * 3;
+            frame[at..at + 3].copy_from_slice(&[240, 10, 80]);
+            let region = changed_touch(&previous, &frame).unwrap();
+            let patch = encoded(region_image(&frame, region));
+            image::imageops::replace(
+                &mut device,
+                &patch,
+                i64::from(region.x),
+                i64::from(region.y),
+            );
+            assert_eq!(device, encoded(rgb_image(&frame, 800, 100).unwrap()));
+        }
+    }
+    #[test]
+    #[ignore = "native JPEG diagnostic; run explicitly in an otherwise idle test VM"]
+    fn touch_region_encoding_diagnostic() {
+        let baseline = vec![30; 800 * 100 * 3];
+        let frames: Vec<Vec<u8>> = (0..200)
+            .map(|i| {
+                let mut frame = baseline.clone();
+                for panel in 0..4 {
+                    for y in 74..94 {
+                        for x in 16..184 {
+                            let at = (y * 800 + panel * 200 + x) * 3;
+                            frame[at..at + 3].copy_from_slice(if x < 16 + i % 168 {
+                                &[40, 130, 230]
+                            } else {
+                                &[50, 50, 50]
+                            });
+                        }
+                    }
+                }
+                frame
+            })
+            .collect();
+        for partial in [false, true, true, false] {
+            let mut previous = baseline.clone();
+            let mut pixels = 0;
+            let mut bytes = 0;
+            let start = Instant::now();
+            for frame in &frames {
+                let region = if partial {
+                    changed_touch(&previous, frame).unwrap()
+                } else {
+                    TouchRegion {
+                        x: 0,
+                        y: 0,
+                        width: 800,
+                        height: 100,
+                    }
+                };
+                let encoded = ImageRect::from_image(region_image(frame, region)).unwrap();
+                pixels += usize::from(encoded.w) * usize::from(encoded.h);
+                bytes += encoded.data.len();
+                previous.copy_from_slice(frame);
+            }
+            println!(
+                "{} frames=200 wall_ms={:.3} encoded_pixels={} jpeg_bytes={}",
+                if partial { "regions" } else { "full" },
+                start.elapsed().as_secs_f64() * 1000.,
+                pixels,
+                bytes
+            );
+        }
     }
     #[test]
     fn encoded_images_match_plus_dimensions() {

@@ -124,3 +124,14 @@ on the next poll. Meter samples remain independent at 20 Hz. Audio inventory
 reconciles every two seconds, and visible pickers also react to audio topology
 events. System indicators keep their two-second cache. Hidden editor previews
 make no requests; visible touch previews coalesce requests at up to 20 Hz.
+
+## Touch-strip region update candidate
+
+The physical Plus adapter now retains a single 240,000-byte RGB baseline and uses
+changed rectangles aligned to the original JPEG block grid. This reduces image
+encoding and USB payload work for live meter changes while keeping the complete
+800x100 logical frame and meter update rate. Initial connection, uncertain writes
+and explicit blanking use a full strip; a failed transfer never advances the cache.
+The underlying [Plus region-write API](https://docs.rs/elgato-streamdeck/0.13.1/elgato_streamdeck/struct.StreamDeck.html#method.write_lcd)
+is already available in the pinned hardware library. Source and native-VM codec
+checks pass; physical acceptance and installed CPU measurements are still pending.

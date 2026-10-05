@@ -865,6 +865,63 @@ locked-at-end observation remains diagnostic only. Raw evidence is retained at
 `local/v1-checks-20261005-6cff5d3/quiet-unlocked/`. The installed build and all user
 settings were left unchanged, and all test VMs remained stopped.
 
+### 2026-10-05 profiling and region-update candidate
+
+The accepted source checkpoint `1062b01` was pushed to Gitea and exported into
+GitHub's separate sanitized history. Both remote branch tips were verified, and
+both fetched source trees matched canonical tree
+`c0f247b1e78e0138d9d06d80eb58e4d16e3aea96`. No public release or download changed.
+
+Further read-only profiling left the installed service running without a restart.
+A 15-second main-thread software-clock attempt collected zero samples and is not
+counted as stack evidence. A subsequent 20-second device-worker profile collected
+350 samples with six lost (1.7%). The installed and symbol-bearing binaries had
+the same build ID. The flat profile attributed about 65% of sampled time to
+JPEG encoding, DCT and JPEG block writing, plus 16% to `roundf`. One playback
+stream was uncorked when checked afterward, so this is active-context profiling,
+not a replacement quiet CPU sample. It identifies image encoding as a promising
+worker optimization rather than proving that it explains all idle overhead.
+
+A separate 100-scan ABBA process-ownership diagnostic measured 71-73 CPU ticks
+for the original scan and 71 ticks for a reused-string-buffer alternative (100 Hz
+accounting resolution). There was no convincing saving, so the original safety
+scan and its once-per-second interval remain unchanged.
+
+The source candidate now keeps one bounded 800x100 RGB baseline in each physical
+session (240,000 bytes, about 0.23 MiB). Only changed touch-strip regions are JPEG
+encoded and sent, using the existing Plus region-write API. Rectangles align to
+the full-frame 8x8 JPEG grid so unchanged pixels and compression boundaries remain
+consistent. The first frame, a fresh connection, an uncertain/failed write retry,
+and explicit blanking send a full strip. Successful writes alone advance the
+baseline; unchanged frames are skipped. The full-frame device abstraction, saved
+layout, 20 ms input read and 20 Hz meter publishing remain unchanged.
+
+Tests passed for reconstructed frames, corner/bottom-edge updates, no-op frames,
+invalid inputs, failed-write recovery, fresh-session state and complete blanking.
+Real JPEG decode/composition tests matched full-frame decoded pixels exactly.
+All-feature workspace tests, warnings-denied Clippy, formatting and the pinned
+dependency audit passed. A release-built device test binary also passed all 15
+ordinary device tests in the Fedora 44 VM.
+
+An explicitly invoked diagnostic on that otherwise idle guest compared 200
+synthetic four-meter frames in full/regions/regions/full order. Full encoding took
+303.64 and 330.22 ms; region encoding including difference detection and cropping
+took 60.18 and 59.08 ms. Encoded pixels fell from 16,000,000 to 2,926,080 and JPEG
+payload bytes from 1,452,793 to 891,378. This small synthetic comparison is about
+five times faster for that frame sequence, not an installed service CPU result,
+a physical USB/firmware test or a release gate. The additional diagnostic test is
+ignored by ordinary test runs; invoke it explicitly:
+
+```sh
+cargo test -p decksmith-device --all-features --release --locked hardware::tests::touch_region_encoding_diagnostic -- --ignored --exact --nocapture
+```
+
+Evidence is retained under `local/v1-profile-20261005-1062b01/`. Fedora 44 was
+saved and stopped afterward. The user's installed build remains
+`0.1.0-4e47081f8cf8`; this region-update candidate still needs a clean bundle,
+physical display/blanking/recovery acceptance and measured resources/latency before
+its benefits or release readiness can be claimed.
+
 ## Work order
 
 The supported boundary and local qualification results are recorded above. The

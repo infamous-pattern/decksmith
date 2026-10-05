@@ -52,26 +52,27 @@ pub trait DeckDevice {
     /// Clear all display surfaces without changing the saved brightness.
     /// Attempt every surface even when a previous write fails.
     fn blank(&mut self) -> Result<(), DeviceError> {
-        let geometry = self.geometry();
-        let key =
-            vec![0; usize::from(geometry.key_pixels.0) * usize::from(geometry.key_pixels.1) * 3];
-        let touch =
-            vec![
-                0;
-                usize::from(geometry.touch_pixels.0) * usize::from(geometry.touch_pixels.1) * 3
-            ];
-        let mut result = Ok(());
-        for index in 0..geometry.columns.saturating_mul(geometry.rows) {
-            if let Err(error) = self.set_key_image(index, &key) {
-                result = Err(error);
-            }
-        }
-        if let Err(error) = self.set_touch_image(&touch) {
-            result = Err(error);
-        }
-        result
+        blank_display(self)
     }
 }
+
+fn blank_display(device: &mut (impl DeckDevice + ?Sized)) -> Result<(), DeviceError> {
+    let geometry = device.geometry();
+    let key = vec![0; usize::from(geometry.key_pixels.0) * usize::from(geometry.key_pixels.1) * 3];
+    let touch =
+        vec![0; usize::from(geometry.touch_pixels.0) * usize::from(geometry.touch_pixels.1) * 3];
+    let mut result = Ok(());
+    for index in 0..geometry.columns.saturating_mul(geometry.rows) {
+        if let Err(error) = device.set_key_image(index, &key) {
+            result = Err(error);
+        }
+    }
+    if let Err(error) = device.set_touch_image(&touch) {
+        result = Err(error);
+    }
+    result
+}
+
 /// Deterministic in-memory reference device; image buffers use RGB888.
 #[derive(Debug)]
 pub struct VirtualDeck {
