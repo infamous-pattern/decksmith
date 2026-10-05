@@ -43,12 +43,41 @@ impl std::fmt::Display for DeviceError {
 }
 impl std::error::Error for DeviceError {}
 
+/// Optional aggregate input diagnostics. Contains no labels, action details or
+/// raw report bytes. Counts are local to one device connection.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct InputCounts {
+    pub reads: u64,
+    pub transport_errors: u64,
+    pub invalid_reports: u64,
+    pub key_reports: u64,
+    pub dial_push_reports: u64,
+    pub dial_turn_reports: u64,
+    pub touch_reports: u64,
+    pub key_events: u64,
+    pub dial_push_events: u64,
+    pub dial_turn_events: u64,
+    pub touch_events: u64,
+}
+
 pub trait DeckDevice {
     fn geometry(&self) -> Geometry;
     fn set_key_image(&mut self, index: u8, rgb: &[u8]) -> Result<(), DeviceError>;
     fn set_touch_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError>;
     fn set_brightness(&mut self, percent: u8) -> Result<(), DeviceError>;
     fn poll_event(&mut self) -> Result<Option<InputEvent>, DeviceError>;
+    /// Monotonic receipt time for the event returned by the last poll, if known.
+    /// Physical adapters stamp report-read return before normalization and retain
+    /// that stamp for all queued events from the report. Virtual devices do not
+    /// manufacture a physical receipt time. This is process-local diagnostic data.
+    fn event_received_at(&self) -> Option<std::time::Instant> {
+        None
+    }
+    /// Enable bounded aggregate diagnostics for this connection only.
+    fn set_input_diagnostics(&mut self, _enabled: bool) {}
+    fn input_counts(&self) -> Option<InputCounts> {
+        None
+    }
     /// Clear all display surfaces without changing the saved brightness.
     /// Attempt every surface even when a previous write fails.
     fn blank(&mut self) -> Result<(), DeviceError> {

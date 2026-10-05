@@ -993,13 +993,192 @@ still unchanged. This closes the explicit blanking/relaunch smoke check for this
 artifact; suspend/reconnect, latency, loaded-resource and remaining final release
 gates are not inferred from it.
 
+### 2026-10-05 isolated helper-failure and response checks
+
+The installed `0.1.0-430c4bd75f9a` artifact (source `63b9523`) was exercised in
+Fedora Workstation 44 / GNOME Shell 50.5 using VirtualDeck, a separate temporary
+saved layout and four synthetic null-sink audio sources. Only children of that
+test daemon received fault signals; the user's physical desktop controls were
+left running. Two preliminary harness attempts failed setup checks (preset
+selection, then an unsupported dial action in the fixture); neither is counted
+as a product failure or acceptance result. The corrected fixture validated its
+schema and explicitly verified that its custom layout was selected before tests.
+
+The completed bounded run confirmed:
+
+- A stopped meter helper lost its displayed cached readings and displayed the
+  missing-measurement marker; resuming it restored live feedback.
+- A killed meter helper was replaced and fresh feedback returned.
+- A killed persistent volume reader was replaced and its replacement stayed
+  stable through subsequent snapshots.
+- A stopped volume reader was discarded after its timeout and replaced; the
+  replacement was observed about 3.26 seconds after fault injection.
+- Page switching remained responsive through all four cases. The daemon stayed
+  alive without a restart, and guest saved-layout hashes and default audio
+  routing remained unchanged.
+
+There were 48 D-Bus page changes during these scenarios. Request-start to observed
+display-ready response measured 35.73 ms median, 39.34 ms p95 and 39.76 ms maximum.
+This includes bus, rendering and status polling on VirtualDeck; it does **not**
+measure HID receipt-to-dispatch or physical visible-update latency. Full-strip
+readback observed stale/live meter transitions after about 1.25/1.27 seconds;
+those observations include D-Bus readback and polling and do not establish the
+internal 400 ms expiration deadline. Meter-child replacement was observed after
+the stale-display check, so its phase timing is not an end-to-end crash-recovery
+measurement. This is a short failure-recovery check, not the longer four-target
+physical interactive resource soak or exhaustive failure coverage.
+
+Fixture processes, players and null-sink modules were removed; routing and saved
+layout were checked again after cleanup. Fedora 44 was saved and stopped, and all
+four testing VMs remained stopped. Evidence and the corrected guest-only harness
+are retained under `local/v1-helper-checks-20261005/`.
+
+The user also confirmed that physical page/key/dial controls responded correctly
+during a brief follow-up check. The selected journal window contained zero
+matching timing records, so no physical dispatch percentile is reported. Exact
+HID receipt-to-dispatch timing and physical key/dial visible-update latency remain
+open and need appropriate instrumentation; the user's successful interaction
+check and VM response timings do not close those gates.
+
+The follow-up source candidate adds monotonic report-return stamps before adapter
+normalization, retains them for queued events, and records backend-entry timing
+after audio-queue waits. Queue-entry timing remains distinct from dispatch and
+completion. Virtual inputs and uninstrumented paths report no physical sample.
+Two regression tests passed for queued report stamps and delayed snapshot/action
+boundaries; the all-feature workspace suite passed (129 tests, three intentionally
+ignored), with formatting and warnings-denied Clippy. The pinned dependency audit
+also passed after a sandbox advisory-cache lock restriction was resolved through
+reviewed access. Packaging, native runtime and physical timing qualification for
+this source candidate remain pending. See [timing boundaries](input-latency.md).
+
+### 2026-10-05 report-timing candidate runtime and physical follow-up
+
+Source `01b9f07` was packaged from a clean checkout as
+`0.1.0-c2f92c7438e6`. Its archive checksum, 341-file integrity manifest and
+private-metadata checks passed. The installed Fedora 44 guest runtime passed
+dependency/resource checks, the four-target helper-failure fixture and real GNOME
+lock/unlock reporting with VirtualDeck. All four fixture targets were verified
+live before fault injection. The daemon survived meter stall/crash and volume
+reader crash/timeout without restarting; guest layout and default routing stayed
+unchanged. Across 48 page requests, request-start to observed VirtualDeck
+display-ready measured 6.41 ms median, 39.98 ms p95 and 40.59 ms maximum. These
+are bus/render/polling observations, not physical input dispatch measurements.
+The reader-timeout replacement observation was 3.26 seconds. Meter stale/live
+readbacks include full-strip bus transfer and polling; replacement timing starts
+after stale-readback, rather than at fault injection. The fixture was cleaned up
+and Fedora 44 saved and stopped; all four test VMs remained stopped.
+
+The same artifact was installed on the physical desktop with a retained previous
+release and configuration backup. Five saved configuration hashes were unchanged.
+The user confirmed that physical keys/dials, page switching, and ordinary/quicker
+turns continued to work correctly. A targeted single clockwise leftmost-dial
+click also changed its displayed value, according to the user. The daemon's PID
+remained stable, with zero restarts, connected and display-ready.
+
+Live capture recorded four physical right-swipe page requests. Library report
+return to page-render invocation measured 16, 18, 18 and 36 microseconds (median
+18 microseconds). This small, single-route sample does not qualify the overall
+25 ms dispatch target or visible-update targets. The journal contained **zero
+key or dial timing records**, despite the user's explicit physical-interaction
+confirmation. The installed binary path and journal output were verified; no
+explicit service log filter or level limit explained the gap. Its cause remains
+unresolved. Successful user interaction and missing error records must not be
+substituted for measured backend dispatch or completion. Key/dial recording
+diagnosis, representative workloads and physical visible-update measurements
+remain open. Evidence is retained under `local/v1-input-timing-20261005/`,
+including `physical-follow-up.json` and the raw journal captures.
+
+### 2026-10-05 bounded input diagnostics and audio-action reuse candidate
+
+Clean source `b6ae486` was installed as `0.1.0-a9f64a142f5f` after 130 passing
+Rust tests (three intentionally ignored), warnings-denied Clippy, formatting,
+dependency audit, archive integrity and Fedora 44 installed-runtime checks.
+The isolated four-target guest fixture passed meter and reader crash/stall
+recovery, preserving layout and default routing. The guest was saved and stopped;
+all four test VMs remained stopped. Desktop activation retained the previous
+release and a configuration backup, with all five configuration hashes unchanged.
+
+A two-minute opt-in diagnostic captured the physical Kate key and leftmost
+output-volume dial. The user confirmed both worked. Aggregate snapshots showed
+two key reports producing two edges, and 33 dial reports producing 33 events,
+with no transport/normalization errors, lock gate or drain active at those
+snapshots. Matching worker records and successful action results were captured.
+The earlier missing-record cause is **not established**; this later successful
+capture must not be presented as proof of a specific root cause or fix.
+The diagnostic expired automatically, and its environment setting was removed
+from future starts.
+
+During the diagnostic burst, 33 dial actions all succeeded; report-return to
+backend-entry measured 48.08 ms median, 111.98 ms p95 and 112.46 ms maximum.
+After the diagnostic closed, 22 further dial actions all succeeded, measuring
+0.041 ms median, 44.35 ms p95 and 46.96 ms maximum. One application-launch key
+measured 0.022 ms to backend entry. These are short, differing workloads on one
+output target, not representative V1 qualification, and do not measure visible
+latency or backend completion. They identify audio-queue delay for follow-up,
+rather than closing the 25 ms dispatch target. Evidence is retained in
+`local/v1-input-diagnostics-20261005/physical-results.json` and raw journal records.
+
+The subsequent source candidate reuses a separate lazy audio-action helper,
+resolves each mutation freshly and preserves request order, clamping, reversal
+and toggle semantics. It does not batch steps or change timing boundaries.
+Transport failures discard the connection without replaying an uncertain
+mutation; idle action helpers are reclaimed after 30 seconds. Source checks
+cover process reuse, fresh external changes, reversal at a clamp, protocol
+bounds, explicit errors, uncertain acknowledgements and idle cleanup.
+See [action-helper behavior](audio-meters.md#refresh-budget).
+
+Clean source `552c98c` was packaged as `0.1.0-12964b4edf45` after 135 passing
+Rust tests (three intentionally ignored), 164 passing Studio tests,
+warnings-denied Clippy, formatting, dependency checks and archive integrity
+checks. Helper cleanup also kills its owned command process group, preventing
+command descendants from surviving a lost connection or shutdown.
+
+The installed Fedora 44 guest fixture passed eight recovery cases with four
+independent synthetic audio targets. Successive adjustments reused the writer;
+external volume changes and reversal at the upper clamp were respected without
+altering other targets. A deliberately stalled writer reported a timeout after
+3.037 seconds without replaying the uncertain action, and the next independent
+input recovered. A killed writer likewise recovered on a subsequent input.
+The writer was released after approximately 30 idle seconds while the reader
+remained available, then restarted for the next adjustment. Meter and reader
+crash/stall recovery also passed. The guest daemon survived, its saved layout
+and default audio routing were unchanged, and the VM was saved and stopped.
+These isolated VirtualDeck tests do not measure physical input latency.
+
+The same bundle was installed on the desktop with a retained previous release
+and configuration backup; all five saved configuration hashes were unchanged.
+The user confirmed that physical audio dials at ordinary and quicker speeds,
+plus application/media keys, worked correctly. The service remained active with
+no automatic restarts. However, the collected ordinary-mode journal contained
+no key/dial action timing records, so this confirms functional behavior only.
+No latency improvement is inferred from that functional confirmation.
+
+A subsequent restart of the same artifact enabled the bounded two-minute
+diagnostic. Its snapshots showed normal polling without transport or
+normalization errors, but no input reports during the diagnostic window.
+After the diagnostic expired, 13 physical dial adjustments were captured across
+an application-volume target and an output-device target. All 13 matched queued
+records and succeeded, with non-null receipt stamps and no unmatched requests.
+Report-return to backend-entry measured 0.031 ms median, 0.080 ms p95
+(nearest-rank) and 0.080 ms maximum. These records were captured with diagnostics
+off. This small sample meets the 25 ms dispatch target for its observed workload;
+it does not establish representative burst performance, physical key timing,
+visible feedback latency or a matched improvement over the earlier workload.
+The earlier missing-record cause remains unestablished. The user confirmed the
+physical dial and key worked; no key result was captured in this later sample.
+The service remained active with no automatic restarts, the diagnostic expired,
+and its environment setting was removed from future starts. Physical latency
+and final-artifact idle/loaded resource qualification remain open. Evidence is
+retained in `local/v1-audio-action-reuse-20261005/physical-diagnostic-results.json`
+and the accompanying raw journal records.
+
 ## Work order
 
 The supported boundary and local qualification results are recorded above. The
 remaining gates are final-artifact idle/loaded resource and regression checks,
 failure-injection and latency measurements, and completion of exhaustive
-system-action and
-fault-recovery coverage. Once those findings are resolved, freeze a V1 candidate,
+system-action and fault-recovery coverage. Once those findings are resolved,
+freeze a V1 candidate,
 repeat the release gates—including the complete VM matrix,
 upgrade/migration/rollback/uninstall and security checks—against that exact artifact,
 then publish only the tested build with its own checksum and

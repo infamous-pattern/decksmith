@@ -125,6 +125,23 @@ reconciles every two seconds, and visible pickers also react to audio topology
 events. System indicators keep their two-second cache. Hidden editor previews
 make no requests; visible touch previews coalesce requests at up to 20 Hz.
 
+Audio volume, mute and device-selection actions use a separate lazily started
+helper over bounded local pipes. Successive actions reuse the Python process,
+but each action still resolves its target and volume freshly; action reads do
+not use the subscription cache. The request order, per-action clamping and
+mute-toggle behavior are preserved. This removes repeated interpreter startup
+without coalescing or dropping dial steps. Replies and requests are size-limited,
+and a three-second transport timeout discards an unresponsive connection.
+Malformed/lost replies never trigger an automatic mutation retry, since the
+action may already have happened. Only a subsequent independent input creates
+a new connection. Explicit action errors remain distinct from transport errors.
+The action helper is released after 30 seconds idle, including while the device
+is disconnected; stopping the worker releases both read and action helpers.
+Each connection owns a separate process group, and cleanup terminates its command
+descendants along with the helper.
+Qualification must measure actual dispatch delay, resources and recovery on the
+installed artifact, rather than infer them from process reuse.
+
 ## Touch-strip region update candidate
 
 The physical Plus adapter now retains a single 240,000-byte RGB baseline and uses

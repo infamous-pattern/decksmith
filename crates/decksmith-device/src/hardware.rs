@@ -1,6 +1,6 @@
 //! Synchronous Plus adapter. Own on a dedicated device worker, never a UI thread.
 //! Construction opens a device but performs no reset, brightness, or image write.
-use crate::{DeckDevice, DeviceError};
+use crate::{DeckDevice, DeviceError, InputCounts};
 use decksmith_core::{Geometry, InputEvent, RawEvent, TouchGesture};
 use elgato_streamdeck::{StreamDeck, StreamDeckInput, images::ImageRect, info::Kind};
 use image::{DynamicImage, RgbImage};
@@ -58,7 +58,9 @@ impl Transport for UsbTransport {
 pub struct PhysicalDeck {
     transport: Box<dyn Transport>,
     normalizer: Normalizer,
-    queue: VecDeque<InputEvent>,
+    queue: VecDeque<(InputEvent, Instant)>,
+    event_received_at: Option<Instant>,
+    input_counts: Option<Box<InputCounts>>,
     epoch: Instant,
     _ownership: Option<std::fs::File>,
     touch_frame: Option<Vec<u8>>,
@@ -87,6 +89,8 @@ impl PhysicalDeck {
             transport,
             normalizer: Normalizer::default(),
             queue: VecDeque::new(),
+            event_received_at: None,
+            input_counts: None,
             epoch: Instant::now(),
             _ownership: None,
             touch_frame: None,
@@ -153,19 +157,82 @@ impl DeckDevice for PhysicalDeck {
         self.transport.brightness(percent)
     }
     fn poll_event(&mut self) -> Result<Option<InputEvent>, DeviceError> {
-        if let Some(event) = self.queue.pop_front() {
+        self.event_received_at = None;
+        if let Some((event, received)) = self.queue.pop_front() {
+            self.event_received_at = Some(received);
             return Ok(Some(event));
         }
-        let report = self.transport.read()?;
-        let timestamp_ms = u64::try_from(self.epoch.elapsed().as_millis())
+        if let Some(counts) = self.input_counts.as_mut() {
+            counts.reads = counts.reads.saturating_add(1);
+        }
+        let report = match self.transport.read() {
+            Ok(report) => report,
+            Err(error) => {
+                if let Some(counts) = self.input_counts.as_mut() {
+                    counts.transport_errors = counts.transport_errors.saturating_add(1);
+                }
+                return Err(error);
+            }
+        };
+        let received = Instant::now();
+        let timestamp_ms = u64::try_from(received.duration_since(self.epoch).as_millis())
             .map_err(|_| DeviceError::TimeReversed)?;
-        let events = self.normalizer.normalize(report)?;
-        self.queue
-            .extend(events.into_iter().map(|event| InputEvent {
-                timestamp_ms,
-                event,
-            }));
-        Ok(self.queue.pop_front())
+        if let Some(counts) = self.input_counts.as_mut() {
+            let count = match &report {
+                StreamDeckInput::NoData => None,
+                StreamDeckInput::ButtonStateChange(_) => Some(&mut counts.key_reports),
+                StreamDeckInput::EncoderStateChange(_) => Some(&mut counts.dial_push_reports),
+                StreamDeckInput::EncoderTwist(_) => Some(&mut counts.dial_turn_reports),
+                StreamDeckInput::TouchScreenPress(..)
+                | StreamDeckInput::TouchScreenLongPress(..)
+                | StreamDeckInput::TouchScreenSwipe(..) => Some(&mut counts.touch_reports),
+            };
+            if let Some(count) = count {
+                *count = count.saturating_add(1);
+            }
+        }
+        let events = match self.normalizer.normalize(report) {
+            Ok(events) => events,
+            Err(error) => {
+                if let Some(counts) = self.input_counts.as_mut() {
+                    counts.invalid_reports = counts.invalid_reports.saturating_add(1);
+                }
+                return Err(error);
+            }
+        };
+        if let Some(counts) = self.input_counts.as_mut() {
+            for event in &events {
+                let count = match event {
+                    RawEvent::Key { .. } => &mut counts.key_events,
+                    RawEvent::DialPush { .. } => &mut counts.dial_push_events,
+                    RawEvent::DialRotate { .. } => &mut counts.dial_turn_events,
+                    RawEvent::Touch { .. } => &mut counts.touch_events,
+                };
+                *count = count.saturating_add(1);
+            }
+        }
+        self.queue.extend(events.into_iter().map(|event| {
+            (
+                InputEvent {
+                    timestamp_ms,
+                    event,
+                },
+                received,
+            )
+        }));
+        Ok(self.queue.pop_front().map(|(event, received)| {
+            self.event_received_at = Some(received);
+            event
+        }))
+    }
+    fn event_received_at(&self) -> Option<Instant> {
+        self.event_received_at
+    }
+    fn set_input_diagnostics(&mut self, enabled: bool) {
+        self.input_counts = enabled.then(|| Box::new(InputCounts::default()));
+    }
+    fn input_counts(&self) -> Option<InputCounts> {
+        self.input_counts.as_deref().copied()
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -427,6 +494,120 @@ mod tests {
         fn brightness(&mut self, _: u8) -> Result<(), DeviceError> {
             Err(DeviceError::Transport)
         }
+    }
+    struct Reports(VecDeque<Result<StreamDeckInput, DeviceError>>);
+    impl Transport for Reports {
+        fn read(&mut self) -> Result<StreamDeckInput, DeviceError> {
+            self.0.pop_front().unwrap_or(Err(DeviceError::Transport))
+        }
+        fn firmware(&self) -> Result<String, DeviceError> {
+            Fake.firmware()
+        }
+        fn key(&mut self, index: u8, image: DynamicImage) -> Result<(), DeviceError> {
+            Fake.key(index, image)
+        }
+        fn strip(&mut self, x: u16, y: u16, image: DynamicImage) -> Result<(), DeviceError> {
+            Fake.strip(x, y, image)
+        }
+        fn brightness(&mut self, percent: u8) -> Result<(), DeviceError> {
+            Fake.brightness(percent)
+        }
+    }
+    #[test]
+    fn optional_counts_separate_reports_edges_queue_reads_and_errors() {
+        let mut keys = vec![false; 10];
+        keys[0] = true;
+        let reports = [
+            Ok(StreamDeckInput::ButtonStateChange(keys.clone())),
+            Ok(StreamDeckInput::ButtonStateChange(keys)),
+            Ok(StreamDeckInput::EncoderTwist(vec![1, -1, 0, 0])),
+            Ok(StreamDeckInput::EncoderStateChange(vec![
+                false, true, false, false,
+            ])),
+            Ok(StreamDeckInput::TouchScreenPress(20, 30)),
+            Ok(StreamDeckInput::NoData),
+            Ok(StreamDeckInput::ButtonStateChange(vec![true; 9])),
+        ];
+        let mut device = PhysicalDeck::with_transport(Box::new(Reports(reports.into())));
+        assert!(device.input_counts().is_none());
+        device.set_input_diagnostics(true);
+        assert!(matches!(
+            device.poll_event().unwrap().unwrap().event,
+            RawEvent::Key { pressed: true, .. }
+        ));
+        assert_eq!(device.poll_event().unwrap(), None); // Repeated state has no edge.
+        assert!(matches!(
+            device.poll_event().unwrap().unwrap().event,
+            RawEvent::DialRotate { ticks: 1, .. }
+        ));
+        assert_eq!(device.input_counts().unwrap().reads, 3);
+        assert!(matches!(
+            device.poll_event().unwrap().unwrap().event,
+            RawEvent::DialRotate { ticks: -1, .. }
+        ));
+        assert_eq!(device.input_counts().unwrap().reads, 3); // Same report's queued edge.
+        assert!(matches!(
+            device.poll_event().unwrap().unwrap().event,
+            RawEvent::DialPush { pressed: true, .. }
+        ));
+        assert!(matches!(
+            device.poll_event().unwrap().unwrap().event,
+            RawEvent::Touch { .. }
+        ));
+        assert_eq!(device.poll_event().unwrap(), None);
+        assert_eq!(device.poll_event(), Err(DeviceError::InvalidReport));
+        assert_eq!(device.poll_event(), Err(DeviceError::Transport));
+        assert_eq!(
+            device.input_counts(),
+            Some(InputCounts {
+                reads: 8,
+                transport_errors: 1,
+                invalid_reports: 1,
+                key_reports: 3,
+                dial_push_reports: 1,
+                dial_turn_reports: 1,
+                touch_reports: 1,
+                key_events: 1,
+                dial_push_events: 1,
+                dial_turn_events: 2,
+                touch_events: 1,
+            })
+        );
+        device.set_input_diagnostics(false);
+        assert!(device.input_counts().is_none());
+        device.set_input_diagnostics(true);
+        assert_eq!(device.input_counts(), Some(InputCounts::default()));
+        let fresh = PhysicalDeck::with_transport(Box::new(Fake));
+        assert!(fresh.input_counts().is_none());
+        let mut virtual_deck = crate::VirtualDeck::default();
+        virtual_deck.set_input_diagnostics(true);
+        assert!(virtual_deck.input_counts().is_none());
+    }
+    #[test]
+    fn queued_edges_retain_report_receipt_and_empty_or_failed_polls_clear_it() {
+        let reports = [
+            Ok(StreamDeckInput::EncoderTwist(vec![1, 1, 0, 0])),
+            Ok(StreamDeckInput::NoData),
+            Ok(StreamDeckInput::EncoderTwist(vec![1])),
+        ];
+        let mut device = PhysicalDeck::with_transport(Box::new(Reports(reports.into())));
+        assert!(device.event_received_at().is_none());
+        let first = device.poll_event().unwrap().unwrap();
+        let received = device.event_received_at().unwrap();
+        std::thread::sleep(Duration::from_millis(5));
+        let second = device.poll_event().unwrap().unwrap();
+        assert_eq!(second.timestamp_ms, first.timestamp_ms);
+        assert_eq!(device.event_received_at(), Some(received));
+        assert!(received.elapsed() >= Duration::from_millis(5));
+        assert_eq!(device.poll_event().unwrap(), None);
+        assert!(device.event_received_at().is_none());
+        assert_eq!(device.poll_event(), Err(DeviceError::InvalidReport));
+        assert!(device.event_received_at().is_none());
+        assert_eq!(device.poll_event(), Err(DeviceError::Transport));
+        assert!(device.event_received_at().is_none());
+        let fresh = PhysicalDeck::with_transport(Box::new(Fake));
+        assert!(fresh.event_received_at().is_none());
+        assert!(crate::VirtualDeck::default().event_received_at().is_none());
     }
     #[test]
     fn validates_before_transport_and_preserves_errors() {

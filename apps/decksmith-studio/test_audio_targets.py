@@ -109,3 +109,52 @@ class PersistentReaderTests(unittest.TestCase):
         output=StringIO()
         serve_cached_read(StringIO(' '*8193+'\n[]\n'),output,None)
         self.assertEqual(output.getvalue(),'')
+
+class PersistentActionTests(unittest.TestCase):
+    def serve(self,requests):
+        import json
+        from io import StringIO
+        from audio_targets import serve_execute
+        output=StringIO()
+        serve_execute(StringIO(''.join(json.dumps(r)+'\n' for r in requests)),output)
+        return [json.loads(line) for line in output.getvalue().splitlines()]
+
+    def test_fresh_resolution_preserves_clamping_reversal_and_external_changes(self):
+        frames=[snapshot_data({'sinks':[node(1,'speakers',100)]}),
+                snapshot_data({'sinks':[node(1,'speakers',100)]}),
+                snapshot_data({'sinks':[node(1,'speakers',40)]})]
+        with patch('audio_targets.list_all',side_effect=frames) as listing,patch('audio_targets.command') as cmd:
+            replies=self.serve([{'type':'audio_adjust','target':'output:speakers','percent':amount} for amount in (1,-1,1)])
+        self.assertEqual(replies,[{'status':'ok'}]*3)
+        self.assertEqual(listing.call_count,3)
+        self.assertEqual([c.args for c in cmd.call_args_list],
+                         [('set-sink-volume','1','100%'),('set-sink-volume','1','99%'),('set-sink-volume','1','41%')])
+
+    def test_missing_target_timeout_and_later_request_are_distinct_without_retry(self):
+        import subprocess
+        with patch('audio_targets.execute',side_effect=[ValueError('Audio target unavailable'),subprocess.TimeoutExpired('pactl',.4),None]) as action:
+            replies=self.serve([{'type':'audio_mute','target':'output:speakers'}]*3)
+        self.assertEqual(replies,[{'status':'error','code':'unavailable'},
+                                  {'status':'error','code':'timeout'},{'status':'ok'}])
+        self.assertEqual(action.call_count,3)
+
+    def test_bad_protocol_does_not_execute_or_poison_later_request(self):
+        bad=[[],{'type':'audio_adjust','target':'output:speakers'},
+             {'type':'audio_mute','target':'output:speakers','extra':True},
+             {'type':'shutdown','target':'output:speakers'}]
+        with patch('audio_targets.execute') as action:
+            replies=self.serve(bad+[{'type':'audio_mute','target':'output:speakers'}])
+        self.assertEqual(replies,[{'status':'error','code':'failed'}]*4+[{'status':'ok'}])
+        action.assert_called_once_with({'type':'audio_mute','target':'output:speakers'})
+
+    def test_boolean_step_and_oversized_or_unterminated_requests_cannot_write(self):
+        from io import StringIO
+        from audio_targets import serve_execute
+        with patch('audio_targets.list_all',return_value=snapshot_data({'sinks':[node(1,'speakers')]})),patch('audio_targets.command') as cmd:
+            self.assertEqual(self.serve([{'type':'audio_adjust','target':'output:speakers','percent':True}]),[{'status':'error','code':'failed'}])
+        cmd.assert_not_called()
+        with patch('audio_targets.execute') as action:
+            for text in (' '*8193+'\n','{"type":"audio_mute","target":"output:speakers"}'):
+                output=StringIO();serve_execute(StringIO(text),output)
+                self.assertEqual(output.getvalue(),'')
+        action.assert_not_called()

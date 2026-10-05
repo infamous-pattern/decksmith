@@ -137,7 +137,7 @@ def execute(action):
     suffix={'sinks':'sink','sources':'source','sink-inputs':'sink-input'}[kind]
     if action['type']=='audio_adjust':
         percent=action['percent']
-        if not isinstance(percent,int) or not 0<abs(percent)<=20:raise ValueError('Invalid volume step')
+        if type(percent) is not int or not 0<abs(percent)<=20:raise ValueError('Invalid volume step')
         for node in nodes:
             value=state([node])
             if value is None:raise ValueError('Volume unavailable')
@@ -170,9 +170,38 @@ def serve_cached_read(source, output, inventory):
             result=None
         output.write(json.dumps(result)+'\n');output.flush()
 
+def action_error(error):
+    if isinstance(error,subprocess.TimeoutExpired):return 'timeout'
+    if str(error) in ('Device unavailable','Audio target unavailable'):return 'unavailable'
+    if str(error) in ('Volume unavailable','Too many application streams','Unsupported audio action'):return 'unsupported'
+    return 'failed'
+
+def serve_execute(source, output):
+    """Sequential bounded actions, resolving fresh nodes for every request.
+
+    No inventory cache, listener, retries or unsolicited output. A lost reply
+    does not tell the caller whether a mutation happened, so it must not replay.
+    """
+    while True:
+        line=source.readline(8193)
+        if not line:return
+        if len(line)>8192 or not line.endswith('\n'):return
+        try:
+            action=json.loads(line)
+            if not isinstance(action,dict):raise ValueError('Invalid audio action')
+            kind=action.get('type')
+            fields={'type','target','percent'} if kind=='audio_adjust' else {'type','target'}
+            if kind not in ('audio_adjust','audio_mute','audio_select') or set(action)!=fields:raise ValueError('Invalid audio action')
+            execute(action)
+            result={'status':'ok'}
+        except Exception as error:
+            result={'status':'error','code':action_error(error)}
+        output.write(json.dumps(result)+'\n');output.flush()
+
 if __name__=='__main__':
     try:
         if sys.argv[1]=='serve-read':serve_read(sys.stdin,sys.stdout)
+        elif sys.argv[1]=='serve-execute':serve_execute(sys.stdin,sys.stdout)
         elif sys.argv[1]=='read':print(json.dumps(read(json.loads(sys.argv[2]))))
         elif sys.argv[1]=='execute':execute(json.loads(sys.argv[2]))
         else:raise ValueError('Unsupported operation')

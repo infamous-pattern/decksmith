@@ -6,7 +6,15 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc::{self, Receiver, SyncSender},
 };
-use std::{thread::JoinHandle, time::Duration};
+use std::{
+    thread::JoinHandle,
+    time::{Duration, Instant},
+};
+
+pub fn elapsed_us(received: Option<Instant>) -> Option<u64> {
+    let elapsed = Instant::now().checked_duration_since(received?)?;
+    u64::try_from(elapsed.as_micros()).ok()
+}
 
 #[derive(Clone)]
 pub enum Request {
@@ -29,6 +37,7 @@ pub enum Reply {
         action: Action,
         input: InputEvent,
         result: Result<(), &'static str>,
+        report_receipt_to_dispatch_us: Option<u64>,
     },
     State {
         system: crate::system_actions::States,
@@ -38,6 +47,7 @@ pub enum Reply {
     },
 }
 trait Backend: Send + 'static {
+    fn idle(&mut self) {}
     fn read_system(&mut self, _commands: &[String]) -> crate::system_actions::States {
         Default::default()
     }
@@ -60,6 +70,9 @@ struct System {
     audio: crate::audio_target::Client,
 }
 impl Backend for System {
+    fn idle(&mut self) {
+        self.audio.expire_idle_writer();
+    }
     fn read_system(&mut self, commands: &[String]) -> crate::system_actions::States {
         self.system.read(commands)
     }
@@ -67,7 +80,7 @@ impl Backend for System {
         match &action {
             Action::System { command } => self.system.execute(command),
             Action::AudioAdjust { .. } | Action::AudioMute { .. } | Action::AudioSelect { .. } => {
-                crate::audio_target::execute(&action)
+                self.audio.execute(&action)
             }
             Action::OpenApplication { .. }
             | Action::OpenWebsite { .. }
@@ -102,7 +115,7 @@ impl Backend for System {
 }
 pub struct Worker {
     plugin: crate::plugin_runtime::Worker,
-    requests: SyncSender<(Request, u64, u64)>,
+    requests: SyncSender<(Request, u64, u64, Option<Instant>)>,
     gate: crate::session_lock::Gate,
     foreground: crate::foreground::Foreground,
     read_pending: Arc<AtomicBool>,
@@ -131,7 +144,7 @@ impl Worker {
         gate: crate::session_lock::Gate,
         foreground: crate::foreground::Foreground,
     ) -> Self {
-        let (requests, incoming) = mpsc::sync_channel::<(Request, u64, u64)>(32);
+        let (requests, incoming) = mpsc::sync_channel::<(Request, u64, u64, Option<Instant>)>(32);
         let (outgoing, replies) = mpsc::sync_channel(64);
         let session = Arc::new(AtomicU64::new(0));
         let plugin =
@@ -145,10 +158,13 @@ impl Worker {
         let action_focus = foreground.clone();
         let thread = std::thread::spawn(move || {
             while !stopped.load(Ordering::Acquire) {
-                let (request, epoch, focus_revision) =
+                let (request, epoch, focus_revision, received) =
                     match incoming.recv_timeout(Duration::from_millis(20)) {
                         Ok(request) => request,
-                        Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                        Err(mpsc::RecvTimeoutError::Timeout) => {
+                            backend.idle();
+                            continue;
+                        }
                         Err(_) => break,
                     };
                 let id = match &request {
@@ -171,13 +187,21 @@ impl Worker {
                         session,
                         action,
                         input,
-                    } => Reply::Action {
-                        page,
-                        session,
-                        action: action.clone(),
-                        input,
-                        result: backend.execute(action),
-                    },
+                    } => {
+                        let reply_action = action.clone();
+                        // Capture before invoking the backend: include time spent
+                        // behind snapshots/actions, exclude backend completion.
+                        let report_receipt_to_dispatch_us = elapsed_us(received);
+                        let result = backend.execute(action);
+                        Reply::Action {
+                            page,
+                            session,
+                            action: reply_action,
+                            input,
+                            result,
+                            report_receipt_to_dispatch_us,
+                        }
+                    }
                     Request::Read {
                         session,
                         targets,
@@ -216,6 +240,13 @@ impl Worker {
         self.session.store(id, Ordering::Release);
     }
     pub fn submit(&self, request: Request) -> Result<(), &'static str> {
+        self.submit_received(request, None)
+    }
+    pub fn submit_received(
+        &self,
+        request: Request,
+        received: Option<Instant>,
+    ) -> Result<(), &'static str> {
         if matches!(
             &request,
             Request::Action {
@@ -235,6 +266,7 @@ impl Worker {
                 request,
                 self.gate.snapshot().epoch,
                 self.foreground.snapshot().revision,
+                received,
             ))
             .map_err(|error| match error {
                 mpsc::TrySendError::Full(_) => "audio_queue_full",
@@ -268,6 +300,77 @@ impl Drop for Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn receipt_timing_includes_snapshot_queue_wait_and_excludes_action_completion() {
+        struct TimingBackend {
+            read_entered: SyncSender<()>,
+            read_release: Receiver<()>,
+            action_entered: SyncSender<Instant>,
+            action_release: Receiver<()>,
+        }
+        impl Backend for TimingBackend {
+            fn execute(&mut self, _: Action) -> Result<(), &'static str> {
+                self.action_entered.send(Instant::now()).unwrap();
+                self.action_release.recv().unwrap();
+                Ok(())
+            }
+            fn read(&mut self) -> Option<audio::State> {
+                self.read_entered.send(()).unwrap();
+                self.read_release.recv().unwrap();
+                None
+            }
+        }
+        let (read_entered, waiting_read) = mpsc::sync_channel(1);
+        let (read_release, release_read) = mpsc::sync_channel(1);
+        let (action_entered, waiting_action) = mpsc::sync_channel(1);
+        let (action_release, release_action) = mpsc::sync_channel(1);
+        let worker = Worker::with_backend(TimingBackend {
+            read_entered,
+            read_release: release_read,
+            action_entered,
+            action_release: release_action,
+        });
+        worker.session(1);
+        worker
+            .submit(Request::Read {
+                system: Vec::new(),
+                session: 1,
+                targets: Vec::new(),
+            })
+            .unwrap();
+        waiting_read.recv_timeout(Duration::from_secs(2)).unwrap();
+        let received = Instant::now();
+        worker.submit_received(request(1), Some(received)).unwrap();
+        std::thread::sleep(Duration::from_millis(30));
+        read_release.send(()).unwrap();
+        let entered = waiting_action.recv_timeout(Duration::from_secs(2)).unwrap();
+        // Completion is deliberately held after dispatch. Reporting at reply time
+        // would exceed this independently observed backend-entry bound.
+        std::thread::sleep(Duration::from_millis(30));
+        action_release.send(()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            if let Some(Reply::Action {
+                result,
+                report_receipt_to_dispatch_us,
+                ..
+            }) = worker.poll().unwrap()
+            {
+                assert_eq!(result, Ok(()));
+                let measured = report_receipt_to_dispatch_us.unwrap();
+                assert!(measured >= 30_000);
+                assert!(u128::from(measured) <= entered.duration_since(received).as_micros());
+                break;
+            }
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        assert_eq!(elapsed_us(None), None);
+        assert_eq!(
+            elapsed_us(Some(Instant::now() + Duration::from_secs(1))),
+            None
+        );
+    }
     struct Blocked {
         entered: SyncSender<()>,
         release: Receiver<()>,

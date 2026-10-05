@@ -23,6 +23,7 @@ pub enum Record {
         session: u64,
         action: crate::pages::Action,
         poll_return_to_dispatch_us: u64,
+        report_receipt_to_queue_us: Option<u64>,
         input: InputEvent,
     },
     AudioWorkerFailed {
@@ -39,6 +40,7 @@ pub enum Record {
         action: crate::pages::Action,
         success: bool,
         error_code: Option<&'static str>,
+        report_receipt_to_dispatch_us: Option<u64>,
         input: InputEvent,
     },
     Connected {
@@ -55,6 +57,7 @@ pub enum Record {
         session: u64,
         page: u8,
         poll_return_to_dispatch_us: u64,
+        report_receipt_to_dispatch_us: Option<u64>,
         input: InputEvent,
     },
 }
@@ -77,6 +80,82 @@ struct Session<D> {
     display: crate::display::Display,
     settlement_due: bool,
     controls: Option<crate::control::Context>,
+}
+
+/// Opt-in aggregate tracing, sampled at most once every two seconds. Worker
+/// record counts are cumulative; adapter counts reset on a new connection.
+struct InputDiagnostics {
+    next: std::time::Instant,
+    until: std::time::Instant,
+    key_records: u64,
+    dial_push_records: u64,
+    dial_turn_records: u64,
+    touch_records: u64,
+}
+impl InputDiagnostics {
+    fn new(until: std::time::Instant) -> Self {
+        Self {
+            next: std::time::Instant::now() + Duration::from_secs(2),
+            until,
+            key_records: 0,
+            dial_push_records: 0,
+            dial_turn_records: 0,
+            touch_records: 0,
+        }
+    }
+    fn observe<D: DeckDevice>(&mut self, state: &Session<D>, record: Option<&Record>) -> bool {
+        let now = std::time::Instant::now();
+        if now >= self.until {
+            return false;
+        }
+        let input = match record {
+            Some(Record::Input { input, .. })
+            | Some(Record::ActionQueued { input, .. })
+            | Some(Record::ActionResult { input, .. })
+            | Some(Record::PageRequested { input, .. }) => Some(input),
+            _ => None,
+        };
+        if let Some(input) = input {
+            let count = match input.event {
+                decksmith_core::RawEvent::Key { .. } => &mut self.key_records,
+                decksmith_core::RawEvent::DialPush { .. } => &mut self.dial_push_records,
+                decksmith_core::RawEvent::DialRotate { .. } => &mut self.dial_turn_records,
+                decksmith_core::RawEvent::Touch { .. } => &mut self.touch_records,
+            };
+            *count = count.saturating_add(1);
+        }
+        if now < self.next {
+            return true;
+        }
+        self.next = now + Duration::from_secs(2);
+        let Some(counts) = state.device.as_ref().and_then(DeckDevice::input_counts) else {
+            return true;
+        };
+        tracing::info!(
+            operation = "input_diagnostics",
+            session = state.generation,
+            locked = state.locked,
+            draining = state.drain_until.is_some(),
+            display_pending = state.display.pending(),
+            reads = counts.reads,
+            transport_errors = counts.transport_errors,
+            invalid_reports = counts.invalid_reports,
+            key_reports = counts.key_reports,
+            dial_push_reports = counts.dial_push_reports,
+            dial_turn_reports = counts.dial_turn_reports,
+            touch_reports = counts.touch_reports,
+            key_events = counts.key_events,
+            dial_push_events = counts.dial_push_events,
+            dial_turn_events = counts.dial_turn_events,
+            touch_events = counts.touch_events,
+            key_records = self.key_records,
+            dial_push_records = self.dial_push_records,
+            dial_turn_records = self.dial_turn_records,
+            touch_records = self.touch_records,
+            "Aggregate device reports and worker output records"
+        );
+        true
+    }
 }
 impl<D: DeckDevice> Session<D> {
     fn resumed(&mut self) {
@@ -434,6 +513,7 @@ impl<D: DeckDevice> Session<D> {
                         action,
                         input,
                         result,
+                        report_receipt_to_dispatch_us,
                     })) if session == self.generation => {
                         if let Some(pages) = self.pages.as_mut() {
                             pages.invalidate_audio();
@@ -445,6 +525,7 @@ impl<D: DeckDevice> Session<D> {
                             input,
                             success: result.is_ok(),
                             error_code: result.err(),
+                            report_receipt_to_dispatch_us,
                         });
                     }
                     Ok(Some(crate::audio_worker::Reply::State {
@@ -505,8 +586,9 @@ impl<D: DeckDevice> Session<D> {
             }
             return match device.poll_event() {
                 Ok(Some(input)) => {
-                    // The physical adapter stamps the input immediately after its HID read;
-                    // this monotonic proxy starts as soon as the normalized event returns.
+                    // The receipt stamp precedes adapter normalization and includes
+                    // queued edges from the same report. Keep the older proxy too.
+                    let received = device.event_received_at();
                     let event_returned = std::time::Instant::now();
                     if self.locked || self.drain_until.is_some() {
                         self.drain_until =
@@ -555,10 +637,13 @@ impl<D: DeckDevice> Session<D> {
                         && let Some(target) = pages.target(&input.event)
                     {
                         if let crate::pages::Action::BrightnessAdjust { percent } = target {
+                            let mut report_receipt_to_dispatch_us = None;
                             let result = if let Some(context) = &self.controls {
                                 let current = context.status.lock().unwrap().brightness;
                                 if let Some(current) = current {
                                     let value = (i16::from(current) + percent).clamp(0, 100) as u8;
+                                    report_receipt_to_dispatch_us =
+                                        crate::audio_worker::elapsed_us(received);
                                     device
                                         .set_brightness(value)
                                         .map_err(|_| "brightness_failed")
@@ -589,24 +674,31 @@ impl<D: DeckDevice> Session<D> {
                                 input,
                                 success: result.is_ok(),
                                 error_code: result.err(),
+                                report_receipt_to_dispatch_us,
                             });
                         }
                         let crate::pages::Action::GoToPage { page: target } = target else {
                             let result =
                                 self.audio.as_ref().ok_or("audio_worker_stopped").and_then(
                                     |audio| {
-                                        audio.submit(crate::audio_worker::Request::Action {
-                                            page: pages.index,
-                                            session: self.generation,
-                                            action: target.clone(),
-                                            input: input.clone(),
-                                        })
+                                        audio.submit_received(
+                                            crate::audio_worker::Request::Action {
+                                                page: pages.index,
+                                                session: self.generation,
+                                                action: target.clone(),
+                                                input: input.clone(),
+                                            },
+                                            received,
+                                        )
                                     },
                                 );
                             if result.is_ok() {
                                 return Some(Record::ActionQueued {
                                     session: self.generation,
                                     action: target,
+                                    report_receipt_to_queue_us: crate::audio_worker::elapsed_us(
+                                        received,
+                                    ),
                                     poll_return_to_dispatch_us: u64::try_from(
                                         event_returned.elapsed().as_micros(),
                                     )
@@ -620,12 +712,16 @@ impl<D: DeckDevice> Session<D> {
                                 action: target,
                                 success: result.is_ok(),
                                 error_code: result.err(),
+                                // Rejected submissions never reached a capability backend.
+                                report_receipt_to_dispatch_us: None,
                                 input,
                             });
                         };
                         if let Some(ptt) = &self.ptt {
                             ptt.cancel();
                         }
+                        let report_receipt_to_dispatch_us =
+                            crate::audio_worker::elapsed_us(received);
                         if pages.show(&mut self.display, target).is_err() {
                             if let Some(audio) = &self.audio {
                                 audio.session(0);
@@ -643,6 +739,7 @@ impl<D: DeckDevice> Session<D> {
                         return Some(Record::PageRequested {
                             session: self.generation,
                             page: target,
+                            report_receipt_to_dispatch_us,
                             poll_return_to_dispatch_us: u64::try_from(
                                 event_returned.elapsed().as_micros(),
                             )
@@ -732,12 +829,26 @@ impl<D: DeckDevice> Session<D> {
 }
 
 pub fn run<D: DeckDevice>(
-    mut open: impl FnMut() -> Result<D, DeviceError>,
+    mut open_device: impl FnMut() -> Result<D, DeviceError>,
     sender: SyncSender<Record>,
     stop: Arc<AtomicBool>,
     pages: Option<crate::pages::Pages>,
     controls: Option<crate::control::Context>,
 ) -> Result<(), &'static str> {
+    // Read once at worker startup; ordinary sessions allocate no diagnostics and
+    // do not inspect environment variables or diagnostic clocks while polling.
+    let diagnostics_enabled =
+        std::env::var_os("DECKSMITH_INPUT_DIAGNOSTICS").is_some_and(|value| value == "1");
+    let diagnostics_until =
+        diagnostics_enabled.then(|| std::time::Instant::now() + Duration::from_secs(120));
+    let mut diagnostics = diagnostics_until.map(InputDiagnostics::new);
+    let mut open = || {
+        let mut device = open_device()?;
+        device.set_input_diagnostics(
+            diagnostics_until.is_some_and(|until| std::time::Instant::now() < until),
+        );
+        Ok(device)
+    };
     let gate = controls
         .as_ref()
         .map(|c| c.gate.clone())
@@ -780,6 +891,18 @@ pub fn run<D: DeckDevice>(
             );
         }
         let record = state.step(&mut open);
+        if let Some(trace) = diagnostics.as_mut()
+            && !trace.observe(&state, record.as_ref())
+        {
+            if let Some(device) = state.device.as_mut() {
+                device.set_input_diagnostics(false);
+            }
+            diagnostics = None;
+            tracing::info!(
+                operation = "input_diagnostics",
+                "Input diagnostic window ended"
+            );
+        }
         if let Some(Record::ActionResult {
             page,
             action,

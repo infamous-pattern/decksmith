@@ -143,6 +143,7 @@ impl Worker {
                             action,
                             input,
                             result,
+                            report_receipt_to_dispatch_us: None,
                         });
                     }
                     next = running.lock().unwrap().next(success);
