@@ -917,10 +917,50 @@ cargo test -p decksmith-device --all-features --release --locked hardware::tests
 ```
 
 Evidence is retained under `local/v1-profile-20261005-1062b01/`. Fedora 44 was
-saved and stopped afterward. The user's installed build remains
-`0.1.0-4e47081f8cf8`; this region-update candidate still needs a clean bundle,
-physical display/blanking/recovery acceptance and measured resources/latency before
-its benefits or release readiness can be claimed.
+saved and stopped afterward. The region-update source was subsequently packaged
+and installed as recorded below. Complete physical blanking/recovery, resource and latency qualification
+remain necessary before release readiness can be claimed.
+
+### 2026-10-05 region-update runtime qualification
+
+A clean source `63b9523` bundle `0.1.0-430c4bd75f9a` passed archive checksum,
+all 340 packaged-file integrity checks and a private build-metadata scan. The
+Fedora Workstation 44 VM installed the artifact without activating hardware
+controls; its runtime dependency/integrity checks, VirtualDeck and real GNOME
+lock/unlock test passed. Locked page changes were rejected and the previous page
+restored after unlock. The guest saved layout hash was unchanged. The VM was saved
+and stopped afterward; all four testing VMs remained stopped.
+
+The same bundle was then activated on the desktop. The installer retained the
+previous `0.1.0-4e47081f8cf8` release and made a settings/artwork backup. All five
+saved JSON configuration files remained byte-identical. The Stream Deck +
+reconnected, its display became ready and GNOME Auto-Lock remained available and
+enabled. The user confirmed page switching, audio dials and mute, with labels,
+meters and icons correct and no stale areas, flicker or missed display updates.
+This confirms the requested interactive region-update smoke check, not exhaustive
+blanking/recovery, latency or resource qualification. Raw evidence is retained
+under `local/v1-checks-20261005-63b9523/`.
+
+The subsequent 300-second quiet measurement on that exact installed artifact was
+valid: all sampled status checks were connected, display-ready and unlocked;
+playback and external capture were absent at both endpoints; no Deck inputs were
+recorded, the daemon PID was unchanged and restart count stayed at zero. Mean
+service cgroup CPU was **3.75% of one core** (3.38% minimum, 4.03% sampled p95,
+4.66% maximum); mean daemon CPU was **2.11%**. Main RSS averaged **17.90 MiB**
+and cgroup memory **47.85 MiB**, with 16-18 file descriptors. The previous valid
+build measured 3.83% service CPU and 2.09% daemon CPU. This small difference does
+not establish a repeatable idle CPU improvement, and the below-1% gate remains
+open. The earlier synthetic encoding speedup and active-worker profile must not
+be presented as a measured idle service saving. Evidence is retained under
+`local/v1-checks-20261005-63b9523/quiet-unlocked/`.
+
+After the idle measurement, the user confirmed that Quit Decksmith blanked every
+key and the entire touch strip, and that relaunching/starting controls restored the
+saved page cleanly. A subsequent read-only status check confirmed the physical
+Deck was connected and display-ready, with all five saved configuration files
+still unchanged. This closes the explicit blanking/relaunch smoke check for this
+artifact; suspend/reconnect, latency, loaded-resource and remaining final release
+gates are not inferred from it.
 
 ## Work order
 

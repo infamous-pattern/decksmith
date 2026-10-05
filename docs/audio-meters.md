@@ -134,4 +134,9 @@ encoding and USB payload work for live meter changes while keeping the complete
 and explicit blanking use a full strip; a failed transfer never advances the cache.
 The underlying [Plus region-write API](https://docs.rs/elgato-streamdeck/0.13.1/elgato_streamdeck/struct.StreamDeck.html#method.write_lcd)
 is already available in the pinned hardware library. Source and native-VM codec
-checks pass; physical acceptance and installed CPU measurements are still pending.
+checks pass. The clean candidate passed Fedora 44 runtime and lock/page restoration
+checks, and the user confirmed the physical labels, meters, icons, page switching
+and mute update correctly without stale areas or flicker. A valid five-minute quiet
+sample measured 3.75% service CPU and 2.11% daemon CPU,
+versus 3.83% and 2.09% previously. This does not establish a repeatable idle saving;
+the below-1% CPU gate and complete recovery qualification remain open.
