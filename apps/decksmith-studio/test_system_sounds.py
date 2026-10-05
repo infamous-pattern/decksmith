@@ -35,9 +35,9 @@ class SystemSoundsTests(unittest.TestCase):
 
     def test_idle_read_and_actions_never_access_output_or_other_apps(self):
         value = {'percent':42,'muted':False,'icon':'speaker'}
-        with patch.object(targets,'command') as command, patch.object(targets,'listing') as listing, patch.object(sounds,'read',return_value=value) as read:
+        with patch.object(targets,'command') as command, patch.object(targets,'listing') as listing, patch.object(targets,'list_all') as all_listing, patch.object(sounds,'read',return_value=value) as read:
             self.assertEqual(targets.read(['system','system']),[value,value])
-            read.assert_called_once(); command.assert_not_called(); listing.assert_not_called()
+            read.assert_called_once(); command.assert_not_called(); listing.assert_not_called(); all_listing.assert_not_called()
         with patch.object(targets,'command') as command, patch.object(sounds,'execute') as execute:
             action={'type':'audio_mute','target':'system'}
             targets.execute(action); execute.assert_called_once_with(action); command.assert_not_called()
@@ -48,7 +48,7 @@ class SystemSoundsTests(unittest.TestCase):
         nodes=[{'index':1,'properties':{'media.role':'event'}},
                {'index':2,'properties':{'media.role':'music'}},
                {'index':3,'properties':{'application.name':'Brave'}}]
-        with patch.object(targets,'listing',return_value=nodes):
+        with patch.object(targets,'list_all',return_value={'sink_inputs':nodes}):
             kind,selected=targets.Snapshot().nodes('system')
         self.assertEqual(kind,'sink-inputs'); self.assertEqual([n['index'] for n in selected],[1])
 
@@ -74,11 +74,11 @@ class SystemSoundsTests(unittest.TestCase):
         from unittest.mock import Mock
         connection=Mock();connection.read.return_value=sounds.default_info()
         events=[{'index':10,'properties':{'media.role':'event'}}]
-        with patch.object(sounds,'client',return_value=connection),patch.object(targets,'listing',return_value=events),patch.object(targets,'command') as command:
+        with patch.object(sounds,'client',return_value=connection),patch.object(targets,'list_all',return_value={'sink_inputs':events}),patch.object(targets,'command') as command:
             sounds.execute({'type':'audio_adjust','target':'system','percent':-5})
             command.assert_called_once_with('set-sink-input-volume','10','95%')
             self.assertEqual(sounds.state(connection.write.call_args.args[0])['percent'],95)
-        with patch.object(sounds,'client',return_value=connection),patch.object(targets,'listing',side_effect=[events,[]]),patch.object(targets,'command',side_effect=subprocess.CalledProcessError(1,'pactl')):
+        with patch.object(sounds,'client',return_value=connection),patch.object(targets,'list_all',side_effect=[{'sink_inputs':events},{'sink_inputs':[]}]),patch.object(targets,'command',side_effect=subprocess.CalledProcessError(1,'pactl')):
             sounds.execute({'type':'audio_mute','target':'system'})
         connection.read.side_effect=ValueError('offline')
         with patch.object(sounds,'client',return_value=connection),patch.object(targets,'command') as command:

@@ -64,7 +64,13 @@ def probe(checks,snapshot=None,bus=None):
             result.append(notice(check,name,'unknown','Target status could not be checked','Check desktop audio or media settings. Decksmith will retry automatically.','Check target','Retrying'))
     return result
 def serve(source,output):
-    """Fresh, bounded status checks over a reusable process; no action execution."""
+    from audio_inventory import Inventory
+    inventory=Inventory()
+    try:serve_cached(source,output,inventory)
+    finally:inventory.close()
+
+def serve_cached(source,output,inventory):
+    """Bounded status checks; changes invalidate the shared audio inventory."""
     while True:
         line=source.readline(65537)
         if not line:return
@@ -72,7 +78,7 @@ def serve(source,output):
         try:
             checks=json.loads(line)
             if not isinstance(checks,list) or len(checks)>24:raise ValueError('Invalid checks')
-            result=probe(checks)
+            result=probe(checks,snapshot=Snapshot(inventory))
             raw=json.dumps(result)
             if len(raw.encode())>65535:raise ValueError('Response too large')
         except Exception:raw='null'

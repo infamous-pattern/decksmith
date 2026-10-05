@@ -56,9 +56,19 @@ A separate helper uses libpulse PA_STREAM_PEAK_DETECT at 20 Hz and publishes num
 levels at at most 20 Hz. A libpulse read callback drains arriving peaks immediately
 and coalesces them to the strongest value for the next display update; values are
 consumed once, and silence/suspension clears pending activity. It connects only to the local user audio socket. Inventory
-refresh runs separately from peak processing. The Rust worker uses a latest-only
+refresh runs separately from peak processing. Long-lived helpers reuse read-only
+inventory until a libpulse device, stream, volume or default-device notification
+invalidates it. A five-second watchdog bounds missed notifications; caching is
+disabled while the listener is unavailable, and actions always resolve targets
+freshly. The Rust worker uses a latest-only
 snapshot, bounded input, target/session validation and a 400 ms stale timeout;
 no subprocess work runs in the HID ownership loop. Static strip artwork is cached.
+The native main loop drains pending work within a fixed bound and stops as soon
+as it reports no dispatched events. The 10 ms tick and 20 Hz meter updates are
+unchanged; an iteration or context error still disconnects the helper. A Fedora
+44 null-sink check measured two independent synthetic app peaks of 0.05 and 0.40
+after this change without changing default routing or user volumes.
+
 Failed helpers retry with bounded backoff. Peak streams use the minimal peak-detection
 flag with a 50 ms fragment request, without changing hardware latency. The actual
 source name is checked before accepting peaks; a moved or failed stream immediately

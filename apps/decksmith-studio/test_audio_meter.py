@@ -3,6 +3,29 @@ from unittest.mock import patch
 import audio_meter as m
 
 class MeterTests(unittest.TestCase):
+    def test_mainloop_drains_pending_work_without_empty_busy_polling(self):
+        from unittest.mock import Mock
+        pulse=object.__new__(m.Pulse);pulse.loop=1;pulse.ctx=2;pulse.state=Mock(return_value=4)
+        pulse.iterate=Mock(side_effect=[2,1,0])
+        pulse.tick()
+        self.assertEqual(pulse.iterate.call_count,3)
+        pulse.iterate=Mock(return_value=0)
+        pulse.tick()
+        self.assertEqual(pulse.iterate.call_count,1)
+        pulse.iterate=Mock(return_value=1)
+        pulse.tick()
+        self.assertEqual(pulse.iterate.call_count,8)
+
+    def test_mainloop_error_and_context_disconnect_never_publish_as_success(self):
+        from unittest.mock import Mock
+        pulse=object.__new__(m.Pulse);pulse.loop=1;pulse.ctx=2;pulse.state=Mock(return_value=4)
+        pulse.iterate=Mock(return_value=-1)
+        with self.assertRaises(RuntimeError):pulse.tick()
+        pulse.iterate=Mock(return_value=0)
+        for state in (5,6):
+            pulse.state.return_value=state
+            with self.assertRaises(RuntimeError):pulse.tick()
+
     def test_db_scale_is_signal_not_volume(self):
         self.assertEqual([m.display_level(v) for v in (None,0,.001,.01,.1,1)], [None,0,0,33,67,100])
     def test_missing_stale_and_silent_are_distinct(self):
@@ -13,15 +36,17 @@ class MeterTests(unittest.TestCase):
         self.assertEqual(m.aggregate(['a','b'],{'a':(.9,.1),'b':(.9,.01)},1),67)
     def test_device_and_multiple_app_streams_resolve_exact_sources(self):
         class Snapshot:
-            cache={}
+            def __init__(self,inventory=None):pass
+            def all_nodes(self):return {'sinks':[{'index':3,'monitor_source':'a.monitor'},{'index':4,'monitor_source':'b.monitor'}]}
             def nodes(self,target):
                 return {'system':('sinks',[{'monitor_source':'out.monitor'}]),'microphone':('sources',[{'name':'mic'}]),'app:x':('sink-inputs',[{'sink':3,'index':8},{'sink':4,'index':9}]),'missing':('sources',[])}[target]
-        with patch.object(m,'Snapshot',Snapshot),patch.object(m,'listing',return_value=[{'index':3,'monitor_source':'a.monitor'},{'index':4,'monitor_source':'b.monitor'}]):
+        with patch.object(m,'Snapshot',Snapshot):
             self.assertEqual(m.resolve(['system','microphone','app:x','missing']),{'system':[('out.monitor',None)],'microphone':[('mic',None)],'app:x':[('a.monitor',8),('b.monitor',9)],'missing':[]})
     def test_inventory_failure_is_not_zero_or_other_source(self):
         with patch.object(m,'Snapshot',side_effect=RuntimeError):
             with self.assertRaises(RuntimeError):m.resolve(['system'])
         class Snapshot:
+            def __init__(self,inventory=None):pass
             def nodes(self,target):raise RuntimeError()
         with patch.object(m,'Snapshot',Snapshot):self.assertEqual(m.resolve(['system']),{'system':[]})
 

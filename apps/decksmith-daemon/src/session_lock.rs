@@ -17,6 +17,54 @@ struct State {
 }
 #[derive(Clone)]
 pub struct Gate(Arc<Mutex<State>>);
+
+fn lock_proxy(
+    connection: &zbus::blocking::Connection,
+    destination: &'static str,
+    path: &'static str,
+    interface: &'static str,
+) -> Option<zbus::blocking::Proxy<'static>> {
+    zbus::blocking::proxy::Builder::new(connection)
+        .destination(destination)
+        .ok()?
+        .path(path)
+        .ok()?
+        .interface(interface)
+        .ok()?
+        // session/auto is an alias: property-change signals use the canonical
+        // path. Always read lock properties afresh, even with a reusable proxy.
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .ok()
+}
+
+fn connect_lock_proxy(session: bool) -> Option<zbus::blocking::Proxy<'static>> {
+    let connection = if session {
+        zbus::blocking::connection::Builder::session()
+    } else {
+        zbus::blocking::connection::Builder::system()
+    }
+    .ok()?
+    .method_timeout(Duration::from_millis(250))
+    .build()
+    .ok()?;
+    if session {
+        lock_proxy(
+            &connection,
+            "org.gnome.ScreenSaver",
+            "/org/gnome/ScreenSaver",
+            "org.gnome.ScreenSaver",
+        )
+    } else {
+        lock_proxy(
+            &connection,
+            "org.freedesktop.login1",
+            "/org/freedesktop/login1/session/auto",
+            "org.freedesktop.login1.Session",
+        )
+    }
+}
+
 impl Default for Gate {
     fn default() -> Self {
         Self::new(false)
@@ -71,53 +119,34 @@ impl Gate {
     pub fn monitor(&self) {
         let weak = Arc::downgrade(&self.0);
         std::thread::spawn(move || {
-            let mut session = None;
-            let mut system = None;
+            let mut session: Option<zbus::blocking::Proxy<'static>> = None;
+            let mut system: Option<zbus::blocking::Proxy<'static>> = None;
             let mut gnome_seen = false;
             while let Some(inner) = weak.upgrade() {
                 let gate = Gate(inner);
                 if session
                     .as_ref()
-                    .is_some_and(zbus::blocking::Connection::is_closed)
+                    .is_some_and(|proxy| proxy.connection().is_closed())
                 {
                     session = None;
                 }
                 if system
                     .as_ref()
-                    .is_some_and(zbus::blocking::Connection::is_closed)
+                    .is_some_and(|proxy| proxy.connection().is_closed())
                 {
                     system = None;
                 }
                 if session.is_none() {
-                    session = zbus::blocking::connection::Builder::session()
-                        .ok()
-                        .and_then(|b| b.method_timeout(Duration::from_millis(250)).build().ok());
+                    session = connect_lock_proxy(true);
                 }
                 if system.is_none() {
-                    system = zbus::blocking::connection::Builder::system()
-                        .ok()
-                        .and_then(|b| b.method_timeout(Duration::from_millis(250)).build().ok());
+                    system = connect_lock_proxy(false);
                 }
-                let gnome = session.as_ref().and_then(|c| {
-                    zbus::blocking::Proxy::new(
-                        c,
-                        "org.gnome.ScreenSaver",
-                        "/org/gnome/ScreenSaver",
-                        "org.gnome.ScreenSaver",
-                    )
-                    .ok()?
-                    .call::<_, _, bool>("GetActive", &())
-                    .ok()
-                });
+                let gnome = session
+                    .as_ref()
+                    .and_then(|p| p.call::<_, _, bool>("GetActive", &()).ok());
                 gnome_seen |= gnome.is_some();
-                let logind = system.as_ref().and_then(|c| {
-                    let p = zbus::blocking::Proxy::new(
-                        c,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1/session/auto",
-                        "org.freedesktop.login1.Session",
-                    )
-                    .ok()?;
+                let logind = system.as_ref().and_then(|p| {
                     let kind = p.get_property::<String>("Type").ok()?;
                     if !matches!(kind.as_str(), "wayland" | "x11") {
                         return None;
@@ -156,6 +185,69 @@ pub fn paint(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct Probe(std::sync::Arc<std::sync::atomic::AtomicBool>);
+    #[zbus::interface(name = "cc.senecal.Decksmith.LockProbe")]
+    impl Probe {
+        #[zbus(property)]
+        fn locked_hint(&self) -> bool {
+            self.0.load(std::sync::atomic::Ordering::Acquire)
+        }
+    }
+
+    #[test]
+    #[ignore = "requires an isolated dbus-run-session"]
+    fn reusable_proxy_reads_unsignalled_lock_changes_and_recovers() {
+        let address = std::env::var("DBUS_SESSION_BUS_ADDRESS").unwrap_or_default();
+        assert!(address.starts_with("unix:path=/tmp/dbus-"));
+        let locked = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let server = zbus::blocking::connection::Builder::session()
+            .unwrap()
+            .name("cc.senecal.Decksmith.LockProbe")
+            .unwrap()
+            .serve_at("/test/lock", Probe(locked.clone()))
+            .unwrap()
+            .build()
+            .unwrap();
+        let client = zbus::blocking::connection::Builder::session()
+            .unwrap()
+            .method_timeout(Duration::from_millis(250))
+            .build()
+            .unwrap();
+        let proxy = lock_proxy(
+            &client,
+            "cc.senecal.Decksmith.LockProbe",
+            "/test/lock",
+            "cc.senecal.Decksmith.LockProbe",
+        )
+        .unwrap();
+        let gate = Gate::new(true);
+        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        assert!(!gate.snapshot().locked);
+        // Deliberately emit no PropertiesChanged signal. The same proxy must
+        // still fetch the current value, including the transition back to false.
+        locked.store(true, std::sync::atomic::Ordering::Release);
+        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        assert!(gate.snapshot().locked);
+        locked.store(false, std::sync::atomic::Ordering::Release);
+        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        assert!(!gate.snapshot().locked);
+        server
+            .object_server()
+            .remove::<Probe, _>("/test/lock")
+            .unwrap();
+        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        assert!(gate.snapshot().locked);
+        assert!(!gate.snapshot().available);
+        server
+            .object_server()
+            .at("/test/lock", Probe(locked))
+            .unwrap();
+        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        assert!(!gate.snapshot().locked);
+        assert!(gate.snapshot().available);
+    }
+
     #[test]
     fn unknown_and_stale_never_unlock() {
         let gate = Gate::new(true);

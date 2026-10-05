@@ -94,6 +94,11 @@ features have been implemented.
 
 ## Current VM test matrix
 
+V1 release-candidate testing includes all four retained VMs: Fedora Workstation
+44, Fedora Workstation 45 Beta, Debian 13 and Ubuntu 26.04. Debian and Ubuntu
+must be exercised and their results recorded as cross-distribution diagnostics;
+their inclusion in testing does not make them supported V1 platforms.
+
 All four retained machines are registered in virt-manager's **QEMU/KVM User
 session**. Their current state is powered off, with VM autostart disabled. They
 have no physical Stream Deck USB passthrough or host audio backend.
@@ -495,13 +500,378 @@ native GUI check used a private test bus and temporary XDG directories; it did
 not change the guest's saved layout. These results apply only to this artifact
 and do not by themselves certify V1.
 
+### Follow-up local qualification build — October 2, 2026
+
+Build `0.1.0-860b297be165` was produced from clean source commit
+`1937a3546ade8540e9a49748d0c773d119de0fb4` (`source_dirty: false`); archive
+SHA-256: `975e3971ac25c64a9887992aef9df345ebe761eb6c74271cc6efacaefbb79b94`.
+Compared with the preceding test build, this commit changes documentation and
+includes the editor screenshot; product code is unchanged. This is another local
+qualification build, not a frozen V1 release candidate or public release.
+
+| VM | Result on this exact archive |
+| --- | --- |
+| Fedora 44 | **Pass for install/recovery and VirtualDeck smoke:** checksum verified; install/activate, runtime doctor, VirtualDeck geometry, service start/stop, rollback to the prior release, candidate reinstall, uninstall and reinstall all passed. Layout and settings remained unchanged; login startup remained disabled. After stopping controls, launching Decksmith showed the “Start background controls?” prompt; selecting “Start controls” started the service. After reboot, the service remained stopped and login startup remained disabled. |
+| Fedora 44 accessibility | **Visual scaling pass, keyboard/Orca gates still open:** at 125% light, 150% dark and 150% high contrast, the 1024×768 logical editor screenshots kept Save and Apply visible; the settings and device preview remained in the window. AT-SPI snapshots contained 34 named controls. The SSH-launched test window did not acquire keyboard focus, so its automated focus-traversal assertions are not counted. The VM has no audio backend, so audible Orca output could not be verified. |
+| Fedora 45 Beta | **Pass for install/reboot smoke:** checksum, install, runtime doctor, VirtualDeck geometry and service checks passed. The pre-existing enabled login-start setting remained enabled, and after reboot the service was active. This is beta forward-compatibility evidence, not final Fedora 45 certification. |
+| Ubuntu 26.04 | **Pass for install smoke:** checksum, install, runtime doctor, VirtualDeck geometry and service start passed; login startup remained disabled. This is diagnostic evidence, not Ubuntu support. |
+| Debian 13 | **Expected compatibility rejection:** checksum passed, then runtime validation reported the missing `GLIBC_2.43` symbol on glibc 2.41. Installation exited before creating a current-release link or install record. This remains a diagnostic result, not Debian support. |
+
+All VMs were shut down after testing, with autostart disabled. The checks used
+VirtualDeck and could not exercise physical USB, audio routing or Stream Deck
+controls. A separate clean-user graphical first-run test, audible Orca check,
+human-paced keyboard/screen-reader review and physical-host qualification remain
+open. GNOME display/accessibility settings were restored after the scaling run.
+
+### Fedora 44 production-host candidate check — October 2, 2026
+
+The same local qualification bundle, `0.1.0-860b297be165` (SHA-256
+`975e3971ac25c64a9887992aef9df345ebe761eb6c74271cc6efacaefbb79b94`), was
+installed on the Fedora 44 reference desktop after verifying its checksum. The
+installer retained the previous release and created a recovery backup. Runtime
+doctor and release-integrity checks passed; the service remained active with no
+restart, the detected device reported connected and display-ready, and the saved
+layout was unchanged. The user tested page switching and assigned audio, media
+and brightness controls on the physical Stream Deck + and confirmed they worked
+as expected.
+
+This closes the short interactive physical-control check for this bundle only.
+The user also tested USB unplug/reconnect and suspend/
+resume on this bundle: the saved page and controls returned without restarting
+Decksmith. These lifecycle checks pass for this bundle only. Auto-Lock passed:
+Fedora's lock state appeared on the device, and unlocking restored the page and
+controls. Quit-and-blank passed: quitting blanked the device, then relaunching
+Decksmith restored the saved setup. Start-at-login passed on the physical host:
+after signing in, background controls started while the editor stayed closed.
+The user also completed a keyboard-navigation check in the editor; focus was
+visible and navigation reached Save and Apply without awkward jumps. Orca speech
+also passed on the physical desktop: the user enabled GNOME Screen Reader and
+confirmed it worked while navigating editor controls. Exhaustive system-action
+and fault-recovery coverage remain open. This local bundle is not a frozen V1
+candidate; all release gates must be repeated on the final frozen artifact.
+
+### Clean-user first run and passive host sample — October 2, 2026
+
+The exact `0.1.0-860b297be165` bundle was installed in a disposable Fedora 44
+GNOME account. Its first graphical launch showed the expected prompt to start
+background controls. Choosing “Not now” left the service stopped and did not
+create a layout or settings file. The screenshot is retained locally at
+`local/v1-candidate-20261002-860b/accessibility/clean-user-start-controls-prompt.png`.
+The temporary account was removed, the VM's original GNOME autologin was
+restored, and the guest was shut down.
+
+A separate five-minute passive sample had observed 9.20% average CPU on one core
+with a 16.41% sampled peak and is retained as an earlier uncontrolled observation.
+
+For a ten-minute interactive soak, a temporary per-page Dial 4 override targeted
+Chrome, producing four distinct meter targets: Chrome, Brave, the named input,
+and the named output. The user confirmed switching pages and using ordinary and
+faster dial turns during the sample; they reported no freeze, blanking, missed
+input, or wrong-target change. Afterward, the original four-page layout,
+prior-layout backup, and control-panel settings were restored byte-for-byte; the
+device remained connected and display-ready on its original page. No service
+restart occurred. The raw two-second readings are retained locally at
+`local/v1-resource-20261002-four-targets/resource-sample.csv`.
+
+Across this run, cgroup CPU averaged 10.39% of one core with a 34.38% sampled
+peak. Cgroup memory ranged from 57.04 to 61.14 MiB (59.28 MiB mean); main-process
+RSS stayed at 30.86–30.87 MiB. Task count was 23–24, and total open file
+descriptors across service processes ranged from 42 to 54. The main process ID
+was unchanged and restart count remained zero. This is active-playback evidence,
+not an idle CPU result. It also does not simulate helper failures under load or
+measure end-to-end action latency.
+
+A separate five-minute playback-stopped sample was taken on the same four-target
+configuration. Two non-corked speech-dispatcher sink streams remained present,
+but no active source-output streams were listed; treat this as a quiet-desktop
+sample, not a fully quiescent audio graph. Across 149 readings, cgroup CPU
+averaged 6.42% of one core (3.65% minimum, 8.43% sampled maximum), above the
+below-1% idle target. Cgroup memory averaged 61.36 MiB (58.83–62.88 MiB), and
+main-process RSS remained 32.73 MiB. Service file descriptors ranged from 42 to
+46. The PID stayed at 282923 with zero service restarts. The raw readings are
+retained locally at
+`local/v1-resource-20261002-silent-idle/resource-sample.csv`; its per-sample
+thread-count field was invalid and is excluded from these results. A later
+60-second process breakdown attributed about 4.65% CPU to the main daemon and
+0.73% to the audio-meter helper. The resource gate therefore remains open for
+CPU investigation and a repeated sample after any optimization.
+
+Source review found that the physical adapter uses a blocking HID read with a
+20 ms timeout, and the CPU sample localized most daemon time to its device-worker
+thread. This is correlation, not a proven root cause. No polling change was made:
+increasing the timeout can add input latency, and the host has no `perf` or
+`strace` profiler available for a low-level trace. Profile the worker and measure
+input latency together before changing the timeout.
+
+The current source passed formatting, strict Clippy, and all-features Rust tests
+(92 passed, one microphone-hold integration test ignored because it requires a
+disposable virtual microphone). The editor Python suite passed 151 tests, the
+installer suite passed 18 tests, and the pinned `cargo-deny` audit passed. All
+four test VMs were confirmed powered off with autostart disabled afterward.
+
+### 2026-10-05 quiet-idle recheck and process trace
+
+After playback was stopped and the voice session ended, a five-minute sample
+found no playback sink inputs. The only uncorked source-output streams were the
+two expected Decksmith peak-level captures. Across 150 two-second readings,
+cgroup CPU averaged 7.60% of one core (6.73% minimum, 8.04% p95, 8.84% maximum).
+The main daemon's sampled process CPU averaged 3.80%; cgroup memory averaged
+49.27 MiB, main-process RSS averaged 16.88 MiB, and task count was 23–24. The
+service remained active as PID 32790 with zero restarts. The raw sample is
+retained locally at `local/v1-resource-20261005-quiet-idle/resource-sample.csv`.
+
+A separate 30-second read-only process trace observed 217 short-lived `pactl`
+process instances (68 sink listings, 63 source listings, 56 sink-input listings,
+and 30 PulseAudio info queries). The helper's fresh per-request snapshot invoked
+several category-specific commands. The local candidate now uses one combined
+`pactl --format=json list` result for sinks, sources, and sink inputs while
+preserving the 500 ms refresh interval. All 152 Python tests pass, including
+shared/fresh snapshot and action-safety cases. A short, read-only benchmark of
+eight snapshots measured 12.68 ms child CPU and 29.29 ms wall time per snapshot
+for separate listings plus `info`, versus 8.86 ms child CPU and 18.18 ms wall
+time for the combined listing plus `info`. This is about 30% less child CPU in
+that small microbenchmark, not a service-level result. A live read-only snapshot
+also returned valid states for system sounds and default devices. The installed
+candidate result is recorded below; the below-1% gate remains open.
+
+Candidate-source checks on this change: all 152 Studio Python tests and all 18
+installer tests passed; the default-feature Rust workspace suite passed (92
+passed, one microphone-hold test ignored), formatting passed, and the pinned
+`cargo-deny` 0.20.2 audit passed after verifying its published archive checksum.
+After installing `systemd-devel`, the all-features workspace suite passed (123
+tests, one ignored), hardware-enabled Clippy passed with warnings denied, and
+the clean qualification bundle was built and checked successfully.
+
+The source now adds `poll_return_to_dispatch_us` to action-queued and page-request
+records. It measures with a monotonic clock from the normalized physical event
+returning from the adapter through capability enqueue/page routing. This is a
+closer dispatch measure than the old session-relative timestamp, but it still
+starts just after HID report receipt and has not been collected on the running
+physical build. It is now installed in the qualification build; coordinate a
+physical key-and-dial run before reporting a latency result.
+
+### 2026-10-05 installed-candidate qualification
+
+Clean source `f5f397b497cb791717c7d4c7721259497378df92` produced bundle
+`0.1.0-6b2590ed1a9d`. This is a qualification build, not a frozen V1 release.
+The full Rust check/audit, 152 Studio tests and installer suite passed. Desktop
+activation preserved all five saved layout/configuration/artwork files, retained
+the prior release and a configuration backup, and restored the connected display.
+
+With playback and Bluetooth phone audio disconnected, all test VMs stopped,
+and no Deck inputs during 61 readings over 300 seconds, the service cgroup
+averaged **6.36% CPU** of one core (5.49% minimum, 6.79% sampled p95, 7.09%
+maximum). This improves the earlier 7.60% average but **does not pass** the
+below-1% idle target. Main-process CPU averaged 2.30%, main RSS 14.84 MiB,
+cgroup memory 46.00 MiB and file descriptors remained at 16. The display was
+ready and unlocked throughout, no playback streams were present before or
+after, and the daemon PID remained unchanged with zero service restarts.
+Raw local evidence is under `local/v1-checks-20261005-f5f397b/quiet/`.
+
+Fedora 44 passed runtime doctor, VirtualDeck preview/navigation/save, native
+editor and integrated compact-shell checks. Upgrade from the actual published
+preview.3, rollback, uninstall with saved-data preservation, and reinstall passed.
+The QA harness originally wrote one Python cache file into the immutable release;
+integrity checking correctly rejected it. Removing only that test-created file
+and disabling bytecode writes in the harness allowed the cycles to pass. Release
+integrity policy was not weakened.
+
+Fedora 45 Beta passed runtime doctor, VirtualDeck and native-editor smoke tests,
+saved-layout preservation and a reboot with enabled background startup and no
+editor window. Its SSH-launched integrated test did not acquire keyboard focus,
+so automated focus traversal is not counted as a pass. Both Fedora guests were
+stopped or saved afterward. Debian 13 and Ubuntu 26.04 still require checks for
+this exact artifact; previous results do not qualify the new build.
+
+A follow-up read-only inventory cache now listens for local libpulse changes
+instead of launching inventory queries at every helper request. Actions continue
+to discover targets freshly. The cache is disabled until subscription succeeds
+and after disconnection; notifications invalidate it, with a five-second watchdog
+refresh. Meter peak sampling and existing reader/health refresh intervals remain
+unchanged. All 158 Studio tests pass, including invalidation, missed-notification
+watchdog, unavailable-listener fallback, query failure, notification/query races,
+fresh action targeting and changed default routing.
+
+In Fedora 44, a disposable audio sink exercised discovery, volume, mute, removal,
+reconnection and audio-server restart. Changes converged in 12–94 ms; listener
+recovery after server restart took about 1.05 seconds. The test sink was removed
+and the VM saved afterward. A separate read-only host benchmark with 20 requests
+over approximately five seconds reduced inventory commands from 40 to two and
+child CPU from 171.79 ms to 8.34 ms. This benchmark is helper-level evidence;
+the installed service measurement follows below.
+
+### 2026-10-05 subscription-cache desktop measurement
+
+Clean source `778b76250ce764ba43c013b303b1275d9cccce02` produced qualification
+bundle `0.1.0-a0f9aea4288c`. Rust sources and dependency files are identical to
+the hardware-enabled build already checked above; its tested release binaries
+were reused. The packaged Python changes passed all 158 Studio tests and 18
+installer tests. Archive checksums, clean-source metadata, helper inclusion and
+private-host/path metadata checks passed. Installed file hashes and the complete
+release file list still matched after its helpers ran. Five native listener
+start/stop cycles accumulated no threads or file descriptors.
+
+Desktop activation retained the previous release and a configuration backup,
+preserved all five saved files byte-for-byte, and restored the connected display,
+page 0, brightness 55 and enabled, available, unlocked GNOME Auto-Lock state.
+
+In a second quiet 300-second sample with all VMs stopped, no playback sink inputs
+before or after, and no recorded Deck inputs, the service cgroup averaged
+**3.97% CPU** of one core (3.47% minimum, 4.27% sampled p95, 6.93% maximum).
+This is about 38% below the immediately preceding 6.36% measurement and 48%
+below the earlier 7.60% average. Main-process CPU averaged 2.25%, main RSS
+16.93 MiB and cgroup memory 46.73 MiB; file descriptors remained at 16. The
+display stayed ready, connected and unlocked, the PID remained unchanged and
+service restarts stayed at zero. Local evidence is retained under
+`local/v1-checks-20261005-778b762/quiet/`.
+
+**The below-1% idle CPU gate still does not pass.** A separate read-only benchmark
+of 100 unchanged process-ownership scans used 670 ms process CPU, or about
+0.67% of one core at the existing once-per-second scan rate. That safety check
+has not been reduced or disabled. Further daemon/helper profiling is needed;
+the new candidate also still requires physical interactive acceptance, loaded
+meter/latency/failure testing and the complete exact-artifact VM qualification.
+No frozen V1 release or public download is claimed by these measurements.
+
+The user subsequently confirmed the installed subscription-cache build responds
+correctly during physical page switching, normal and quicker audio/brightness
+dial turns, and mute/unmute. This closes the requested interactive smoke check
+for that build, not the remaining resource, latency, failure or final-artifact
+qualification gates. The user also reported that this build feels smoother.
+
+The next source optimization reuses the lock monitor's desktop-bus proxies,
+with property caching explicitly disabled. The 100 ms check interval, 250 ms
+method deadline, one-second stale-state limit and conservative lock behavior
+are unchanged. This avoids repeated proxy setup while still reading current
+GNOME and logind state on every check. All-feature Rust checks, warnings-denied
+Clippy, formatting and the pinned dependency audit pass. An isolated D-Bus test
+also passed for lock/unlock transitions with no property notifications, blocking
+when the service object disappears, and recovery after it returns. Run this
+additional test explicitly:
+
+```sh
+dbus-run-session -- cargo test -p decksmithd --all-features --locked session_lock::tests::reusable_proxy_reads_unsignalled_lock_changes_and_recovers -- --ignored --exact
+```
+
+It is intentionally excluded from ordinary tests so it cannot claim names or
+manipulate objects on the user's real session bus.
+
+A separate read-only benchmark of 100 three-value lock probes used 170 ms
+process CPU when recreating proxies versus 60 ms when reusing uncached proxies
+(10 ms accounting resolution; both use the same dependency build). Wall time
+was 210 ms versus 130 ms. This is a small diagnostic comparison, not a service
+CPU result. A ten-second stack-profiler attempt collected zero samples and is
+not counted as evidence.
+
+Clean source `923949f7558500ee294d980f48ac7bcacba8291a` produced bundle
+`0.1.0-dcef44758197` with freshly rebuilt hardware-enabled release binaries.
+Fedora 44 passed installation and runtime doctor. An isolated VirtualDeck daemon
+on the guest's real desktop bus observed an actual graphical-session lock and
+unlock through GNOME, rejected page changes while locked and restored page 1
+after unlock. The first attempt stopped because the resumed VM's screen was
+already locked; after explicitly unlocking that guest session, the test passed.
+Guest screen authentication remained enabled and unchanged. The saved guest
+layout hash was unchanged, test preferences were stored only in temporary XDG
+directories, the guest's normal Decksmith service remained inactive, and the VM
+was saved and stopped afterward.
+
+Desktop activation retained a configuration backup and the accepted previous
+build. All five saved configuration files stayed byte-identical. Initial status
+confirmed a connected, ready display, page 0, brightness 55, and enabled,
+available, unlocked GNOME Auto-Lock; the service had zero restarts and installed
+file integrity passed. The user then confirmed the physical Deck shows its
+locked state and restores the same page and working controls after unlocking.
+A valid 300-second quiet measurement with all VMs stopped, no playback or external
+capture before or after, and no recorded Deck inputs averaged **3.88% service
+cgroup CPU** (2.93% minimum, 4.25% sampled p95, 4.44% maximum). Main-process CPU
+averaged 2.09%, main RSS 18.01 MiB and cgroup memory 47.65 MiB; file descriptors
+ranged from 16 to 17. The PID was unchanged, restarts stayed at zero, and all
+sampled states were connected, display-ready and unlocked. Evidence is retained
+under `local/v1-checks-20261005-923949f/quiet/`. **The below-1% idle CPU gate remains
+open.** The preceding 3.97% result belongs to the subscription-cache artifact;
+this small difference is not a repeatability study.
+
+The next candidate resolves effective dial assignments once when parsing a layout,
+then shares immutable default assignments across pages. Page overrides and the
+legacy no-dial layout path remain distinct, and saving still serializes the original
+configuration. This removes repeated label, binding and compressed icon copies
+from device checks without duplicating shared default artwork for every page.
+Regression coverage includes override dispatch, touch-strip pixels, held controls,
+layout replacement, shared object identity and JSON round trips.
+
+The peak helper now stops draining its native main loop when there is no dispatched
+work, rather than making seven additional empty polls. The eight-iteration bound,
+10 ms tick and 20 Hz publishing remain unchanged. Fedora 44's real PipeWire test
+measured independent 0.05 and 0.40 synthetic app peaks correctly; the temporary
+null sink was removed, no default routing or volume changed, and the VM was saved
+and stopped afterward. Full all-feature Rust checks, warnings-denied Clippy,
+formatting and the pinned dependency audit pass; all 160 Studio tests and 18
+installer tests pass. These are source/native checks; no new installed CPU result
+is claimed yet.
+
+Clean source `6cff5d3b7c6f5f83d20673dc4fab1556c571558e` produced qualification
+bundle `0.1.0-4e47081f8cf8` with freshly rebuilt hardware-enabled release binaries.
+Its checksum, complete release integrity, clean-source metadata and packaged
+private-host/path metadata checks pass. Fedora 44 passed installation, runtime
+doctor and the real GNOME lock/unlock VirtualDeck check, restoring the selected
+page after unlock while leaving screen authentication and its saved layout hash
+unchanged. One initial post-install command named an incorrect runtime launcher;
+that check stopped and was rerun using the actual runtime-doctor script. The
+successful retry is the evidence used here. The VM was saved and stopped.
+
+Desktop activation retained a backup and the prior qualification build. All five
+saved files remained byte-identical; initial status was connected and display-ready
+on page 0 at brightness 55 with enabled, available, unlocked GNOME Auto-Lock and
+zero service restarts. Evidence is retained under `local/v1-checks-20261005-6cff5d3/`.
+After the user paused playback again, a 300-second sample observed 3.54% mean
+service cgroup CPU (3.19% minimum, 3.97% sampled p95, 4.57% maximum), 2.01%
+main-process CPU, 17.70 MiB main RSS and 48.24 MiB cgroup memory. File descriptors
+stayed at 16, the PID was unchanged and restarts stayed at zero; there was no
+playback/external capture at either endpoint and no recorded Deck inputs.
+
+**This sample is not a qualifying unlocked-idle comparison:** GNOME's configured
+300-second idle timeout, with zero lock delay, locked the host at the final status
+check. Status at 270 seconds was still unlocked; the first 270-second segment
+averaged 3.53% cgroup CPU and 2.01% main-process CPU. These are shorter diagnostic
+observations, not a replacement five-minute gate result. The host's lock and idle
+preferences were left unchanged. The previous valid 3.88% result remains assigned
+only to its original build, and the below-1% CPU gate stays open. Raw samples and
+journal evidence are retained under `local/v1-checks-20261005-6cff5d3/quiet/`.
+
+A separate overlapping 60-second process-accounting diagnostic attributed about
+1.98% CPU to the daemon, 0.70% to the meter helper, 0.18% to audio targets and
+0.22% to health checks. This excludes short-lived child CPU and cannot be summed
+as the complete service result. It directs further profiling rather than claiming
+a cause or a release pass. All four VMs remained stopped at completion.
+
+The user subsequently confirmed that physical page switching, assigned audio/media
+controls and brightness still respond correctly on this installed candidate. This
+closes its requested interactive smoke check; the remaining CPU, latency, failure
+and final-artifact qualification gates remain open.
+
+A subsequent 300-second quiet sample on the same installed candidate remained
+unlocked, connected and display-ready throughout. The user left their ordinary
+applications open, paused playback, left the Deck untouched and kept the desktop
+awake. No playback or external capture was present at either endpoint, no Deck
+inputs were recorded, the main PID was unchanged and restart count stayed at zero.
+This sample is valid under the recorded quiet-measurement criteria.
+
+Mean service cgroup CPU was **3.83% of one core** (3.20% minimum, 4.41% sampled
+p95, 6.99% maximum); mean daemon CPU was **2.09%**, mean main RSS **17.74 MiB**
+and mean cgroup memory **48.11 MiB**. File descriptors stayed at 16. The below-1%
+CPU target still does not pass. The result does not demonstrate a repeatable
+improvement over the preceding build's valid 3.88% sample; the earlier 3.54%
+locked-at-end observation remains diagnostic only. Raw evidence is retained at
+`local/v1-checks-20261005-6cff5d3/quiet-unlocked/`. The installed build and all user
+settings were left unchanged, and all test VMs remained stopped.
+
 ## Work order
 
-The supported boundary and initial results are recorded above. Remaining work is
-to repeat the corrected scaled-display layout on the frozen V1 artifact, verify
-audible Orca output with a suitable VM audio path, verify first-run UI in a
-separately authorized clean-user graphical session, and repeat install,
-migration, rollback and uninstall on the frozen V1 artifact. Then resolve any
-critical reliability, security, device-recovery or core-control findings; repeat
-affected checks on the exact V1 candidate and publish that tested artifact with
-its own checksum. Optional features do not replace any gate.
+The supported boundary and local qualification results are recorded above. The
+remaining gates are reducing and remeasuring idle CPU, failure-injection and
+latency measurements, and completion of exhaustive system-action and
+fault-recovery coverage. Once those findings are resolved, freeze a V1 candidate,
+repeat the release gates—including the complete VM matrix,
+upgrade/migration/rollback/uninstall and security checks—against that exact artifact,
+then publish only the tested build with its own checksum and
+authenticity evidence. Optional features do not replace any gate.

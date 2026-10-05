@@ -10,6 +10,8 @@ def command(*args):
 
 def listing(kind):return json.loads(command('--format=json','list',kind))
 
+def list_all():return json.loads(command('--format=json','list'))
+
 def app_target(node):
     props=node.get('properties',{})
     for key in PROPERTIES:
@@ -54,15 +56,19 @@ def inventory():
     return targets
 
 class Snapshot:
-    def __init__(self):self.cache={}
+    def __init__(self,inventory=None):self.cache={};self.inventory=inventory
+    def load(self,key,loader):return self.inventory.get(key,loader) if self.inventory is not None else loader()
+    def all_nodes(self):
+        if 'all' not in self.cache:self.cache['all']=self.load('all',list_all)
+        return self.cache['all']
     def info(self):
-        if 'info' not in self.cache:self.cache['info']=json.loads(command('--format=json','info'))
+        if 'info' not in self.cache:self.cache['info']=self.load('info',lambda:json.loads(command('--format=json','info')))
         return self.cache['info']
     def nodes(self,target):
         validate(target)
         kind='sink-inputs' if target=='system' or target.startswith('app:') else 'sources' if target=='microphone' or target.startswith('input:') else 'sinks'
-        if kind not in self.cache:self.cache[kind]=listing(kind)
-        nodes=self.cache[kind]
+        key={'sink-inputs':'sink_inputs','sources':'sources','sinks':'sinks'}[kind]
+        nodes=self.all_nodes().get(key,[])
         if target=='system':
             return kind,[node for node in nodes if node.get('properties',{}).get('media.role')=='event']
         if target in ('default_output','microphone'):
@@ -95,9 +101,9 @@ def device_icon(target,nodes):
         if value in ('speaker','speakers','audio-speakers','audio-speakers-bluetooth'):return 'speaker'
     return 'unknown'
 
-def read(targets):
+def read(targets,inventory=None):
     if len(targets)>13:raise ValueError('Too many targets')
-    snapshot=Snapshot();result=[]
+    snapshot=Snapshot(inventory);result=[]
     for target in targets:
         try:
             if target=='system':
@@ -144,7 +150,13 @@ def execute(action):
     else:raise ValueError('Unsupported audio action')
 
 def serve_read(source, output):
-    """Bounded read-only requests, with a fresh shared snapshot per request."""
+    from audio_inventory import Inventory
+    inventory=Inventory()
+    try:serve_cached_read(source,output,inventory)
+    finally:inventory.close()
+
+def serve_cached_read(source, output, inventory):
+    """Bounded requests; subscriptions invalidate the read-only inventory."""
     while True:
         line=source.readline(8193)
         if not line:return
@@ -153,7 +165,7 @@ def serve_read(source, output):
             targets=json.loads(line)
             if not isinstance(targets,list) or len(targets)>13:raise ValueError('Invalid targets')
             for target in targets:validate(target)
-            result=read(targets)
+            result=read(targets,inventory)
         except Exception:
             result=None
         output.write(json.dumps(result)+'\n');output.flush()

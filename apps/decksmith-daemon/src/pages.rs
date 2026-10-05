@@ -265,6 +265,8 @@ struct StripKey {
     brightness: Option<u8>,
     targets: Vec<(String, Option<crate::audio::State>)>,
 }
+type ResolvedDials = [std::sync::Arc<Dial>; 4];
+
 pub struct Pages {
     system: crate::system_actions::States,
     health: Vec<crate::feedback::Notice>,
@@ -275,6 +277,7 @@ pub struct Pages {
     pub index: u8,
     logo: Option<Vec<u8>>,
     config: Config,
+    resolved_dials: Vec<Option<ResolvedDials>>,
     pending: [Option<Action>; 8],
     dial_armed: [Option<Action>; 4],
     brightness: Option<u8>,
@@ -546,10 +549,12 @@ impl Pages {
         } else {
             None
         };
+        let resolved_dials = Self::resolve_dials(&config);
         Ok(Self {
             index: default_page,
             logo,
             config,
+            resolved_dials,
             pending: std::array::from_fn(|_| None),
             dial_armed: std::array::from_fn(|_| None),
             brightness: None,
@@ -565,16 +570,27 @@ impl Pages {
             strip_cache: Default::default(),
         })
     }
-    fn effective_dials(&self) -> Option<[Dial; 4]> {
-        let overrides = self.config.pages[usize::from(self.index)]
-            .dial_overrides
-            .as_ref();
-        if self.config.dials.is_none() && overrides.is_none() {
-            return None;
+    fn effective_dials(&self) -> Option<&ResolvedDials> {
+        self.resolved_dials[usize::from(self.index)].as_ref()
+    }
+    // Configuration is immutable for a Pages instance. Resolve inheritance once,
+    // sharing default artwork across pages instead of copying it on every tick.
+    fn resolve_dials(config: &Config) -> Vec<Option<ResolvedDials>> {
+        if config.dials.is_none() && config.pages.iter().all(|p| p.dial_overrides.is_none()) {
+            return config.pages.iter().map(|_| None).collect();
         }
-        let defaults = self.config.dials.clone().unwrap_or_else(|| {
+        fn normalized(mut dial: Dial) -> std::sync::Arc<Dial> {
+            if dial.audio_target.is_none()
+                && (matches!(dial.rotation, Rotation::Volume)
+                    || matches!(dial.press, Action::MuteToggle))
+            {
+                dial.audio_target = Some("system".into());
+            }
+            std::sync::Arc::new(dial)
+        }
+        let defaults = config.dials.clone().unwrap_or_else(|| {
             std::array::from_fn(|i| {
-                let audio = i == 0 && self.config.audio_dial;
+                let audio = i == 0 && config.audio_dial;
                 Dial {
                     plugin_rotation: None,
                     plugin_press: None,
@@ -602,18 +618,23 @@ impl Pages {
                 }
             })
         });
-        Some(std::array::from_fn(|i| {
-            let mut dial = overrides
-                .and_then(|o| o[i].clone())
-                .unwrap_or_else(|| defaults[i].clone());
-            if dial.audio_target.is_none()
-                && (matches!(dial.rotation, Rotation::Volume)
-                    || matches!(dial.press, Action::MuteToggle))
-            {
-                dial.audio_target = Some("system".into());
-            }
-            dial
-        }))
+        let defaults = defaults.map(normalized);
+        config
+            .pages
+            .iter()
+            .map(|page| {
+                if config.dials.is_none() && page.dial_overrides.is_none() {
+                    return None;
+                }
+                Some(std::array::from_fn(|i| {
+                    page.dial_overrides
+                        .as_ref()
+                        .and_then(|overrides| overrides[i].clone())
+                        .map(normalized)
+                        .unwrap_or_else(|| defaults[i].clone())
+                }))
+            })
+            .collect()
     }
     pub fn target(&mut self, event: &RawEvent) -> Option<Action> {
         let target = match event {
@@ -2131,7 +2152,10 @@ mod tests {
         assert_eq!(key_before, deck.key_image(0).unwrap());
         assert_eq!(strip_before, deck.touch_image());
         assert_eq!(original, pages.json());
+        // This fixture edits private configuration directly to retain live feedback.
+        // Runtime layout replacement parses a new Pages instance instead.
         pages.config.dials.as_mut().unwrap()[2].press = Action::None;
+        pages.resolved_dials = Pages::resolve_dials(&pages.config);
         let stale = Action::MediaTarget {
             player: "org.mpris.MediaPlayer2.mpz".into(),
             command: "next".into(),
@@ -2582,6 +2606,44 @@ mod tests {
         );
         value["pages"][1]["dial_overrides"][0]["step"] = 0.into();
         assert!(Pages::parse(&serde_json::to_vec(&value).unwrap()).is_err());
+    }
+    #[test]
+    fn resolved_dials_share_defaults_and_refresh_only_with_new_layout() {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../../../config/audio.json")).unwrap();
+        value["dials"] = serde_json::json!([
+            {"label":"Shared","rotation":"volume","step":1,"press":{"type":"mute_toggle"}},
+            {"label":"Brightness","rotation":"brightness","step":1,"press":{"type":"none"}},
+            {"label":"Third","rotation":"none","step":1,"press":{"type":"none"}},
+            {"label":"Fourth","rotation":"none","step":1,"press":{"type":"none"}}
+        ]);
+        value["pages"][1]["dial_overrides"] = serde_json::json!([
+            {"label":"Mic","rotation":"volume","step":2,"audio_target":"input:mic","press":{"type":"mute_toggle"}}, null,null,null]);
+        let pages = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        let first = pages.resolved_dials[0].as_ref().unwrap();
+        let second = pages.resolved_dials[1].as_ref().unwrap();
+        assert!(!std::sync::Arc::ptr_eq(&first[0], &second[0]));
+        for slot in 1..4 {
+            assert!(std::sync::Arc::ptr_eq(&first[slot], &second[slot]));
+        }
+        assert_eq!(first[0].audio_target.as_deref(), Some("system"));
+        assert_eq!(second[0].audio_target.as_deref(), Some("input:mic"));
+        assert!(pages.json().contains("Shared"));
+        assert!(
+            pages.config.dials.as_ref().unwrap()[0]
+                .audio_target
+                .is_none()
+        );
+        let json = pages.json();
+        assert_eq!(Pages::parse(json.as_bytes()).unwrap().json(), json);
+        value["dials"][0]["step"] = 4.into();
+        let replacement = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        assert_eq!(replacement.effective_dials().unwrap()[0].step, 4);
+        assert_eq!(pages.effective_dials().unwrap()[0].step, 1);
+        value.as_object_mut().unwrap().remove("dials");
+        let legacy = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(legacy.resolved_dials[0].is_none());
+        assert_eq!(legacy.resolved_dials[1].as_ref().unwrap()[0].label, "Mic");
     }
     #[test]
     fn application_dial_artwork_roundtrips_and_matches_preview_when_muted() {

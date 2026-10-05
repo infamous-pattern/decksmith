@@ -12,7 +12,7 @@ def node(index=1,name='Speakers',binary='brave'):
 class ControlHealthTests(unittest.TestCase):
     def test_stream_absence_restart_and_multiple_streams_use_fresh_matching(self):
         current=[]
-        with patch('audio_targets.listing',side_effect=lambda kind:list(current)):
+        with patch('audio_targets.list_all',side_effect=lambda:{'sink_inputs':list(current),'sinks':[],'sources':[]}):
             self.assertEqual(probe([check()])[0]['status'],'idle')
             current.extend([node(71),node(88)])
             self.assertEqual(probe([check()])[0]['status'],'available')
@@ -22,14 +22,14 @@ class ControlHealthTests(unittest.TestCase):
             self.assertEqual(probe([check()])[0]['status'],'available')
     def test_named_device_reconnect_and_system_default_changes(self):
         devices=[node(name='first')];default={'default_sink_name':'first'}
-        with patch('audio_targets.listing',side_effect=lambda _:devices),patch('audio_targets.command',side_effect=lambda *a:__import__('json').dumps(default)):
+        with patch('audio_targets.list_all',side_effect=lambda:{'sinks':list(devices),'sources':[],'sink_inputs':[]}),patch('audio_targets.command',side_effect=lambda *a:__import__('json').dumps(default)):
             c=check(target='default_output');self.assertEqual(probe([c])[0]['target_name'],'first')
             devices[:]=[node(name='second')];default['default_sink_name']='second'
             self.assertEqual(probe([c])[0]['target_name'],'second')
             named=check(target='output:first');self.assertEqual(probe([named])[0]['status'],'missing')
             devices.append(node(name='first'));self.assertEqual(probe([named])[0]['status'],'available')
     def test_unknown_status_is_not_success_and_does_not_change_audio(self):
-        with patch('audio_targets.listing',side_effect=RuntimeError('offline')),patch('audio_targets.execute') as execute:
+        with patch('audio_targets.list_all',side_effect=RuntimeError('offline')),patch('audio_targets.execute') as execute:
             result=probe([check()]);self.assertEqual(result[0]['status'],'unknown');execute.assert_not_called()
     def test_media_unsupported_does_not_switch_to_other_player_and_recovers(self):
         good={'PlaybackStatus':'Playing','CanControl':True,'CanGoNext':True}
@@ -57,11 +57,11 @@ class PersistentHealth(unittest.TestCase):
         import control_health
         source=io.StringIO('[]\ninvalid\n[]\n');output=io.StringIO()
         with patch.object(control_health,'probe',side_effect=[[],[{'fresh':True}]]) as probe:
-            control_health.serve(source,output)
+            control_health.serve_cached(source,output,None)
         self.assertEqual(probe.call_count,2)
         self.assertEqual(output.getvalue().splitlines(),['[]','null','[{"fresh": true}]'])
     def test_oversized_request_terminates(self):
         import io
         import control_health
-        output=io.StringIO();control_health.serve(io.StringIO('x'*65537+'\n'),output)
+        output=io.StringIO();control_health.serve_cached(io.StringIO('x'*65537+'\n'),output,None)
         self.assertEqual(output.getvalue(),'')

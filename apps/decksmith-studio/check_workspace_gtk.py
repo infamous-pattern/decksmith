@@ -2,6 +2,7 @@
 --render uses the live daemon's read-only image methods. No device actions are sent.
 """
 import sys,json,time,traceback,resource
+sys.dont_write_bytecode=True
 from pathlib import Path
 sys.path.insert(0,str(Path.cwd()/'apps/decksmith-studio'))
 import panel

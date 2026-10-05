@@ -2,7 +2,7 @@
 import ctypes as C
 import json, math, os, sys, time
 from concurrent.futures import ThreadPoolExecutor
-from audio_targets import Snapshot, listing
+from audio_targets import Snapshot
 
 class Spec(C.Structure):
     _fields_=[('format',C.c_int),('rate',C.c_uint32),('channels',C.c_uint8)]
@@ -40,7 +40,12 @@ class Pulse:
         self.loop=self.new();self.ctx=self.ctxnew(self.api(self.loop),b'Decksmith peak levels')
         if not self.ctx or self.connect(self.ctx,("unix:"+os.environ.get("XDG_RUNTIME_DIR",f"/run/user/{os.getuid()}")+"/pulse/native").encode(),0,None)<0:raise RuntimeError('Audio unavailable')
     def tick(self):
-        for _ in range(8):self.iterate(self.loop,0,None)
+        # libpulse returns the number of dispatched sources. Drain pending work
+        # within the same bound, then stop instead of repeating empty polls.
+        for _ in range(8):
+            dispatched=self.iterate(self.loop,0,None)
+            if dispatched<0:raise RuntimeError('Audio disconnected')
+            if dispatched==0:break
         if self.state(self.ctx) in (5,6):raise RuntimeError('Audio disconnected')
     def stream(self,key):
         source,index=key
@@ -86,16 +91,15 @@ class Pulse:
             self.set_read(stream,self.callback_type(),None)
             self.disconnect(stream);self.unref(stream);self.peaks.pop(stream,None)
 
-def resolve(targets):
-    snap=Snapshot();result={}
+def resolve(targets,inventory=None):
+    snap=Snapshot(inventory);result={}
     for target in targets:
         try:
             kind,nodes=snap.nodes(target)
             if not nodes:result[target]=[];continue
             if kind=='sink-inputs':
                 if len(nodes)>16:result[target]=[];continue
-                if 'sinks' not in snap.cache:snap.cache['sinks']=listing('sinks')
-                sinks={n['index']:n for n in snap.cache['sinks']}
+                sinks={n['index']:n for n in snap.all_nodes().get('sinks',[])}
                 result[target]=[(sinks[n['sink']]['monitor_source'],n['index']) for n in nodes]
             else:
                 result[target]=[(nodes[0]['monitor_source'] if kind=='sinks' else nodes[0]['name'],None)]
@@ -124,6 +128,12 @@ def correct_source(pulse,stream,key):
     return bool(stream and pulse.sstate(stream)==2 and pulse.source(stream)==key[0].encode())
 
 def run(targets):
+    from audio_inventory import Inventory
+    inventory=Inventory()
+    try:run_with_inventory(targets,inventory)
+    finally:inventory.close()
+
+def run_with_inventory(targets,inventory):
     if len(targets)>4:raise ValueError('At most four dial targets')
     os.environ["PULSE_SERVER"]="unix:"+os.environ.get("XDG_RUNTIME_DIR",f"/run/user/{os.getuid()}")+"/pulse/native"
     pulse=Pulse();streams={};mapping={};last={};smooth={};created={}
@@ -140,7 +150,7 @@ def run(targets):
                 if needs_restart(state,created.get(key,now),now) or (state==2 and not correct_source(pulse,stream,key)):
                     pulse.close(streams.get(key));streams[key]=pulse.stream(key);last.pop(key,None);created[key]=now
         if now>=refresh and future is None and pulse.state(pulse.ctx)==4:
-            future=pool.submit(resolve,targets);refresh=now+2.
+            future=pool.submit(resolve,targets,inventory);refresh=now+2.
         for key,stream in streams.items():
             if not correct_source(pulse,stream,key):
                 last.pop(key,None);continue

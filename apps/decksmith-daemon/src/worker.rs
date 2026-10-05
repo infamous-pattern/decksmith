@@ -22,6 +22,7 @@ pub enum Record {
     ActionQueued {
         session: u64,
         action: crate::pages::Action,
+        poll_return_to_dispatch_us: u64,
         input: InputEvent,
     },
     AudioWorkerFailed {
@@ -53,6 +54,7 @@ pub enum Record {
     PageRequested {
         session: u64,
         page: u8,
+        poll_return_to_dispatch_us: u64,
         input: InputEvent,
     },
 }
@@ -503,6 +505,9 @@ impl<D: DeckDevice> Session<D> {
             }
             return match device.poll_event() {
                 Ok(Some(input)) => {
+                    // The physical adapter stamps the input immediately after its HID read;
+                    // this monotonic proxy starts as soon as the normalized event returns.
+                    let event_returned = std::time::Instant::now();
                     if self.locked || self.drain_until.is_some() {
                         self.drain_until =
                             Some(std::time::Instant::now() + Duration::from_millis(250));
@@ -602,6 +607,10 @@ impl<D: DeckDevice> Session<D> {
                                 return Some(Record::ActionQueued {
                                     session: self.generation,
                                     action: target,
+                                    poll_return_to_dispatch_us: u64::try_from(
+                                        event_returned.elapsed().as_micros(),
+                                    )
+                                    .unwrap_or(u64::MAX),
                                     input,
                                 });
                             }
@@ -634,6 +643,10 @@ impl<D: DeckDevice> Session<D> {
                         return Some(Record::PageRequested {
                             session: self.generation,
                             page: target,
+                            poll_return_to_dispatch_us: u64::try_from(
+                                event_returned.elapsed().as_micros(),
+                            )
+                            .unwrap_or(u64::MAX),
                             input,
                         });
                     }
