@@ -139,4 +139,8 @@ checks, and the user confirmed the physical labels, meters, icons, page switchin
 and mute update correctly without stale areas or flicker. A valid five-minute quiet
 sample measured 3.75% service CPU and 2.11% daemon CPU,
 versus 3.83% and 2.09% previously. This does not establish a repeatable idle saving;
-the below-1% CPU gate and complete recovery qualification remain open.
+the original below-1% daemon CPU target is still unmet. By user decision on
+October 5, it is now a post-V1 performance milestone, rather than a V1 release
+blocker. V1 still requires final-artifact idle/loaded resource and regression
+checks, responsiveness and complete recovery qualification; see the
+[current resource acceptance decision](v1-release-scope.md#v1-resource-acceptance-and-post-v1-cpu-milestone).

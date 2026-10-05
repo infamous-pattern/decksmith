@@ -25,6 +25,22 @@ and broad GNOME/Wayland distribution compatibility target V1.5; full five-langua
 localization targets V2. The earlier broader v0.4 V1 list must not be used to
 claim these features are already implemented.
 
+### Post-V1 performance milestone — approved October 5
+
+Retain the original normally-below-1% idle daemon CPU goal as post-V1 engineering
+work, with no new version number or deadline. The accepted quiet reference result
+is 2.11% daemon CPU and 3.75% full-service CPU of one core, with 17.90 MiB daemon
+RSS. This is an explicit release-scope deferral, not a claim that the original
+target passed. V1 still requires idle/loaded measurements and regression review,
+bounded memory/handles, responsive input and display feedback, and all recovery,
+security and release checks. See the
+[resource acceptance decision](v1-release-scope.md#v1-resource-acceptance-and-post-v1-cpu-milestone).
+
+Profile remaining periodic work, remove unnecessary queries/encoding and verify
+idle and interactive improvements together. Keep full-service costs visible and
+preserve control responsiveness, safety checks and recovery. Broad GNOME/Wayland
+compatibility and plugin delivery remain V1.5 goals; localization remains V2.
+
 ## Agreed next steps — September 22
 
 1. **Homebridge reliability and performance first.** Measure idle and active CPU

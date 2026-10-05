@@ -7,6 +7,12 @@ Phase 8/9 gates in `PRODUCT_REQUIREMENTS.md` point here for the agreed V1 bounda
 The current `v0.1.0-preview.3` download is a preview, not evidence that these gates
 have passed.
 
+**Performance decision updated October 5, 2026.** By user approval, the original
+below-1% idle daemon CPU target is a post-V1 performance milestone rather than a
+V1 release blocker. It remains unmet; this is a change to release criteria, not a
+performance pass. Earlier dated qualification entries retain their original
+assessment. The current requirements below supersede their CPU-gate wording.
+
 ## What V1 promises
 
 The supported V1 product is a local, English-language Decksmith installation on
@@ -48,6 +54,7 @@ These remain product goals but are not release blockers for this focused V1:
 | Standalone profile/theme/workflow packages | Later sharing milestone; existing versioned layout export/import remains V1 |
 | Native RPM/COPR packaging | Later packaging milestone; the V1 per-user installer must meet the release gates below |
 | Simultaneous independent devices and other Stream Deck models | Later hardware milestones, with explicit model-specific certification |
+| Idle daemon CPU normally below 1% of one core | Post-V1 performance milestone; V1 still requires measured idle/loaded resources, regression review and responsive controls |
 
 General plugin delivery and **broad GNOME/Wayland distribution compatibility**
 both target V1.5. The V1.5 distribution goal starts with supported installation,
@@ -69,8 +76,9 @@ features have been implemented.
 2. **Sustained reliability and resources.** Record a reproducible longer run with
    four active meter targets, ordinary and rapid dial use, page switching and
    background-helper failures. Measure CPU, memory, handles, response latency and
-   restart counts against `NFR-PERF`; investigate drift, stalls and unexpected
-   changes. Exercise optional Homebridge with simulated outages, child failures,
+   restart counts against `NFR-PERF`, with the CPU scope decision below; investigate
+   drift, stalls and unexpected changes. Exercise optional Homebridge with
+   simulated outages, child failures,
    authentication expiry and recovery, plus one agreed live check if it ships.
 3. **Usability and accessibility.** Complete a human-paced keyboard and Orca
    review, focus/error feedback, light/dark/high-contrast, enlarged text and actual
@@ -91,6 +99,29 @@ features have been implemented.
    and core-control defects. Document lesser known issues. Publish only the exact
    tested artifacts, hashes/authenticity evidence, support matrix and release
    notes; verify the Gitea and sanitized GitHub source trees correspond.
+
+### V1 resource acceptance and post-V1 CPU milestone
+
+The accepted reference baseline is the valid 300-second quiet measurement of
+source `63b9523`, installed bundle `0.1.0-430c4bd75f9a`: **2.11% daemon CPU** and
+**3.75% full-service CPU**, each expressed as a percentage of one CPU core, with
+**17.90 MiB daemon RSS** and **47.85 MiB cgroup memory**. The full service includes
+helpers and child-process work; it is distinct from the daemon-only target.
+These are observed reference-host results, not guarantees on other machines or
+new universal CPU limits.
+
+V1 must still measure idle and four-target interactive load on the final artifact,
+compare results with this baseline and investigate material unexplained increases,
+memory/handle growth, stalls or restarts. Existing memory targets, input-dispatch
+and visible key/dial feedback targets remain in force, as do reliability,
+recovery, security and VM-matrix gates. This decision does not close those checks.
+
+Post-V1 work targets normally below 1% **daemon** idle CPU through profiling and
+reduction of unnecessary background work. Continue reporting full-service CPU so
+work moved into helpers remains visible. Validate changes against idle/loaded
+resources and input latency together, preserving display quality, polling safety,
+lock detection and recovery. No new release number or calendar deadline is assigned
+to this milestone.
 
 ## Current VM test matrix
 
@@ -965,10 +996,13 @@ gates are not inferred from it.
 ## Work order
 
 The supported boundary and local qualification results are recorded above. The
-remaining gates are reducing and remeasuring idle CPU, failure-injection and
-latency measurements, and completion of exhaustive system-action and
+remaining gates are final-artifact idle/loaded resource and regression checks,
+failure-injection and latency measurements, and completion of exhaustive
+system-action and
 fault-recovery coverage. Once those findings are resolved, freeze a V1 candidate,
 repeat the release gates—including the complete VM matrix,
 upgrade/migration/rollback/uninstall and security checks—against that exact artifact,
 then publish only the tested build with its own checksum and
 authenticity evidence. Optional features do not replace any gate.
+Further work to reach the below-1% daemon CPU target follows V1 under the approved
+performance milestone above.

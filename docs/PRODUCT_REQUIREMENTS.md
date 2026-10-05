@@ -575,7 +575,12 @@ Planned desktop support targets are GNOME through a Decksmith GNOME Shell extens
 
 These are engineering targets to validate during hardware-in-loop testing, not marketing guarantees.
 
-- Idle daemon CPU: normally below 1% on the reference desktop.
+- Idle daemon CPU: normally below 1% of one core on the reference desktop; retained
+  as a **post-V1 performance milestone** by user decision on October 5, 2026.
+  This target is not met and is no longer a V1 release blocker. V1 must still
+  measure idle and loaded daemon/full-service CPU, investigate resource regressions
+  and satisfy the remaining performance/reliability gates. See the
+  [current V1 resource acceptance and baseline](v1-release-scope.md#v1-resource-acceptance-and-post-v1-cpu-milestone).
 - Idle daemon memory: target below 100 MB RSS.
 - Configurator idle memory: target below 250 MB RSS.
 - Internal input-event dispatch: p95 target below 25 ms from HID event receipt to capability dispatch.
