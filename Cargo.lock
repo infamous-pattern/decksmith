@@ -256,14 +256,14 @@ checksum = "a31eee39dddec8330830986fcd7625edb5a24ec90ea038215273bbc3adb08ac6"
 
 [[package]]
 name = "decksmith-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "decksmith-device"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "decksmith-core",
  "elgato-streamdeck",
@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "decksmithctl"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "decksmith-core",
  "decksmith-device",
@@ -286,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "decksmithd"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "decksmith-core",
  "decksmith-device",

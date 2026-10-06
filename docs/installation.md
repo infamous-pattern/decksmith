@@ -1,7 +1,8 @@
 # Install, update and recover Decksmith
 
-Decksmith now provides a relocatable **development runtime bundle** and a per-user
-installer. This is not yet an RPM or a signed production release. The bundle
+Decksmith provides a relocatable **runtime bundle** and a per-user installer.
+It is not an RPM. Obtain an accepted artifact and verify its provenance using
+the [release procedure](release-authenticity.md) before installing it. The bundle
 contains the daemon, command-line client, native editor, helpers, artwork, fonts,
 icons and documentation; it does not need the source checkout after installation.
 The current build targets Fedora 44 x86_64. Other distributions/architectures need

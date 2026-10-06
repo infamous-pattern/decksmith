@@ -1322,6 +1322,13 @@ and [verification/promotion procedure](release-authenticity.md).
 
 ## Work order
 
+Application version `1.0.0` is prepared consistently across the Cargo workspace,
+locked project packages, runtime bundle metadata and translation extraction.
+Saved-data schemas are unchanged. The existing preview remains the public
+download until release acceptance. Follow the [V1 candidate sequence](v1-candidate.md)
+to build, sign and qualify an immutable artifact; preparing version metadata alone
+does not freeze its bytes or close any release gate.
+
 The signed development candidate now passes the explicit verified-install helper
 on the host's isolated filesystem and in the Fedora 44 VM. Six signature checks
 precede all downloaded code, followed by checksum/archive/source admission.

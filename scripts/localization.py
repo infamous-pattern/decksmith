@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Extract marked UI text or validate/compile explicitly enabled gettext catalogs."""
 import argparse
+import importlib.util
 import re
 import subprocess
 import tempfile
@@ -30,10 +31,15 @@ def compiled_catalogs(root=ROOT):
     return files
 
 def extract(root=ROOT):
+    # This tool is also loaded by filename, outside the scripts import path.
+    spec = importlib.util.spec_from_file_location('decksmith_project_version',
+                                                Path(__file__).with_name('project_version.py'))
+    version_tools = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(version_tools)
     subprocess.run(['xgettext', '--language=Python', '--from-code=UTF-8',
                     '--keyword=tr', '--keyword=ngettext:1,2', '--keyword=pgettext:1c,2',
                     '--keyword=npgettext:1c,2,3', '--add-comments=Translators:',
-                    '--package-name=Decksmith', '--package-version=0.1.0',
+                    '--package-name=Decksmith', '--package-version='+version_tools.application_version(root),
                     '--copyright-holder=Decksmith contributors',
                     '--files-from=po/POTFILES.in', '--output=po/decksmith.pot'],
                    cwd=root, check=True)

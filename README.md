@@ -6,6 +6,9 @@
 
 **Status:** `v0.1.0-preview.3` — early preview for testing and feedback, not V1.
 
+The `1.0.0` candidate is being qualified; it has not been published as V1.
+See the [candidate preparation and remaining checks](docs/v1-candidate.md).
+
 [Download the preview](https://github.com/infamous-pattern/decksmith/releases/tag/v0.1.0-preview.3) · [Installation and dependencies](docs/installation.md) · [Reviewer guide and known limits](docs/preview-release.md) · [V1 scope and release gates](docs/v1-release-scope.md) · [Report an issue](https://github.com/infamous-pattern/decksmith/issues)
 
 **Reference platform:** Fedora Workstation 44, GNOME, Wayland  
