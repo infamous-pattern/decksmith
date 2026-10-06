@@ -62,6 +62,11 @@ for display while preserving the original label text. Fonts work offline and
 use the same renderer for the preview and physical device.
 [Font sources and licenses](assets/fonts/README.md).
 
+The offline icon library includes **Rune Outline** and **Tabler** artwork. New
+media and system assignments prefer Rune where available; existing saved artwork
+is preserved. Outline icons follow the key's text color and page theme.
+[Icon library and asset licenses](docs/appearance-and-icons.md).
+
 When launched with background controls stopped, Decksmith offers to start them
 or continue without them. **Quit Decksmith**, **Stop Background controls**, and
 normal system shutdown clear all keys and the touch strip. Closing only the

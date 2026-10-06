@@ -34,9 +34,14 @@ def encode(layout):
         appearance.append(visual)
     if behavior.get('dials') is not None:
         files['dial-appearance.json']=json.dumps([{k:dial.pop(k) for k in DIAL_STYLE if k in dial} for dial in behavior['dials']]).encode()
+    notices=[]
     if any(k.get('icon_source','').startswith('tabler:') for p in layout['pages'] for k in p['keys']):
         from icon_library import ROOT
-        files['asset-notices.txt']=b'Tabler Icons v3.46.0 - https://github.com/tabler/tabler-icons\n'+(ROOT/'LICENSE').read_bytes()
+        notices.append(b'Tabler Icons v3.46.0 - https://github.com/tabler/tabler-icons\n'+(ROOT/'LICENSE').read_bytes())
+    if any(k.get('icon_source','').startswith('rune:') for p in layout['pages'] for k in p['keys']):
+        from icon_library import RUNE_ROOT
+        notices.append((RUNE_ROOT/'NOTICE').read_bytes()+b'\n'+(RUNE_ROOT/'LICENSE').read_bytes())
+    if notices:files['asset-notices.txt']=b'\n\n'.join(notices)
     files['behavior.json']=json.dumps(behavior,separators=(',',':')).encode()
     files['appearance.json']=json.dumps(appearance,separators=(',',':')).encode()
     manifest={'format':'decksmith-layout','version':1,'checksums':{name:sha256(data).hexdigest() for name,data in files.items()}}

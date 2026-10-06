@@ -18,6 +18,17 @@ class ActionLabelTests(unittest.TestCase):
         key={'label':'My Music','action':{'type':'media_next'}}
         populate(key,preserve_label=True)
         self.assertEqual(key['label'],'My Music');self.assertTrue(key['icon_png'])
+        self.assertEqual(key['icon_source'],'rune:player-skip-forward')
+        self.assertTrue(key['icon_tint'])
+    def test_new_media_artwork_has_transparency_and_keeps_custom_color(self):
+        from io import BytesIO
+        from PIL import Image
+        key={'label':'Music','action':{'type':'media_play_pause'},'label_color':'yellow'}
+        populate(key,preserve_label=True)
+        self.assertEqual(key['label_color'],'yellow')
+        image=Image.open(BytesIO(bytes(key['icon_png']))).convert('RGBA')
+        self.assertEqual(image.size,(120,120))
+        self.assertEqual(image.getpixel((0,0))[3],0)
 
     def test_application_names_fit_device_and_keep_identity(self):
         from action_labels import application_label

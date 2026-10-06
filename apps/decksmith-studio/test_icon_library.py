@@ -2,17 +2,42 @@ import unittest,tempfile,json
 from pathlib import Path
 from io import BytesIO
 from PIL import Image
-from icon_library import Library,ROOT,svg_png
+from icon_library import Library,ROOT,RUNE_ROOT,svg_png
 from layout_package import encode,decode
 class IconLibraryTests(unittest.TestCase):
     def test_catalog_checksums_render_and_search_offline(self):
         with tempfile.TemporaryDirectory() as root:
-            library=Library(root);items=library.items();self.assertEqual(len(items),134)
+            library=Library(root);items=library.items();self.assertEqual(len(items),148)
             for item in items:
                 image=Image.open(BytesIO(library.image(item)))
                 self.assertEqual(image.size,(120,120));self.assertIn('A',image.getbands())
             self.assertTrue(library.items('microphone'));self.assertTrue(library.items('github'))
             self.assertTrue(all(i['category']=='Development and apps' for i in library.items(category='Development and apps')))
+    def test_rune_prefers_new_artwork_but_keeps_tabler_and_theme_colors(self):
+        with tempfile.TemporaryDirectory() as root:
+            library=Library(root)
+            self.assertEqual(library.preferred('lock')['id'],'rune:lock')
+            self.assertEqual(library.preferred('bluetooth')['id'],'tabler:bluetooth')
+            self.assertEqual(len(library.items('Rune')),14)
+            old=next(i for i in library.items() if i['id']=='tabler:lock')
+            self.assertTrue(library.image(old).startswith(b'\x89PNG'))
+            png=library.image(library.preferred('lock'),120,'#00ff00')
+            pixels=list(Image.open(BytesIO(png)).convert('RGBA').getdata())
+            self.assertTrue(any(p[1]>200 and p[0]==0 and p[2]==0 and p[3]>200 for p in pixels))
+    def test_mixed_asset_package_retains_both_licenses_and_exact_images(self):
+        from zipfile import ZipFile
+        with tempfile.TemporaryDirectory() as root:
+            library=Library(root)
+            layout=json.loads((Path(__file__).resolve().parents[2]/'config/audio.json').read_text())
+            for key,ident in zip(layout['pages'][0]['keys'],('rune:lock','tabler:lock')):
+                item=next(i for i in library.items() if i['id']==ident)
+                key.update(icon_source=ident,icon_tint=True,icon_png=list(library.image(item)),artwork='application_icon')
+            data,_=encode(layout);self.assertEqual(decode(data),layout)
+            with ZipFile(BytesIO(data)) as z:
+                notices=z.read('asset-notices.txt')
+                self.assertIn((ROOT/'LICENSE').read_bytes(),notices)
+                self.assertIn((RUNE_ROOT/'LICENSE').read_bytes(),notices)
+                self.assertIn((RUNE_ROOT/'NOTICE').read_bytes(),notices)
     def test_import_deduplicates_normalized_assets_and_preserves_pixels(self):
         with tempfile.TemporaryDirectory() as root:
             root=Path(root);source=root/'My icon.png';Image.new('RGBA',(400,400),(240,10,20,180)).save(source)

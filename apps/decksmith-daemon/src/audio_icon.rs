@@ -1,5 +1,6 @@
-//! Small original vector symbols for audio target categories, shared by every renderer.
+//! Cached Rune Outline symbols with original fallbacks, shared by every renderer.
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 use tiny_skia::{Paint, PathBuilder, Pixmap, Stroke, Transform};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -12,6 +13,36 @@ pub enum Kind {
     Microphone,
     Application,
     Brightness,
+}
+
+fn rune_alpha(kind: Kind, muted: bool) -> Option<&'static [u8]> {
+    let index = match (kind, muted) {
+        (Kind::Speaker, false) => 0,
+        (Kind::Speaker, true) => 1,
+        (Kind::Microphone, false) => 2,
+        (Kind::Microphone, true) => 3,
+        (Kind::Brightness, false) => 4,
+        _ => return None,
+    };
+    static ALPHA: OnceLock<[Vec<u8>; 5]> = OnceLock::new();
+    let masks = ALPHA.get_or_init(|| {
+        [
+            include_bytes!("../../../assets/icons/rune/touch/volume-2.png").as_slice(),
+            include_bytes!("../../../assets/icons/rune/touch/volume-off.png").as_slice(),
+            include_bytes!("../../../assets/icons/rune/touch/microphone.png").as_slice(),
+            include_bytes!("../../../assets/icons/rune/touch/microphone-off.png").as_slice(),
+            include_bytes!("../../../assets/icons/rune/touch/sun.png").as_slice(),
+        ]
+        .map(|bytes| {
+            image::load_from_memory_with_format(bytes, image::ImageFormat::Png)
+                .expect("bundled Rune icon")
+                .to_rgba8()
+                .pixels()
+                .map(|pixel| pixel[3])
+                .collect()
+        })
+    });
+    Some(&masks[index])
 }
 
 #[allow(dead_code)] // Legacy palette remains available for fixtures.
@@ -36,6 +67,30 @@ pub fn draw_styled(
     background: [u8; 3],
     application_rgba: Option<&[u8]>,
 ) {
+    // Saved app/device artwork takes precedence. Stock masks decode once, retain
+    // only 5 KiB of alpha, and require no SVG parsing or allocation per frame.
+    if application_rgba.is_none_or(|rgba| rgba.len() != 32 * 32 * 4)
+        && let Some(alpha) = rune_alpha(kind, muted)
+    {
+        let color = if muted {
+            [255, 75, 85]
+        } else if available {
+            foreground
+        } else {
+            [125, 135, 145]
+        };
+        for (index, alpha) in alpha.iter().enumerate() {
+            let offset = ((index / 32 + 2) * 200 + index % 32 + 3) * 3;
+            let alpha = u16::from(*alpha);
+            for channel in 0..3 {
+                rgb[offset + channel] = ((u16::from(color[channel]) * alpha
+                    + u16::from(rgb[offset + channel]) * (255 - alpha)
+                    + 127)
+                    / 255) as u8;
+            }
+        }
+        return;
+    }
     let mut pixels = Pixmap::new(200, 100).unwrap();
     let mut path = PathBuilder::new();
     match kind {
@@ -191,6 +246,39 @@ pub fn draw_styled(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rune_masks_are_cached_tinted_and_custom_artwork_wins() {
+        let mask = rune_alpha(Kind::Microphone, false).unwrap();
+        assert_eq!(mask.len(), 32 * 32);
+        assert!(std::ptr::eq(
+            mask,
+            rune_alpha(Kind::Microphone, false).unwrap()
+        ));
+        let mut rgb = vec![0; 200 * 100 * 3];
+        draw_styled(
+            &mut rgb,
+            Kind::Microphone,
+            false,
+            true,
+            [0, 255, 0],
+            [0; 3],
+            None,
+        );
+        assert!(rgb.chunks_exact(3).any(|p| p == [0, 255, 0]));
+        let custom = [255, 0, 0, 255].repeat(32 * 32);
+        let mut rgb = vec![0; 200 * 100 * 3];
+        draw_styled(
+            &mut rgb,
+            Kind::Microphone,
+            false,
+            true,
+            [0, 255, 0],
+            [0; 3],
+            Some(&custom),
+        );
+        assert_eq!(&rgb[(2 * 200 + 3) * 3..(2 * 200 + 3) * 3 + 3], &[255, 0, 0]);
+        assert!(!rgb.chunks_exact(3).any(|p| p == [0, 255, 0]));
+    }
     #[test]
     fn symbols_are_distinct_and_mute_is_reversible() {
         let mut previous = Vec::new();

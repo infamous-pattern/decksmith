@@ -1,4 +1,4 @@
-"""Offline Tabler starter catalog and content-addressed local user imports."""
+"""Offline Rune/Tabler starter catalogs and content-addressed local imports."""
 from pathlib import Path
 from hashlib import sha256
 from io import BytesIO
@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from PIL import Image,ImageOps
 from artwork import source_image,MAX_BYTES
 ROOT=Path(__file__).resolve().parents[2]/'assets/icons/tabler'
+RUNE_ROOT=ROOT.parent/'rune'
 FULL_SET_URL='https://github.com/tabler/tabler-icons/releases/latest'
 
 class SafeSvgTree(ET.TreeBuilder):
@@ -41,8 +42,10 @@ class Library:
     def __init__(self,root=None):
         self.root=Path(root) if root else Path(os.environ.get('XDG_DATA_HOME',Path.home()/'.local/share'))/'decksmith/icons'
         self.catalog=json.loads((ROOT/'catalog.json').read_text())
+        self.rune_catalog=json.loads((RUNE_ROOT/'catalog.json').read_text())
     def items(self,query='',category=None):
-        items=[dict(item,source='Tabler') for item in self.catalog['items']]
+        items=[dict(item,source='Rune Outline') for item in self.rune_catalog['items']]
+        items.extend(dict(item,source='Tabler') for item in self.catalog['items'])
         if self.root.exists():
             for path in sorted(self.root.glob('*.json')):
                 try:
@@ -53,10 +56,11 @@ class Library:
         words=query.lower().split()
         return [i for i in items if (not category or i['category']==category) and all(w in (i['name']+' '+i.get('tags','')+' '+i['source']).lower() for w in words)]
     def image(self,item,size=120,color='#ffffff'):
-        if item['id'].startswith('tabler:'):
+        if item['id'].startswith(('tabler:','rune:')):
+            root=RUNE_ROOT if item['id'].startswith('rune:') else ROOT
             name=item['file']
             if Path(name).name!=name:raise ValueError('Invalid icon name.')
-            raw=(ROOT/name).read_bytes()
+            raw=(root/name).read_bytes()
             if sha256(raw).hexdigest()!=item['sha256']:raise ValueError('Bundled icon checksum mismatch.')
             return raster(svg_png(raw,max(size,256),color),size)
         digest=item['id'].removeprefix('local:')
@@ -64,6 +68,14 @@ class Library:
         raw=(self.root/(digest+'.png')).read_bytes()
         if sha256(raw).hexdigest()!=digest:raise ValueError('Imported icon checksum mismatch.')
         return raster(raw,size)
+    def preferred(self,name):
+        """Resolve new automatic artwork only; never rewrite saved selections."""
+        for source in ('rune:','tabler:'):
+            catalog=self.rune_catalog if source=='rune:' else self.catalog
+            for item in catalog['items']:
+                if item['id']==source+name:
+                    return dict(item,source='Rune Outline' if source=='rune:' else 'Tabler')
+        raise ValueError('No bundled icon for this action.')
     def import_file(self,path):
         path=Path(path)
         if not path.is_file():raise ValueError('Choose an image file.')

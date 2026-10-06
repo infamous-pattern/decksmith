@@ -1604,10 +1604,9 @@ impl Pages {
             None => None,
         };
         if let Some(mut icon) = source {
-            let library = key
-                .icon_source
-                .as_ref()
-                .is_some_and(|s| s.starts_with("tabler:") || s.starts_with("local:"));
+            let library = key.icon_source.as_ref().is_some_and(|s| {
+                s.starts_with("tabler:") || s.starts_with("rune:") || s.starts_with("local:")
+            });
             let edge_label = matches!(style.position, LabelPosition::Top | LabelPosition::Bottom)
                 && !label.trim().is_empty();
             if let Some(percent) = style.icon_size.or((library || edge_label).then_some(100)) {
@@ -2349,24 +2348,27 @@ mod tests {
         let key = &mut value["pages"][0]["keys"][0];
         key["artwork"] = "application_icon".into();
         key["icon_png"] = serde_json::json!(out.into_inner());
-        key["icon_source"] = "tabler:test".into();
-        key["label_position"] = "hidden".into();
-        key["background_color"] = "black".into();
-        let original = value["pages"][0]["keys"][0].clone();
-        let mut pages = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
-        let mut deck = decksmith_device::VirtualDeck::default();
-        pages.show(&mut deck, 0).unwrap();
-        let pixels = pages.preview_keys(0, pages.touch_state()).unwrap();
-        assert_eq!(&pixels[..43200], deck.key_image(0).unwrap());
-        assert_eq!(&pixels[..3], &[0, 0, 0]);
-        let center = (60 * 120 + 60) * 3;
-        assert_eq!(&pixels[center..center + 3], &[255, 255, 255]);
-        let after: serde_json::Value = serde_json::from_str(&pages.json()).unwrap();
-        assert_eq!(
-            original["icon_png"],
-            after["pages"][0]["keys"][0]["icon_png"]
-        );
-        assert_eq!(original["action"], after["pages"][0]["keys"][0]["action"]);
+        for source in ["tabler:test", "rune:test", "local:test"] {
+            let key = &mut value["pages"][0]["keys"][0];
+            key["icon_source"] = source.into();
+            key["label_position"] = "hidden".into();
+            key["background_color"] = "black".into();
+            let original = value["pages"][0]["keys"][0].clone();
+            let mut pages = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+            let mut deck = decksmith_device::VirtualDeck::default();
+            pages.show(&mut deck, 0).unwrap();
+            let pixels = pages.preview_keys(0, pages.touch_state()).unwrap();
+            assert_eq!(&pixels[..43200], deck.key_image(0).unwrap());
+            assert_eq!(&pixels[..3], &[0, 0, 0]);
+            let center = (60 * 120 + 60) * 3;
+            assert_eq!(&pixels[center..center + 3], &[255, 255, 255]);
+            let after: serde_json::Value = serde_json::from_str(&pages.json()).unwrap();
+            assert_eq!(
+                original["icon_png"],
+                after["pages"][0]["keys"][0]["icon_png"]
+            );
+            assert_eq!(original["action"], after["pages"][0]["keys"][0]["action"]);
+        }
     }
     #[test]
     fn system_actions_validate_and_live_state_matches_preview() {

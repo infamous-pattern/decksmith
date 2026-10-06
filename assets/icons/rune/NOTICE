@@ -1,0 +1,8 @@
+Rune Icons artwork
+Copyright 2026 Rune Icons Team
+Source: https://github.com/Runeicons/runeicons
+Pinned commit: 210c95e68213ff6cd521ea7364b96c8bdff26d40
+Icon assets are licensed under Apache License 2.0 (LICENSE, Part 1).
+Decksmith modifications: fixed colors use currentColor; play/pause is composed and previous is mirrored.
+Original upstream SVGs are retained under originals/. Catalog records source and prepared checksums.
+Touch PNGs are rasterized derivatives of the prepared SVGs. No website/editor software is included.

@@ -52,7 +52,14 @@ inside the unchanged key face, including icons already selected from the library
 Use Icon size to reduce it further. Built-in outline icons follow the
 resolved text color. Imported images retain their own colors and transparency.
 
-The offline starter set contains **134 official Tabler outline icons**, pinned to
+The offline starter set contains **148 icons: 14 Rune Outline and 134 Tabler
+outline icons**. Rune appears first in the library; search `Rune` to see its
+selected audio, media, lock, Night Light and brightness artwork. New media and
+system action assignments prefer Rune when an equivalent is bundled, with Tabler
+as the fallback. Existing saved images, captions and custom colors are preserved.
+Applying either outline family follows the resolved text color and page theme.
+
+Tabler is pinned to
 [v3.46.0](https://github.com/tabler/tabler-icons/releases/tag/v3.46.0), covering audio
 and media, browsers and web, development and apps, files and navigation, network
 and devices, and system controls. This is a selected starter set, not the full
@@ -83,8 +90,8 @@ Save and Apply.
 
 Layout export/import preserves the selected theme, control overrides, shared and
 page-specific dial styles, and selected icon pixels/provenance. Behavior and
-appearance remain separate files within the package. Exports using Tabler artwork
-include its MIT notice. A layout package contains selected images, not the whole
+appearance remain separate files within the package. Exports include the license
+and modification notices for the Rune and/or Tabler artwork used. A layout package contains selected images, not the whole
 local icon library. Older builds may reject new appearance fields; use an updated
 Decksmith build to import these packages.
 
@@ -93,6 +100,19 @@ v0.4 profile/workspace/page/state theme hierarchy, panoramic canvases and indepe
 full appearance packages remain future work. Save and Apply remains explicit.
 
 ## Asset licensing
+
+Rune Outline assets are pinned to commit
+[`210c95e`](https://github.com/Runeicons/runeicons/tree/210c95e68213ff6cd521ea7364b96c8bdff26d40)
+and licensed under Apache-2.0. The selected SVGs use theme-aware colors; Previous
+and Play Pause are documented derivatives. No Rune website/editor software is
+included. See [asset provenance and modifications](../assets/icons/rune/README.md),
+[license](../assets/icons/rune/LICENSE) and [notice](../assets/icons/rune/NOTICE).
+
+The touch strip uses Rune speaker, microphone and brightness symbols, while
+preserving custom app/device images and other existing symbols. Muted audio keeps
+its red crossed-out icon and red **Muted** caption; active microphone **Live** text
+stays green. Five small alpha masks are decoded once and retain 5 KiB in memory;
+live updates do not parse SVGs or allocate new icon masks.
 
 Tabler icons are unmodified source SVGs, copyright 2020–2026 Paweł Kuna, MIT licensed.
 See [the bundled license](../assets/icons/tabler/LICENSE) and

@@ -1,0 +1,166 @@
+{
+  "source": "Rune Icons",
+  "style": "Outline",
+  "commit": "210c95e68213ff6cd521ea7364b96c8bdff26d40",
+  "license": "Apache-2.0",
+  "source_url": "https://github.com/Runeicons/runeicons",
+  "items": [
+    {
+      "id": "rune:volume-2",
+      "name": "Volume",
+      "category": "Audio and media",
+      "tags": "volume 2 Rune Outline",
+      "file": "volume-2.svg",
+      "sha256": "783bb251aa33fb995e3fd56b0164cb29b3f6b6a9ca2a640f7d80db9eafe2949d",
+      "source_path": "public/normal/playback/volume-2.svg",
+      "source_sha256": "7acd8f51f3bfb7f6be7c76c569f5107e246c604357b5de218fab98c657fb19f4",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:volume-off",
+      "name": "Muted",
+      "category": "Audio and media",
+      "tags": "volume off Rune Outline",
+      "file": "volume-off.svg",
+      "sha256": "ba43ad7860eec0890bfe66b2d2fc8e705a3dc7caf7b9596ee43389defb327f47",
+      "source_path": "public/normal/playback/volume-off.svg",
+      "source_sha256": "c222d6bd2291de20f9370bbc065f8243fcc399c1627e393f1152feaaad623ecf",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:microphone",
+      "name": "Microphone",
+      "category": "Audio and media",
+      "tags": "microphone Rune Outline",
+      "file": "microphone.svg",
+      "sha256": "ffb3ba2e4f09c2d9fac13eca11f0e07809d5663e6ea6846cb7f1646f614a0529",
+      "source_path": "public/normal/playback/mic.svg",
+      "source_sha256": "033448dfd84939d0569eec9afdd290df01825fdab1c308992e05825de1b6f10c",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:microphone-off",
+      "name": "Mic muted",
+      "category": "Audio and media",
+      "tags": "microphone off Rune Outline",
+      "file": "microphone-off.svg",
+      "sha256": "8536635cadefc6ed1b621ca98f86ec3bc2a1d648289e6e55bed801c52e42fc57",
+      "source_path": "public/normal/playback/mic-off.svg",
+      "source_sha256": "4ae4fa3f507915ca1bd3c1c080aed3f6204f553d93d2d105130ffc30ddeed2a4",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:player-play",
+      "name": "Play",
+      "category": "Audio and media",
+      "tags": "player play Rune Outline",
+      "file": "player-play.svg",
+      "sha256": "cf00cf444a950693b1ca9bd7e5d7c7ce0c10eb602ecd6a987102f2429bc4ca08",
+      "source_path": "public/normal/playback/play.svg",
+      "source_sha256": "7130c7e46443e3bbcd3cf8ba5acdecefaba320b3a7a1d9cf4a7146326b34db63",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:player-pause",
+      "name": "Pause",
+      "category": "Audio and media",
+      "tags": "player pause Rune Outline",
+      "file": "player-pause.svg",
+      "sha256": "f42c6fa0cfb8ddeecf80c9bba6980c8ddc8d5032e1504348c19ef0c590ebce52",
+      "source_path": "public/normal/playback/pause.svg",
+      "source_sha256": "4c532ac9ab035671ec6d4af41189c6be5216848b12d8613d18d174204a5c6e33",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:player-stop",
+      "name": "Stop",
+      "category": "Audio and media",
+      "tags": "player stop Rune Outline",
+      "file": "player-stop.svg",
+      "sha256": "04d35cc44db6aaa6e3c848e43ff9160737055de1248f9809bc1648dc694c2d06",
+      "source_path": "public/normal/indicators/square-stop.svg",
+      "source_sha256": "57389bad907b133e35d239b641479557fd15ab6cec0c4cbc7170f64eedea4b85",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:player-skip-forward",
+      "name": "Next",
+      "category": "Audio and media",
+      "tags": "player skip forward Rune Outline",
+      "file": "player-skip-forward.svg",
+      "sha256": "148607d746b86447a9f1eb3e3bc4af7da374bf70b73f519f56a6dd2dc9e1ca2e",
+      "source_path": "public/normal/arrows/skip-forward.svg",
+      "source_sha256": "2613fa3364c071e0c0160eb473523433fbf7290e4e359730337b042935886f3d",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:lock",
+      "name": "Lock",
+      "category": "System controls",
+      "tags": "lock Rune Outline",
+      "file": "lock.svg",
+      "sha256": "80928d4b1ad4de3954e6c66818ba607acf18f9841177f60bdbc6c20b6290752d",
+      "source_path": "public/normal/identity/lock.svg",
+      "source_sha256": "563e5085881b5200723218f137dd0bfb2706d2ab5e09dc2e9d9cf04ae175bb84",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:lock-open",
+      "name": "Unlock",
+      "category": "System controls",
+      "tags": "lock open Rune Outline",
+      "file": "lock-open.svg",
+      "sha256": "200834fcef9b7c828444c4df5982fa559f780ae4cab6b2879f0c3890dc0b6601",
+      "source_path": "public/normal/identity/lock-open.svg",
+      "source_sha256": "f252c7e53caf84b8010c71463b2fb4206e9879712a8c892f924564963496f9d2",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:moon",
+      "name": "Night Light",
+      "category": "System controls",
+      "tags": "moon Rune Outline",
+      "file": "moon.svg",
+      "sha256": "d7d0fd3031edeba19f904cf55871fab1634c8518dfdad265a1abbfe9d9975544",
+      "source_path": "public/normal/nature/moon.svg",
+      "source_sha256": "195a3f740cfdf0e5ff731e9202d89d2b99fe6d3c49cd73aac8abf3793bd66d55",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:sun",
+      "name": "Brightness",
+      "category": "System controls",
+      "tags": "sun Rune Outline",
+      "file": "sun.svg",
+      "sha256": "ef92058eb9701cbb2a716c0077be119edc6c3c0f3fbf7aaf146b272c791ced65",
+      "source_path": "public/normal/nature/sun.svg",
+      "source_sha256": "035b593f3df0a34856cac2c6d5151715593cc43ce3c4017853e8fca13fee3576",
+      "modifications": "Fixed black strokes/fills replaced by currentColor; paths unchanged."
+    },
+    {
+      "id": "rune:player-play-pause",
+      "name": "Play Pause",
+      "category": "Audio and media",
+      "tags": "media playback Rune Outline",
+      "file": "player-play-pause.svg",
+      "sha256": "90aa1d09506e9ee6ff89b82f0a78036f2165ce5dee062edc2b84258c9727339a",
+      "derived_from": [
+        "player-play",
+        "player-pause"
+      ],
+      "modifications": "Combined play and pause in adjacent groups."
+    },
+    {
+      "id": "rune:player-skip-back",
+      "name": "Previous",
+      "category": "Audio and media",
+      "tags": "media playback Rune Outline",
+      "file": "player-skip-back.svg",
+      "sha256": "c4e5106e1f02edb9ab31a3fb401e5c9435ad6f92f15700c70c6e6263fff1c0a9",
+      "derived_from": [
+        "player-skip-forward"
+      ],
+      "modifications": "Mirrored skip-forward horizontally."
+    }
+  ]
+}

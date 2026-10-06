@@ -15,7 +15,7 @@ class IconLibraryDialog(Adw.Dialog):
         shortcuts.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         self.escape=Gtk.Shortcut.new(Gtk.KeyvalTrigger.new(Gdk.KEY_Escape,0),Gtk.CallbackAction.new(self.dismiss))
         shortcuts.add_shortcut(self.escape);self.add_controller(shortcuts)
-        self.search=Gtk.SearchEntry(placeholder_text='Search technology, apps and imported icons');box.append(self.search)
+        self.search=Gtk.SearchEntry(placeholder_text='Search Rune, Tabler, technology and imported icons');box.append(self.search)
         self.search.connect('search-changed',self.changed)
         cats=['All categories']+sorted({i['category'] for i in self.library.items()})
         self.categories=cats;self.category=Gtk.DropDown.new_from_strings(cats);self.category.connect('notify::selected',self.changed);box.append(self.category)
@@ -27,7 +27,7 @@ class IconLibraryDialog(Adw.Dialog):
         self.next=Gtk.Button(label='Next');self.next.connect('clicked',lambda *_:self.turn(1));row.append(self.next)
         add=Gtk.Button(label='Import local icon…');add.connect('clicked',self.import_icon);box.append(add)
         self.full_set=Gtk.LinkButton.new_with_label(FULL_SET_URL,'Get the full Tabler icon set ↗');box.append(self.full_set)
-        note=Gtk.Label(label=f"Tabler {self.library.catalog['version']} · MIT · Opens the official download page. Downloaded icons can be imported above.",wrap=True,xalign=0);note.add_css_class('dim-label');box.append(note)
+        note=Gtk.Label(label=f"Rune Outline · Apache-2.0 · Tabler {self.library.catalog['version']} · MIT. Both bundled sets work offline. The link opens Tabler’s official download page.",wrap=True,xalign=0);note.add_css_class('dim-label');box.append(note)
         self.status=Gtk.Label(wrap=True,xalign=0);box.append(self.status)
         self.populate();self.present(owner)
     def dismiss(self,*_):

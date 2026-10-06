@@ -954,7 +954,7 @@ class Editor(Adw.ApplicationWindow):
         def apply(png,item):
             if not any(key is k for p in self.draft.data['pages'] for k in p['keys']):return
             self.icon_requests[id(key)]='custom'
-            key.update(icon_png=list(png),artwork='application_icon',icon_source=item['id'],icon_tint=item['id'].startswith('tabler:'))
+            key.update(icon_png=list(png),artwork='application_icon',icon_source=item['id'],icon_tint=item['id'].startswith(('tabler:','rune:')))
             self.select_key(self.key)
         self.icon_dialog=IconLibraryDialog(self,apply)
 
