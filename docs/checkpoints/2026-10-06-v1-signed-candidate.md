@@ -101,20 +101,67 @@ processes and audio modules were removed. The first attempt stopped before test
 execution because shutdown had cleared the guest's temporary staging directory;
 restaging the same signed archive fixed that fixture setup failure.
 
-All four VMs are now shut off with autostart disabled. The physical desktop still
-runs the previous bundle `0.1.0-257113d71d41`; this work did not replace its build,
-restart its controls, change its layout or issue host audio/power actions. Raw
-logs, signing evidence and machine-readable results remain private.
+At the matrix/workload checkpoint, all four VMs were shut off with autostart
+disabled and the physical desktop still ran `0.1.0-257113d71d41`. The subsequent
+authorized desktop and real-installation checks follow. Raw logs, signing
+evidence and machine-readable results remain private.
+
+## Desktop update and physical check
+
+After the user confirmed all edits were saved, the same signed candidate passed
+verification again and was installed on the reference Fedora desktop. Background
+controls restarted once for the update and reconnected with the display ready.
+The previous bundle `0.1.0-257113d71d41` and a configuration/artwork backup were
+retained. Five saved JSON files and imported artwork matched the pre-update hashes;
+the active page, brightness and default input/output routing were unchanged.
+Auto-Lock reporting and the experimental companion were available. The new
+daemon's restart counter was zero at the connection check.
+
+The user then confirmed that physical page changes, audio/media keys, mute, and
+ordinary/quicker audio and brightness dial turns all worked correctly, with
+correct labels, icons and meters. This closes this bounded physical acceptance
+check. It does not establish precise pixel timing, final idle/loaded resources or
+the remaining disruptive lifecycle/accessibility cases.
+
+## Real guest installation and reboot
+
+Fedora 44 then tested the candidate as an actual per-user installation, with a
+fresh Decksmith data/profile/integration setup on the existing guest OS. A full
+offline disk recovery snapshot protected the normal guest first. Its system
+packages were already installed; clean OS dependency provisioning was **not**
+tested by this pass.
+
+The verified installer passed, the real systemd user service exposed its D-Bus
+API and safely waited for a device. Both login preference settings passed without
+changing the running daemon PID. After enabling startup and rebooting the guest,
+the service was active without an explicit service-start command, GNOME had a
+graphical session, the editor remained closed and the restart count was zero.
+This tests real guest startup, not physical USB recovery or reference-host login.
+
+The first 60-second virtual-power-button shutdown wait expired. Inspection showed
+no pending shutdown jobs and GNOME owned power-key handling; direct remote
+poweroff required interactive authorization. A later virtual-power-button request
+completed shutdown. No forced power cut or host power action was used. The original
+offline snapshot was then restored, booted and checked: saved profile/artwork,
+integration files, current release and disabled login preference matched the
+pre-test state. The original and post-test recovery snapshots were retained
+privately. The restored guest shut down successfully; all four VMs are off with
+autostart disabled.
 
 ## Remaining release gates
 
-The candidate's identity/signing, scoped staged recovery matrix and VM helper/
-workload checks above are complete. The overall release gates are not yet closed:
+The candidate's identity/signing, scoped staged recovery matrix, VM helper/
+workload checks, bounded physical acceptance and real guest installation/startup
+checks above are complete. The overall release gates are not yet closed:
+
+The user deferred the signed candidate's five-minute physical quiet resource
+sample to later. No new idle result was collected; prior-build figures remain
+comparison evidence rather than a final-artifact measurement.
 
 - Final-artifact physical actions, lifecycle/recovery, quiet and interactive
   resource observations, and precise visible-response qualification.
-- Real per-user service/login/reboot and clean dependency/first-run installation
-  checks, rather than only existing-system staged installs.
+- Clean OS dependency provisioning and any remaining real first-run installation
+  cases beyond the existing-system fresh-profile and service/startup checks above.
 - Human-paced final-artifact usability/accessibility, theme/text/scaling checks
   and any untested advertised action/fault case.
 - Experimental Homebridge failure/expiry/recovery and agreed live qualification

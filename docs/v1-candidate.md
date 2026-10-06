@@ -7,8 +7,11 @@ preview offered by the README and preview installer until a release decision.
 The signed candidate is now frozen as `1.0.0-c5e4fea53afe`, from public source
 `68c42421ceaa65bb033993b56f0babdde2a14a6e`. Hosted and independent verification,
 the four-VM diagnostic matrix, staged recovery/preview upgrade and Fedora 44
-helper-failure/ten-minute workload checks are complete. Physical and other final
-release gates remain open. See the [exact-candidate checkpoint](checkpoints/2026-10-06-v1-signed-candidate.md)
+helper-failure/ten-minute workload checks are complete. It is now installed on
+the reference desktop with saved state preserved and passing bounded physical
+acceptance; real Fedora 44 guest installation and background-only reboot startup
+also passed. Resource/lifecycle/accessibility and other final release gates remain
+open. See the [exact-candidate checkpoint](checkpoints/2026-10-06-v1-signed-candidate.md)
 for the archive digest, test scope and remaining work.
 
 Cargo workspace metadata is the application-version source for compiled binaries,

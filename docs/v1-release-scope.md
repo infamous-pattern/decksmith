@@ -1328,9 +1328,11 @@ Application version `1.0.0` is consistent across the Cargo workspace, locked
 project packages, runtime bundle metadata and translation extraction. Saved-data
 schemas are unchanged. The [signed V1 candidate](checkpoints/2026-10-06-v1-signed-candidate.md)
 has passed source/build/signing checks, scoped staged recovery on the four-guest
-matrix and Fedora 44 helper-failure/sustained workload checks. Next qualify that
-exact artifact's physical behavior/resources, real installation/service/login,
-accessibility and optional companion, then reconcile all remaining gates. The
+matrix and Fedora 44 helper-failure/sustained workload checks. Its recoverable
+desktop update and bounded physical acceptance passed, as did real fresh-profile
+Fedora 44 guest installation/service and background-only reboot startup. Next
+complete final resource/lifecycle, clean dependency provisioning, accessibility
+and optional-companion checks, then reconcile all remaining gates. The
 existing preview remains the public download until release acceptance.
 
 The signed development candidate now passes the explicit verified-install helper
