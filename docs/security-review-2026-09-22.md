@@ -60,8 +60,11 @@ is preserved for traceability; this metadata finding was not a credential leak.
 ## Remaining boundaries and follow-up
 
 - Release checksums detect corruption; they do not authenticate a compromised
-  GitHub account or release. Signed provenance/release attestation is still future
-  work. Inspect downloaded code and use the official repository.
+  GitHub account or release. The new [candidate build and attestation workflow](release-authenticity.md)
+  prepares signed provenance for future CI-built artifacts. Its presence does not
+  authenticate existing preview downloads or close the V1 gate: a real hosted run,
+  independent verification and final-artifact testing remain required. Inspect
+  downloaded code and use the official repository.
 - GTK, Pillow, librsvg, Python, systemd and audio libraries come from Fedora and
   must be kept updated through Fedora. Cargo/pip audits do not certify OS packages.
 - Decksmith and optional plugins run as the desktop user. Process supervision is

@@ -12,6 +12,12 @@ testing through the [cross-distribution VM matrix](v1-release-scope.md#current-v
 but Fedora 44 remains the only supported V1 platform. Broad, supported
 GNOME/Wayland distribution compatibility is a V1.5 goal.
 
+The [release-authenticity workflow](release-authenticity.md) prepares future
+CI-built candidates with signed build provenance. Existing preview downloads and
+the preview URL installer still use checksums; they have not acquired attestations
+retroactively. A candidate must pass verification and final release testing before
+it is advertised as V1.
+
 ## Dependencies
 
 On Fedora, install runtime dependencies using the normal package manager:

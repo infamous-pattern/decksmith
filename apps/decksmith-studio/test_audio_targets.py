@@ -82,12 +82,15 @@ class PersistentReaderTests(unittest.TestCase):
         from audio_targets import serve_cached_read
         import json
         output=StringIO()
-        with patch('audio_targets.list_all',side_effect=[snapshot_data({'sinks':[node(1,'speakers',20)]}),snapshot_data({'sinks':[node(1,'speakers',80)]})] ) as listing:
+        with patch('audio_targets.list_all',side_effect=[snapshot_data({'sinks':[node(1,'speakers',20)]}),snapshot_data({'sinks':[node(1,'speakers',80)]})] ) as listing,patch('audio_targets.command',return_value='{"default_sink_name":"speakers","default_source_name":"microphone"}') as info:
             serve_cached_read(StringIO('["output:speakers","output:speakers"]\n["output:speakers"]\n'),output,None)
         values=[json.loads(line) for line in output.getvalue().splitlines()]
         self.assertEqual(values[0][0]['percent'],20)
         self.assertEqual(values[1][0]['percent'],80)
         self.assertEqual(listing.call_count,2)
+        self.assertEqual(info.call_count,2)
+        self.assertTrue(values[0][0]['active'])
+        self.assertTrue(values[1][0]['active'])
 
     def test_one_combined_listing_serves_all_audio_target_kinds(self):
         values=snapshot_data({'sinks':[node(1,'speakers')],

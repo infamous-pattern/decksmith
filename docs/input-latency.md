@@ -58,6 +58,18 @@ and declared receipt boundary is available.
 
 ## Optional recording diagnostics
 
+For sustained VM qualification, `decksmithd --virtual-service PATH --seconds N`
+accepts a bounded 1–3600 second run with VirtualDeck. Physical probe commands
+retain their 1–120 second limit. The live VirtualDeck service waits 20 ms only
+when its ordinary input poll is empty, matching the physical adapter's idle wait;
+pending output and ready inputs do not wait. This prevents the live simulation
+from spinning on an empty deterministic queue. The in-memory VirtualDeck used by
+unit tests remains immediate and deterministic, with no fabricated receipt stamps.
+A harness must stop its owned daemon and remove
+temporary audio modules/processes on completion or failure. Virtual workloads
+can exercise helpers and resource stability, but do not provide physical HID
+receipt or visible-pixel latency evidence.
+
 For a missing-record investigation, an explicitly started daemon may use
 `DECKSMITH_INPUT_DIAGNOSTICS=1`. This enables aggregate report/normalized-event
 counts on its existing physical connection and aggregate worker-output counts.
@@ -67,6 +79,46 @@ are logged at most once every two seconds. The window expires after 120 seconds;
 the counter allocation is then released and reconnects cannot extend the window.
 Remove the environment setting after starting that diagnostic run so later
 starts do not repeat it. Ordinary startup leaves diagnostics disabled.
+
+## Visible-response recording protocol
+
+Use the current installed artifact and record its archive hash/source separately.
+A clip from an earlier artifact cannot qualify a later repaint optimization.
+Record the original high-frame-rate file with the physical input and destination
+display simultaneously visible. Start with ten isolated dial detents and ten page
+changes, pausing between actions. Avoid destructive system keys and cover neither
+the labels nor the display with the hand. Retain unedited originals locally rather
+than publishing private desktop content.
+
+Verify decoded frame count, frame timestamps, recording mode and real-time duration
+before converting frame intervals to milliseconds. Nominal playback rate alone is
+not a capture rate: exported slow motion can change the time base. If the real-time
+mapping cannot be established, report visual behavior without a latency number.
+
+For every usable event, retain frame evidence for the last unchanged input pose,
+first clearly changed input pose, last old display state, first new state and first
+fully settled destination. For a page, settlement includes all destination keys
+and the touch strip, not just the first key. Dial volume text and mute indicators
+are feedback; asynchronous activity-bar motion alone is not an action response.
+Exclude obstructed, ambiguous, overlapping or externally changed events, recording
+the exclusions and original event count rather than selecting only fast examples.
+
+Camera-visible movement is a mechanical reference, not an electrical detent or
+HID receipt timestamp. State this distinction. A confirmed movement onset preceding
+the recognized isolated input can provide a conservative movement-to-settlement
+upper bound, including frame uncertainty. Such a bound below the target supports
+that event; a bound above the target does not by itself prove software failed,
+because hand travel may dominate. Unclear input anchoring cannot close the gate.
+Report first-change and fully settled intervals separately, sample counts, bounds
+and per-route nearest-rank p95 only where the timing reference is established.
+Sparse examples are not representative p95 evidence. Precise electrical-input
+timing requires a synchronized external input marker or capture apparatus.
+
+Keep this result separate from hardware-report-return dispatch and logged USB-write
+completion. Do not align camera and journal wall clocks approximately and describe
+the difference as exact input-to-pixel latency. The final release assessment must
+state which physical routes, active-meter conditions, artifact and target boundaries
+were actually measured and which remain open.
 
 Adapter counts reset on connection replacement. Worker-output counts span the
 worker's lifetime and include both queued and completed action records, and may

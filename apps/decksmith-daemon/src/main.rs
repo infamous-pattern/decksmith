@@ -30,9 +30,26 @@ mod session_lock;
 mod system_actions;
 mod theme;
 #[cfg(any(feature = "hardware", test))]
+mod virtual_service;
+#[cfg(any(feature = "hardware", test))]
 mod worker;
 use decksmith_device::{DeckDevice, VirtualDeck};
 use std::io::{self, Write};
+// VirtualDeck qualification runs need a bounded sustained workload, rather
+// than the short physical-device probe window. This opens no hardware handle.
+#[cfg(any(feature = "hardware", test))]
+fn virtual_request(args: &[String]) -> Option<(&str, u64)> {
+    let [mode, path, duration, seconds] = args else {
+        return None;
+    };
+    if mode != "--virtual-service" || duration != "--seconds" {
+        return None;
+    }
+    let seconds = seconds.parse::<u64>().ok()?;
+    (1..=3600)
+        .contains(&seconds)
+        .then_some((path.as_str(), seconds))
+}
 fn main() {
     tracing_subscriber::fmt()
         .json()
@@ -72,18 +89,10 @@ fn main() {
         }
     }
     #[cfg(feature = "hardware")]
-    if let [mode, path, duration, seconds] = args
-        .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>()
-        .as_slice()
-        && *mode == "--virtual-service"
-        && *duration == "--seconds"
-        && let Ok(seconds @ 1..=120) = seconds.parse::<u64>()
-    {
+    if let Some((path, seconds)) = virtual_request(&args) {
         let result = control::startup(path).and_then(|(pages, settings)| {
             run_session(
-                || Ok(VirtualDeck::default()),
+                || Ok(virtual_service::ServiceDeck::default()),
                 Some(seconds),
                 Some(pages),
                 Some(settings),
@@ -160,7 +169,7 @@ fn main() {
         tracing::error!(
             operation = "startup",
             error_code = "invalid_command",
-            "Use --virtual-once, --hardware/--pages-demo --exclusive --seconds N, or --config PATH --exclusive --seconds N (1..120; hardware feature required)"
+            "Use --virtual-once, --virtual-service PATH --seconds N (1..3600), --hardware/--pages-demo --exclusive --seconds N, or --config PATH --exclusive --seconds N (physical probes 1..120; hardware feature required)"
         );
         std::process::exit(2);
     }
@@ -282,3 +291,31 @@ fn load_pages(path: &str) -> Result<pages::Pages, &'static str> {
 
 #[cfg(any(feature = "hardware", test))]
 mod meter;
+
+#[cfg(test)]
+mod qualification_cli_tests {
+    use super::virtual_request;
+
+    #[test]
+    fn virtual_duration_is_bounded_and_cannot_select_hardware() {
+        let args = |mode: &str, seconds: &str| {
+            [mode, "fixture.json", "--seconds", seconds].map(String::from)
+        };
+        for seconds in ["1", "120", "900", "3600"] {
+            let request = args("--virtual-service", seconds);
+            assert_eq!(
+                virtual_request(&request),
+                Some(("fixture.json", seconds.parse().unwrap()))
+            );
+        }
+        for seconds in ["0", "3601", "-1", "invalid", "18446744073709551616"] {
+            assert_eq!(virtual_request(&args("--virtual-service", seconds)), None);
+        }
+        assert_eq!(virtual_request(&args("--hardware", "900")), None);
+        assert_eq!(virtual_request(&args("--config", "900")), None);
+        assert_eq!(virtual_request(&["--virtual-service".into()]), None);
+        let mut request = args("--virtual-service", "900");
+        request[2] = "--run".into();
+        assert_eq!(virtual_request(&request), None);
+    }
+}

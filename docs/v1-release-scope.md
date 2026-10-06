@@ -1197,6 +1197,123 @@ scheduling and those plugin errors need separate follow-up; precise dial visible
 latency remains open. See the
 [full response checkpoint](checkpoints/2026-10-06-physical-response.md).
 
+### 2026-10-06 sustained VirtualDeck qualification
+
+Clean source `1a0101da0f38d9c5d90c9131d5238d9ee74ef0e9` produced local bundle
+`0.1.0-257113d71d41`, SHA-256
+`4de46d33b1da65cd9b76cf8d136eda0c068c7c248a11ae0db44f2b3e36ac6703`.
+This is a development qualification artifact, not a frozen V1 release.
+Its 379 manifest files verified. Rust checks passed 140 tests with three existing
+diagnostic tests ignored, formatting, warnings-denied Clippy and the dependency
+audit. The unchanged Studio sources retain their 167 passing tests; installer
+and security tests ran 18 cases, with one optional packaged-companion case
+skipped. The bundle metadata/credential pattern scan found no matches; that
+scan is not a guarantee that every security risk is absent.
+
+The sustained guest test exposed an empty-queue spin in the live VirtualDeck
+service. That adapter now waits 20 ms when idle, while ready inputs and pending
+display writes remain immediate. Deterministic VirtualDeck unit tests and the
+physical HID adapter retain their existing behavior. Virtual service runs accept
+bounded durations up to one hour; physical probe limits remain unchanged.
+
+Fedora 44's installed runtime passed eight reader/writer/meter recovery cases,
+including stale-meter expiry, child crashes/timeouts, uncertain writes without
+replay, fresh-value clamping and idle writer release. A subsequent 600-second
+four-target synthetic workload completed 480 editor audio actions and 60 page
+changes. All four meters were live at each of 61 sample points. The daemon
+survived without restart, with the guest's saved layout and default routing
+unchanged. Main RSS ranged from 12.71 to 13.54 MiB; handles stayed at 16 and
+owned processes at five. Main CPU averaged 1.28% of one core, with 2.48% across
+observed owned processes. Child CPU between samples can be omitted. These are
+guest VirtualDeck measurements, not physical desktop resource or latency results.
+Eight pre-dispatch `display_updating` admission rejections were waited out by
+the harness; uncertain replies and other errors were never retried.
+
+The same artifact was installed on the reference desktop. Integrity/dependency
+checks passed, the physical display and experimental companion reconnected,
+and both services had zero automatic restarts. Configuration, imported artwork,
+active page, brightness and default audio routing were preserved. The previous
+runtime was retained and the new backup's contents and hashes verified. This
+does not constitute a restore test. All four VMs were shut off with autostart
+disabled. The user then confirmed correct physical page changes, audio/media
+keys, ordinary and quicker audio/brightness dial turns, labels, meters and icons
+in the requested short acceptance check. The subsequent desktop idle/loaded
+measurements and remaining-guest smoke results are recorded below.
+
+A subsequent 300-second reference-desktop quiet sample had no playback/capture,
+Deck inputs, lock transition or service restart. Main CPU averaged 1.63% of one
+core; the core service and helpers averaged 2.91% (five-second interval p95
+3.26%). Main RSS averaged 18.56 MiB and handles ranged from 16 to 18. Core cgroup
+memory averaged 64.68 MiB, versus 47.85 MiB in the recorded earlier baseline;
+the latest range was 62.86–72.83 MiB and ended 7.51 MiB below its starting value.
+Inspection found 45.10 MiB anonymous memory, 14.84 MiB file cache and 2.15 MiB
+kernel memory at the follow-up point, with 55.58 MiB summed process PSS. The
+three observed helper modules were unchanged from the previous desktop bundle.
+No growth trend was established, but the total-memory comparison remains open
+for the loaded run; cache differences alone are not proven to explain it.
+
+The separate experimental Homebridge unit averaged 0.53% CPU and 47.57 MiB
+cgroup memory, with unchanged service identity. Core plus companion CPU therefore
+averaged 3.45% of one core. The daemon's below-1% idle target remains unmet and
+deferred post-V1; this observation does not close loaded resource or latency gates.
+
+The same artifact's remaining-guest smoke results were:
+
+| Guest | Recorded versions | Result and scope |
+| --- | --- | --- |
+| Fedora 45 test VM | GNOME Shell 51.0; glibc 2.44 | Bundle installation, doctor and native editor/private-bus VirtualDeck smoke passed. Saved layout unchanged. The isolated bus had accessibility-service warnings; this does not count as Orca acceptance. |
+| Ubuntu 26.04 | GNOME Shell 50.1; glibc 2.43 | Bundle installation, doctor and private-bus VirtualDeck startup, previews, page navigation, save and validation passed. No graphical session or Xvfb was available, so native editor smoke was not attempted. The URL installer rejected the unsupported OS clearly. Saved layout unchanged. |
+| Debian 13 | GNOME Shell 48.7; glibc 2.41 | The Fedora binary's `GLIBC_2.43` requirement prevented installation; the installer retained the saved layout. URL installer rejection was clear and bundle integrity verified. Cargo, rustc and pkg-config were absent, so a native source build remains blocked on prerequisites and was not attempted in this smoke. |
+
+All guests were shut down after use and autostart remained disabled. These results
+do not extend V1 platform support or close the exact final-artifact clean
+dependency installation, upgrade/rollback/uninstall, login/reboot, accessibility
+or physical USB/power-lifecycle gates.
+
+The subsequent ten-minute physical mixed-page run completed all 148 recorded
+actions successfully, including 133 dial adjustments across output, microphone,
+Brave and Chrome. The user confirmed ordinary and quicker physical dial turns
+and page changes worked correctly. Dial dispatch p95 was 15.745 ms at the
+hardware-report-return to backend-entry boundary; visible pixels were not timed.
+Main CPU averaged 2.54% of one core, with 4.66% for the core service and helpers
+and 5.22% including the experimental companion. Main RSS remained 28.324–28.348
+MiB, with 16–20 handles and no service restart. Core cgroup memory averaged
+72.60 MiB and ranged from 70.13 to 94.99 MiB; this includes helpers/cache and
+must not be equated with main RSS.
+
+All four targets were present at 120 of 121 five-second observations; one
+captured the unchanged Homebridge page's fan override. No unavailable meter was
+seen in the 120 four-target frames. This is sustained physical interaction
+evidence, not proof of uninterrupted four-target operation or precise visible
+response. The original layout, page and all five saved JSON files were restored
+and verified, including Dial 4's System sounds assignment. See the
+[physical soak checkpoint](checkpoints/2026-10-06-physical-soak.md) for measurement
+scope, restoration and remaining gates.
+
+### 2026-10-06 current video and release-authenticity foundation
+
+The current artifact's original high-frame-rate physical video confirms dial,
+mute, key and page feedback. Its first inspected key repaint spans roughly
+50–60 ms, compared with about 170 ms in the earlier artifact's recording. This
+is visible repaint duration, excluding input-to-first-pixel delay; different page
+content and recording conditions prevent a controlled speedup claim. The matching
+approximate journal window has 152 successful actions, 132 dial adjustments and
+six physical swipe requests. Camera/journal clocks are not independently aligned,
+and some input/display areas are obscured. Precise visible-response timing remains
+open. See the [current video checkpoint](checkpoints/2026-10-06-current-visible-response.md).
+
+A manual GitHub workflow now builds Fedora 44 candidates from clean public source,
+stages verified downloads, and is configured to attest and verify every candidate
+file through a separate signing job. It has no release-publication step. The
+workflow passed lint and its build commands passed in an isolated Fedora 44/Rust
+1.97.1 fixture: Rust quality/dependency checks, installer/security/candidate tests,
+Studio tests and archive staging. A host-dependent audio-reader test fixture was
+corrected without changing runtime code. Actual hosted signing and independent
+verification have not yet run, so the authenticity gate remains open. Existing
+preview downloads and the preview URL installer retain their previous limits.
+See the [foundation checkpoint](checkpoints/2026-10-06-release-authenticity-foundation.md)
+and [verification/promotion procedure](release-authenticity.md).
+
 ## Work order
 
 The 2026-10-06 page-refresh candidate removes idle input waits between pending
@@ -1209,9 +1326,10 @@ or a complete V1 timing pass. All four VMs are stopped. See the
 [page-refresh checkpoint](checkpoints/2026-10-06-page-refresh.md).
 
 The supported boundary and local qualification results are recorded above. The
-remaining gates are final-artifact idle/loaded resource and regression checks,
-failure-injection and latency measurements, and completion of exhaustive
-system-action and fault-recovery coverage. Once those findings are resolved,
+current candidate now has quiet and sustained physical resource observations
+and passing dispatch observations for the exercised routes. Remaining gates
+include precise visible-response timing, release authenticity and completion of
+exhaustive system-action and fault-recovery coverage. Once those findings are resolved,
 freeze a V1 candidate,
 repeat the release gates—including the complete VM matrix,
 upgrade/migration/rollback/uninstall and security checks—against that exact artifact,
