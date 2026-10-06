@@ -12,6 +12,19 @@ Ordinary plugin exits and read outages reconnect with bounded backoff. Failed or
 uncertain commands are not replayed; an uncertain action in a running host still
 requires explicit Reconnect. All startup/recovery requests are reads, not writes.
 
+A terminal rejection from the plugin permits a new user input only after an
+independent accessory read succeeds and the same authenticated host remains
+healthy. The rejected command itself is never retried. Lost acknowledgements,
+failed confirmation reads, and cancelled writes still require explicit recovery.
+Pressing another accessory key while a command is running reports busy; key
+presses are not accumulated for later execution.
+
+Generic accessory diagnostics retain only the last 16 operations in memory.
+Failure records in the companion journal contain an operation, phase, fixed
+reason code and elapsed time; they omit accessory IDs, labels, server addresses,
+credentials, raw exceptions and plugin output. These records distinguish read,
+dispatch and confirmation failures without recording private device details.
+
 The runtime lives in `~/.local/share/decksmith/plugin-runtime/releases/`, with a
 `current` link. It includes the reviewed plugin binary, checksum receipt, Python
 host and the WebSockets dependency. It needs the system Python interpreter and

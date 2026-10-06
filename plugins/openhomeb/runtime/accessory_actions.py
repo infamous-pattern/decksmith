@@ -1,5 +1,7 @@
 """Capability-checked assignments; one serial write, independent readback, no retry."""
 import asyncio
+import logging
+import time
 from accessory_catalog import caption, finite
 from paced_host import SET
 
@@ -17,6 +19,9 @@ def decode(binding,ticks):
 
 async def perform(panel,binding,ticks):
  identity,op=decode(binding,ticks);context='assigned';dispatched=False
+ started=time.monotonic();phase='read';epoch=None
+ trace={'operation':op,'phase':phase,'result':'confirmed'}
+ panel.trace.append(trace)
  try:
   item,raw=await asyncio.to_thread(panel.catalog.one,identity)
   panel.last_error=None
@@ -37,11 +42,14 @@ async def perform(panel,binding,ticks):
    if value not in (False,True,0,1):raise ValueError('Invalid power')
    expected=not bool(value) if op=='toggle' else op=='on'
    if chars[characteristic].get('format')!='bool':expected=int(expected)
+  phase='prepare'
   await panel.host.disappear(context)
   panel.host.saved['instances'].pop(context,None)
   await panel.host.appear(context,SET,{'accessoryId':identity,'characteristicType':characteristic,'targetValue':expected})
   dispatched=True
+  phase='dispatch';epoch=panel.host.epoch
   if not await panel.host.input(context,'keyUp',panel.host.epoch) or panel.host.completions.get(context)!='accepted':raise RuntimeError('Write not acknowledged')
+  phase='readback'
   async with asyncio.timeout(3):
    while True:
     item,raw=await asyncio.to_thread(panel.catalog.one,identity)
@@ -54,12 +62,43 @@ async def perform(panel,binding,ticks):
   panel.status='Homebridge confirmed the assignment.'
   return True
  except asyncio.CancelledError:
+  trace['result']='cancelled'
   if dispatched:panel.manual_recovery=True;panel.recovery_required=True
   raise
  except Exception:
+  trace['result']='unconfirmed' if dispatched else 'device_unavailable'
   panel.last_error='unconfirmed' if dispatched else 'device_unavailable'
   if dispatched:panel.manual_recovery=True;panel.recovery_required=True
+  # A terminal rejection is different from a lost reply. Only a healthy,
+  # unchanged host plus a fresh independent read permits the next NEW input.
+  # No rejected or uncertain command is retried here.
+  known_failure=(phase=='dispatch' and panel.host.completions.get(context)=='failed'
+   and epoch==panel.host.epoch and not panel.host.outcome_unknown
+   and panel.host.ready.is_set() and panel.host.auth_state=='authenticated')
+  if known_failure:
+   trace['result']='rejected_unavailable'
+   try:
+    async with asyncio.timeout(1):
+     item,raw=await asyncio.to_thread(panel.catalog.one,identity)
+    if (epoch!=panel.host.epoch or panel.host.outcome_unknown
+     or not panel.host.ready.is_set() or panel.host.auth_state!='authenticated'):
+     raise RuntimeError('Host changed during read')
+    panel.assigned_states[identity]={'text':caption(item),
+     'on':next((bool(r['value']) for r in item['readings'] if r['type'] in ('On','Active')),True),
+     'level':next((r['value'] for r in item['readings'] if r['type']==item['level']),None)}
+   except Exception:pass
+   else:
+    panel.manual_recovery=False;panel.recovery_required=False;panel.last_error=None
+    trace['result']='rejected_refreshed'
+    panel.status='Homebridge rejected the command. Current status refreshed; try a new input. Nothing was replayed.'
+    return False
   panel.status='Accessory unavailable or command unconfirmed. Nothing was replayed.'
   return False
  finally:
+  trace['phase']=phase;trace['seconds']=round(time.monotonic()-started,3)
+  if trace['result']!='confirmed':
+   # Enum values and elapsed time only: never log bindings, IDs, names,
+   # raw exceptions, server addresses, credentials or plugin output.
+   logging.getLogger(__name__).warning('homebridge_action_failure operation=%s phase=%s reason=%s seconds=%.3f',
+    op,phase,trace['result'],trace['seconds'])
   panel.busy=False

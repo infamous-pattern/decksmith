@@ -1,6 +1,7 @@
 """Single-accessory Unix IPC trial; EOF cancels pending plugin work."""
 import asyncio
 import json
+import logging
 import os
 from pathlib import Path
 import socket
@@ -47,6 +48,7 @@ class HardwareBridge:
     async def handle(self, reader, writer):
         task=asyncio.current_task();self.connections.add(task)
         operation=None;closed=None
+        rejection='invalid_input'
         try:
             peer=writer.get_extra_info('socket').getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12)
             if struct.unpack('3i',peer)[1]!=os.getuid():raise ValueError()
@@ -60,12 +62,17 @@ class HardwareBridge:
                 decode(data['binding'],data['ticks'])
             else:
                 name,ticks=self.decode(data)
-            if self.panel.busy or not (self.panel.assigned_ready() if generic else self.panel.snapshot()['ready']):raise ValueError()
+            if self.panel.busy:
+                rejection='busy';raise ValueError()
+            if not (self.panel.assigned_ready() if generic else self.panel.snapshot()['ready']):
+                rejection='not_ready';raise ValueError()
             self.panel.busy=True
             operation=asyncio.create_task(perform(self.panel,data['binding'],data['ticks']) if generic else self.panel.perform(name,ticks))
             closed=asyncio.create_task(reader.read(1))
             done,_=await asyncio.wait([operation,closed],timeout=4.5,return_when=asyncio.FIRST_COMPLETED)
             if operation not in done or closed in done:
+                logging.getLogger(__name__).warning('homebridge_bridge_cancelled reason=%s',
+                    'client_closed' if closed in done else 'deadline')
                 operation.cancel();await asyncio.gather(operation,return_exceptions=True)
                 await self.panel.host.stop()
                 self.panel.recovery_required=True
@@ -77,6 +84,7 @@ class HardwareBridge:
             writer.write(json.dumps({'ok':success}).encode()+b'\n')
             await writer.drain()
         except (ValueError,KeyError,TypeError,asyncio.TimeoutError,ConnectionError):
+            logging.getLogger(__name__).warning('homebridge_bridge_rejected reason=%s',rejection)
             writer.write(b'{"ok":false}\n')
             try:await writer.drain()
             except ConnectionError:pass
