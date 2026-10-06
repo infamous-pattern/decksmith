@@ -147,11 +147,13 @@ Use a Debian-native build or record the build/ABI blocker. Current Fedora-only
 installation remains an expected documented limitation on Debian and Ubuntu;
 these guests must still be exercised and their findings recorded.
 
-No frozen V1 release candidate exists yet. A local qualification bundle has now
-been exercised on these systems; its results are recorded below, but they are not
-V1 release certification. Prior preview and development checks remain baselines
-and must be repeated or explicitly carried forward against the eventual frozen
-V1 candidate. For each row, record pass/fail/blocked, exact build and OS versions,
+The signed V1 candidate `1.0.0-c5e4fea53afe` is now frozen and has completed the
+scoped four-guest diagnostic matrix, staged recovery/preview upgrade and Fedora
+44 helper-failure/workload tests. These do not constitute full release
+certification. See the [exact-candidate checkpoint](checkpoints/2026-10-06-v1-signed-candidate.md)
+for its digest, source, findings and outstanding gates. Prior preview and
+development checks remain baselines and must be repeated or explicitly carried
+forward against this candidate. For each row, record pass/fail/blocked, exact build and OS versions,
 evidence path, known limitations and whether a failure is shared with Fedora.
 Record the same details for the physical reference-host run.
 
@@ -1322,12 +1324,14 @@ and [verification/promotion procedure](release-authenticity.md).
 
 ## Work order
 
-Application version `1.0.0` is prepared consistently across the Cargo workspace,
-locked project packages, runtime bundle metadata and translation extraction.
-Saved-data schemas are unchanged. The existing preview remains the public
-download until release acceptance. Follow the [V1 candidate sequence](v1-candidate.md)
-to build, sign and qualify an immutable artifact; preparing version metadata alone
-does not freeze its bytes or close any release gate.
+Application version `1.0.0` is consistent across the Cargo workspace, locked
+project packages, runtime bundle metadata and translation extraction. Saved-data
+schemas are unchanged. The [signed V1 candidate](checkpoints/2026-10-06-v1-signed-candidate.md)
+has passed source/build/signing checks, scoped staged recovery on the four-guest
+matrix and Fedora 44 helper-failure/sustained workload checks. Next qualify that
+exact artifact's physical behavior/resources, real installation/service/login,
+accessibility and optional companion, then reconcile all remaining gates. The
+existing preview remains the public download until release acceptance.
 
 The signed development candidate now passes the explicit verified-install helper
 on the host's isolated filesystem and in the Fedora 44 VM. Six signature checks
@@ -1347,15 +1351,13 @@ had median 14.158 ms and maximum 21.690 ms; they are not visible-pixel measureme
 or a complete V1 timing pass. All four VMs are stopped. See the
 [page-refresh checkpoint](checkpoints/2026-10-06-page-refresh.md).
 
-The supported boundary and local qualification results are recorded above. The
-current candidate now has quiet and sustained physical resource observations
-and passing dispatch observations for the exercised routes. Remaining gates
-include precise visible-response timing, final-artifact installation qualification and completion of
-exhaustive system-action and fault-recovery coverage. Once those findings are resolved,
-freeze a V1 candidate,
-repeat the release gates—including the complete VM matrix,
-upgrade/migration/rollback/uninstall and security checks—against that exact artifact,
-then publish only the tested build with its own checksum and
-authenticity evidence. Optional features do not replace any gate.
+The supported boundary and prior-build physical qualification results are
+recorded above. Quiet/loaded physical resource and dispatch observations from
+those earlier builds do not automatically qualify the frozen V1 archive.
+Precise visible-response timing, real installation and remaining physical,
+accessibility/action/companion cases must be completed or explicitly reconciled
+against the identified artifact before publication. Publish only the tested
+bytes with their own checksum and authenticity evidence. Optional features do
+not replace any gate.
 Further work to reach the below-1% daemon CPU target follows V1 under the approved
 performance milestone above.
