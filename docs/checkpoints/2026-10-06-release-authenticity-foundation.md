@@ -42,7 +42,9 @@ commit, not signed provenance and not a frozen V1 candidate. The disposable test
 container stopped after use. No desktop installation, service, saved layout or
 physical device was changed by these checks.
 
-The hosted signing/verification jobs have not yet run. Synchronizing reviewed
-source and running that workflow require publication authorization. The new
-method does not retrospectively authenticate existing previews. Final-artifact
-qualification and a tested verified-install path remain required before V1.
+After publication authorization, the hosted workflow and independent verification
+passed for the exact public-source development candidate. See the
+[hosted candidate checkpoint](2026-10-06-hosted-candidate-verification.md) for its
+source, archive digest, signing checks and limits. The new method does not
+retrospectively authenticate existing previews. Final-artifact qualification and
+a tested verified-install path remain required before V1.

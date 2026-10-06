@@ -1308,9 +1308,15 @@ file through a separate signing job. It has no release-publication step. The
 workflow passed lint and its build commands passed in an isolated Fedora 44/Rust
 1.97.1 fixture: Rust quality/dependency checks, installer/security/candidate tests,
 Studio tests and archive staging. A host-dependent audio-reader test fixture was
-corrected without changing runtime code. Actual hosted signing and independent
-verification have not yet run, so the authenticity gate remains open. Existing
-preview downloads and the preview URL installer retain their previous limits.
+corrected without changing runtime code. The authorized hosted run subsequently
+built bundle `0.1.0-0143a5db609f` from public commit
+`1d746db7594f3d4a92d2ea4ebbcaa80d22f70928`. All six signed subjects passed
+independent verification through GitHub and the retained signing bundle, and
+altered-file/wrong-source negative checks were rejected. This closes the scoped
+build/signing check for that development candidate; final-artifact qualification
+and a tested verified-install path remain required. Existing preview downloads
+and the preview URL installer retain their previous limits. See the
+[hosted verification checkpoint](checkpoints/2026-10-06-hosted-candidate-verification.md).
 See the [foundation checkpoint](checkpoints/2026-10-06-release-authenticity-foundation.md)
 and [verification/promotion procedure](release-authenticity.md).
 
@@ -1328,7 +1334,7 @@ or a complete V1 timing pass. All four VMs are stopped. See the
 The supported boundary and local qualification results are recorded above. The
 current candidate now has quiet and sustained physical resource observations
 and passing dispatch observations for the exercised routes. Remaining gates
-include precise visible-response timing, release authenticity and completion of
+include precise visible-response timing, a tested verified-install path and completion of
 exhaustive system-action and fault-recovery coverage. Once those findings are resolved,
 freeze a V1 candidate,
 repeat the release gates—including the complete VM matrix,

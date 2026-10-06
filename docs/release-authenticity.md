@@ -50,6 +50,11 @@ review or certify the device's behavior.
 No V1 artifact is signed merely because this workflow is present. Existing preview
 and local development bundles retain their original provenance limits.
 
+The first hosted development candidate passed both workflow verification and
+independent verification of all six subjects, including checks against a retained
+signing bundle. Its exact artifact, source and outstanding qualification are
+recorded in the [2026-10-06 checkpoint](checkpoints/2026-10-06-hosted-candidate-verification.md).
+
 ## Verify downloads before executing them
 
 Install a recent GitHub CLI through a trusted package source. Obtain the expected
@@ -60,7 +65,7 @@ From the directory containing the downloaded files, set the expected source SHA:
 
 ```sh
 expected_source=FULL_PUBLIC_COMMIT_SHA_FROM_RELEASE_EVIDENCE
-for file in decksmith-linux-x86_64.tar.gz decksmith-install.py package_io.py INSTALL.md; do
+for file in decksmith-linux-x86_64.tar.gz decksmith-install.py package_io.py INSTALL.md SHA256SUMS candidate.json; do
     gh attestation verify "$file" --repo infamous-pattern/decksmith \
         --signer-workflow infamous-pattern/decksmith/.github/workflows/release-candidate.yml \
         --source-ref refs/heads/main --source-digest "$expected_source" \
