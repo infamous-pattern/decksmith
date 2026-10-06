@@ -66,6 +66,12 @@ pub trait DeckDevice {
     fn set_touch_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError>;
     fn set_brightness(&mut self, percent: u8) -> Result<(), DeviceError>;
     fn poll_event(&mut self) -> Result<Option<InputEvent>, DeviceError>;
+    /// Read ready input without waiting for a new report. The worker uses this
+    /// while display writes are pending, keeping input interleaved with output.
+    /// Adapters whose ordinary poll waits must override this method.
+    fn poll_event_nonblocking(&mut self) -> Result<Option<InputEvent>, DeviceError> {
+        self.poll_event()
+    }
     /// Monotonic receipt time for the event returned by the last poll, if known.
     /// Physical adapters stamp report-read return before normalization and retain
     /// that stamp for all queued events from the report. Virtual devices do not

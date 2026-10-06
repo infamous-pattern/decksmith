@@ -584,7 +584,14 @@ impl<D: DeckDevice> Session<D> {
                     });
                 }
             }
-            return match device.poll_event() {
+            // One image per turn preserves lock/control/input fairness. Do not
+            // insert the ordinary 20 ms idle input wait between pending images.
+            let input = if self.display.pending() {
+                device.poll_event_nonblocking()
+            } else {
+                device.poll_event()
+            };
+            return match input {
                 Ok(Some(input)) => {
                     // The receipt stamp precedes adapter normalization and includes
                     // queued edges from the same report. Keep the older proxy too.
@@ -1045,6 +1052,119 @@ mod tests {
     }
 
     use decksmith_device::VirtualDeck;
+    #[test]
+    fn pending_repaint_checks_input_between_writes_and_restores_idle_wait() {
+        use decksmith_core::{Geometry, RawEvent};
+        use std::collections::VecDeque;
+        #[derive(Default)]
+        struct Probe {
+            writes: usize,
+            waiting_polls: usize,
+            ready_polls: usize,
+            events: VecDeque<InputEvent>,
+        }
+        impl DeckDevice for Probe {
+            fn geometry(&self) -> Geometry {
+                Geometry::plus()
+            }
+            fn set_key_image(&mut self, _: u8, _: &[u8]) -> Result<(), DeviceError> {
+                self.writes += 1;
+                Ok(())
+            }
+            fn set_touch_image(&mut self, _: &[u8]) -> Result<(), DeviceError> {
+                self.writes += 1;
+                Ok(())
+            }
+            fn set_brightness(&mut self, _: u8) -> Result<(), DeviceError> {
+                Ok(())
+            }
+            fn poll_event(&mut self) -> Result<Option<InputEvent>, DeviceError> {
+                self.waiting_polls += 1;
+                Ok(self.events.pop_front())
+            }
+            fn poll_event_nonblocking(&mut self) -> Result<Option<InputEvent>, DeviceError> {
+                self.ready_polls += 1;
+                Ok(self.events.pop_front())
+            }
+        }
+        let release = InputEvent {
+            timestamp_ms: 1,
+            event: RawEvent::Key {
+                index: 1,
+                pressed: false,
+            },
+        };
+        let mut state = Session {
+            resume_pending: false,
+            reopen_after: None,
+            foreground_revision: 0,
+            lock_epoch: 0,
+            locked: false,
+            drain_until: None,
+            device: None,
+            generation: 0,
+            waiting_reported: false,
+            pages: Some(
+                crate::pages::Pages::parse(include_bytes!("../../../config/navigation.json"))
+                    .unwrap(),
+            ),
+            audio: None,
+            meter: None,
+            feedback: None,
+            ptt: None,
+            display: Default::default(),
+            settlement_due: false,
+            controls: None,
+        };
+        let press = InputEvent {
+            timestamp_ms: 0,
+            event: RawEvent::Key {
+                index: 1,
+                pressed: true,
+            },
+        };
+        let mut open = || {
+            Ok(Probe {
+                events: VecDeque::from([press.clone(), release.clone()]),
+                ..Default::default()
+            })
+        };
+        assert!(matches!(
+            state.step(&mut open),
+            Some(Record::Connected { .. })
+        ));
+        // A release while the page is incomplete must not fire its navigation.
+        assert!(matches!(state.step(&mut open), Some(Record::Input { .. })));
+        assert_eq!(state.pages.as_ref().unwrap().index, 0);
+        assert_eq!(state.device.as_ref().unwrap().writes, 1);
+        assert!(matches!(state.step(&mut open), Some(Record::Input { .. })));
+        assert_eq!(state.pages.as_ref().unwrap().index, 0);
+        for _ in 0..6 {
+            state.step(&mut open);
+        }
+        assert_eq!(state.device.as_ref().unwrap().ready_polls, 8);
+        assert_eq!(state.device.as_ref().unwrap().waiting_polls, 0);
+        assert!(matches!(
+            state.step(&mut open),
+            Some(Record::DisplaySettled { .. })
+        ));
+        assert_eq!(state.device.as_ref().unwrap().writes, 9);
+        assert!(!state.display.pending());
+        state.step(&mut open);
+        assert_eq!(state.device.as_ref().unwrap().waiting_polls, 1);
+        // Once the page is ready, the same key resumes normal navigation.
+        state
+            .device
+            .as_mut()
+            .unwrap()
+            .events
+            .extend([press.clone(), release.clone()]);
+        assert!(matches!(state.step(&mut open), Some(Record::Input { .. })));
+        assert!(matches!(
+            state.step(&mut open),
+            Some(Record::PageRequested { page: 1, .. })
+        ));
+    }
     #[test]
     fn editor_test_requires_matching_saved_layout_connection_and_unlocked_epoch() {
         use crate::control::{Command, Context, Status};

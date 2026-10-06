@@ -17,7 +17,7 @@ pub struct HardwareInfo {
 }
 // All upstream types remain within this module's private transport boundary.
 trait Transport: Send {
-    fn read(&mut self) -> Result<StreamDeckInput, DeviceError>;
+    fn read(&mut self, timeout: Duration) -> Result<StreamDeckInput, DeviceError>;
     fn firmware(&self) -> Result<String, DeviceError>;
     fn key(&mut self, index: u8, image: DynamicImage) -> Result<(), DeviceError>;
     fn strip(&mut self, x: u16, y: u16, image: DynamicImage) -> Result<(), DeviceError>;
@@ -25,9 +25,9 @@ trait Transport: Send {
 }
 struct UsbTransport(StreamDeck);
 impl Transport for UsbTransport {
-    fn read(&mut self) -> Result<StreamDeckInput, DeviceError> {
+    fn read(&mut self, timeout: Duration) -> Result<StreamDeckInput, DeviceError> {
         self.0
-            .read_input(Some(Duration::from_millis(20)))
+            .read_input(Some(timeout))
             .map_err(|_| DeviceError::Transport)
     }
     fn firmware(&self) -> Result<String, DeviceError> {
@@ -96,6 +96,75 @@ impl PhysicalDeck {
             touch_frame: None,
         }
     }
+    fn poll_with_timeout(&mut self, timeout: Duration) -> Result<Option<InputEvent>, DeviceError> {
+        self.event_received_at = None;
+        if let Some((event, received)) = self.queue.pop_front() {
+            self.event_received_at = Some(received);
+            return Ok(Some(event));
+        }
+        if let Some(counts) = self.input_counts.as_mut() {
+            counts.reads = counts.reads.saturating_add(1);
+        }
+        let report = match self.transport.read(timeout) {
+            Ok(report) => report,
+            Err(error) => {
+                if let Some(counts) = self.input_counts.as_mut() {
+                    counts.transport_errors = counts.transport_errors.saturating_add(1);
+                }
+                return Err(error);
+            }
+        };
+        let received = Instant::now();
+        let timestamp_ms = u64::try_from(received.duration_since(self.epoch).as_millis())
+            .map_err(|_| DeviceError::TimeReversed)?;
+        if let Some(counts) = self.input_counts.as_mut() {
+            let count = match &report {
+                StreamDeckInput::NoData => None,
+                StreamDeckInput::ButtonStateChange(_) => Some(&mut counts.key_reports),
+                StreamDeckInput::EncoderStateChange(_) => Some(&mut counts.dial_push_reports),
+                StreamDeckInput::EncoderTwist(_) => Some(&mut counts.dial_turn_reports),
+                StreamDeckInput::TouchScreenPress(..)
+                | StreamDeckInput::TouchScreenLongPress(..)
+                | StreamDeckInput::TouchScreenSwipe(..) => Some(&mut counts.touch_reports),
+            };
+            if let Some(count) = count {
+                *count = count.saturating_add(1);
+            }
+        }
+        let events = match self.normalizer.normalize(report) {
+            Ok(events) => events,
+            Err(error) => {
+                if let Some(counts) = self.input_counts.as_mut() {
+                    counts.invalid_reports = counts.invalid_reports.saturating_add(1);
+                }
+                return Err(error);
+            }
+        };
+        if let Some(counts) = self.input_counts.as_mut() {
+            for event in &events {
+                let count = match event {
+                    RawEvent::Key { .. } => &mut counts.key_events,
+                    RawEvent::DialPush { .. } => &mut counts.dial_push_events,
+                    RawEvent::DialRotate { .. } => &mut counts.dial_turn_events,
+                    RawEvent::Touch { .. } => &mut counts.touch_events,
+                };
+                *count = count.saturating_add(1);
+            }
+        }
+        self.queue.extend(events.into_iter().map(|event| {
+            (
+                InputEvent {
+                    timestamp_ms,
+                    event,
+                },
+                received,
+            )
+        }));
+        Ok(self.queue.pop_front().map(|(event, received)| {
+            self.event_received_at = Some(received);
+            event
+        }))
+    }
     pub fn info(&self) -> Result<HardwareInfo, DeviceError> {
         Ok(HardwareInfo {
             model: "Stream Deck +",
@@ -157,73 +226,10 @@ impl DeckDevice for PhysicalDeck {
         self.transport.brightness(percent)
     }
     fn poll_event(&mut self) -> Result<Option<InputEvent>, DeviceError> {
-        self.event_received_at = None;
-        if let Some((event, received)) = self.queue.pop_front() {
-            self.event_received_at = Some(received);
-            return Ok(Some(event));
-        }
-        if let Some(counts) = self.input_counts.as_mut() {
-            counts.reads = counts.reads.saturating_add(1);
-        }
-        let report = match self.transport.read() {
-            Ok(report) => report,
-            Err(error) => {
-                if let Some(counts) = self.input_counts.as_mut() {
-                    counts.transport_errors = counts.transport_errors.saturating_add(1);
-                }
-                return Err(error);
-            }
-        };
-        let received = Instant::now();
-        let timestamp_ms = u64::try_from(received.duration_since(self.epoch).as_millis())
-            .map_err(|_| DeviceError::TimeReversed)?;
-        if let Some(counts) = self.input_counts.as_mut() {
-            let count = match &report {
-                StreamDeckInput::NoData => None,
-                StreamDeckInput::ButtonStateChange(_) => Some(&mut counts.key_reports),
-                StreamDeckInput::EncoderStateChange(_) => Some(&mut counts.dial_push_reports),
-                StreamDeckInput::EncoderTwist(_) => Some(&mut counts.dial_turn_reports),
-                StreamDeckInput::TouchScreenPress(..)
-                | StreamDeckInput::TouchScreenLongPress(..)
-                | StreamDeckInput::TouchScreenSwipe(..) => Some(&mut counts.touch_reports),
-            };
-            if let Some(count) = count {
-                *count = count.saturating_add(1);
-            }
-        }
-        let events = match self.normalizer.normalize(report) {
-            Ok(events) => events,
-            Err(error) => {
-                if let Some(counts) = self.input_counts.as_mut() {
-                    counts.invalid_reports = counts.invalid_reports.saturating_add(1);
-                }
-                return Err(error);
-            }
-        };
-        if let Some(counts) = self.input_counts.as_mut() {
-            for event in &events {
-                let count = match event {
-                    RawEvent::Key { .. } => &mut counts.key_events,
-                    RawEvent::DialPush { .. } => &mut counts.dial_push_events,
-                    RawEvent::DialRotate { .. } => &mut counts.dial_turn_events,
-                    RawEvent::Touch { .. } => &mut counts.touch_events,
-                };
-                *count = count.saturating_add(1);
-            }
-        }
-        self.queue.extend(events.into_iter().map(|event| {
-            (
-                InputEvent {
-                    timestamp_ms,
-                    event,
-                },
-                received,
-            )
-        }));
-        Ok(self.queue.pop_front().map(|(event, received)| {
-            self.event_received_at = Some(received);
-            event
-        }))
+        self.poll_with_timeout(Duration::from_millis(20))
+    }
+    fn poll_event_nonblocking(&mut self) -> Result<Option<InputEvent>, DeviceError> {
+        self.poll_with_timeout(Duration::ZERO)
     }
     fn event_received_at(&self) -> Option<Instant> {
         self.event_received_at
@@ -479,7 +485,7 @@ mod tests {
     }
     struct Fake;
     impl Transport for Fake {
-        fn read(&mut self) -> Result<StreamDeckInput, DeviceError> {
+        fn read(&mut self, _: Duration) -> Result<StreamDeckInput, DeviceError> {
             Err(DeviceError::Transport)
         }
         fn firmware(&self) -> Result<String, DeviceError> {
@@ -497,7 +503,7 @@ mod tests {
     }
     struct Reports(VecDeque<Result<StreamDeckInput, DeviceError>>);
     impl Transport for Reports {
-        fn read(&mut self) -> Result<StreamDeckInput, DeviceError> {
+        fn read(&mut self, _: Duration) -> Result<StreamDeckInput, DeviceError> {
             self.0.pop_front().unwrap_or(Err(DeviceError::Transport))
         }
         fn firmware(&self) -> Result<String, DeviceError> {
@@ -595,7 +601,7 @@ mod tests {
         let first = device.poll_event().unwrap().unwrap();
         let received = device.event_received_at().unwrap();
         std::thread::sleep(Duration::from_millis(5));
-        let second = device.poll_event().unwrap().unwrap();
+        let second = device.poll_event_nonblocking().unwrap().unwrap();
         assert_eq!(second.timestamp_ms, first.timestamp_ms);
         assert_eq!(device.event_received_at(), Some(received));
         assert!(received.elapsed() >= Duration::from_millis(5));
@@ -624,12 +630,14 @@ mod tests {
     struct Recording {
         pixels: Vec<u8>,
         writes: Vec<TouchRegion>,
+        read_timeouts: Vec<Duration>,
         fail: bool,
         keys: usize,
     }
     struct Recorder(std::sync::Arc<std::sync::Mutex<Recording>>);
     impl Transport for Recorder {
-        fn read(&mut self) -> Result<StreamDeckInput, DeviceError> {
+        fn read(&mut self, timeout: Duration) -> Result<StreamDeckInput, DeviceError> {
+            self.0.lock().unwrap().read_timeouts.push(timeout);
             Ok(StreamDeckInput::NoData)
         }
         fn firmware(&self) -> Result<String, DeviceError> {
@@ -664,6 +672,23 @@ mod tests {
                 Ok(())
             }
         }
+    }
+    #[test]
+    fn ready_input_poll_removes_only_the_requested_wait_and_restores_idle_timeout() {
+        let recording = std::sync::Arc::new(std::sync::Mutex::new(Recording::default()));
+        let mut device = PhysicalDeck::with_transport(Box::new(Recorder(recording.clone())));
+        assert_eq!(device.poll_event().unwrap(), None);
+        assert_eq!(device.poll_event_nonblocking().unwrap(), None);
+        assert_eq!(device.poll_event().unwrap(), None);
+        assert!(device.event_received_at().is_none());
+        assert_eq!(
+            recording.lock().unwrap().read_timeouts,
+            [
+                Duration::from_millis(20),
+                Duration::ZERO,
+                Duration::from_millis(20)
+            ]
+        );
     }
     #[test]
     fn touch_regions_reconstruct_frames_skip_duplicates_and_handle_edges() {

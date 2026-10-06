@@ -1172,7 +1172,41 @@ and final-artifact idle/loaded resource qualification remain open. Evidence is
 retained in `local/v1-audio-action-reuse-20261005/physical-diagnostic-results.json`
 and the accompanying raw journal records.
 
+### 2026-10-06 physical response follow-up on the Rune candidate
+
+Installed clean source `7f6ce75`, bundle `0.1.0-2af1dcb9b80f`, recorded successful
+physical application/media keys, touch mute, swipes and a separate audio-dial
+sample. All 30 action results succeeded; 24 had physical dispatch timing, while
+six experimental plugin-key results were uninstrumented. Eight swipes had
+page-render invocation timing. All observed dispatch maxima were below 25 ms;
+the 14 dial adjustments measured 0.035 ms p95 and maximum. The daemon did not
+restart, and the saved layout was unchanged. The user confirmed functional
+response and dial volume changes.
+
+These are short samples, with sparse key coverage and no established four-active-
+target workload. They do not close representative loaded/burst, brightness-dial
+or physical visible-feedback timing gates. A slow-motion physical-device video
+was requested for the visible-response check. The supplied original high-frame-
+rate follow-up confirms visible dial/mute feedback and four page changes. One
+page's sequential key repaint spans approximately 0.17 seconds from first key
+change to the last destination appearance; this excludes input-to-first-pixel
+delay and is not a complete latency pass. Its matching journal has 94 successful
+timed built-in actions (audio-dial maximum 12.862 ms, p95 0.041 ms), plus six
+experimental plugin results, of which one was busy and one failed. Page repaint
+scheduling and those plugin errors need separate follow-up; precise dial visible
+latency remains open. See the
+[full response checkpoint](checkpoints/2026-10-06-physical-response.md).
+
 ## Work order
+
+The 2026-10-06 page-refresh candidate removes idle input waits between pending
+images while retaining one-write-per-turn scheduling and input/lock fairness.
+It passed local quality checks and Fedora 44 isolated validation, was installed
+with recovery retained, and the user confirmed faster physical page changes with
+correct controls. Seven physical request-to-write-completion journal observations
+had median 14.158 ms and maximum 21.690 ms; they are not visible-pixel measurements
+or a complete V1 timing pass. All four VMs are stopped. See the
+[page-refresh checkpoint](checkpoints/2026-10-06-page-refresh.md).
 
 The supported boundary and local qualification results are recorded above. The
 remaining gates are final-artifact idle/loaded resource and regression checks,

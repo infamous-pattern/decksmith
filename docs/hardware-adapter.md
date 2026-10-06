@@ -14,7 +14,10 @@ ticks. Touch maps only tap, long press and horizontal flicks; vertical-only swip
 are not synthesized into unsupported domain gestures.
 
 poll_event is a fallible device contract. It drains already-normalized events before
-reading another report, with a 20ms upstream read timeout. Timestamps use elapsed
+reading another report, with a 20ms upstream read timeout. The worker uses
+poll_event_nonblocking with a zero upstream timeout when more display images are
+pending, then returns to the ordinary wait when they settle. Both paths share
+normalization, diagnostics and queued receipt stamps. Timestamps use elapsed
 monotonic time from this session's open, not wall-clock time. Session epochs reset
 on reconnect; a future device manager must attach session identity and cancel old
 trigger state. VirtualDeck retains its convenience receive_event method for replay.

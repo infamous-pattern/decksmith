@@ -7,6 +7,15 @@ frame replaces the older one. The scheduler scans round-robin and writes at most
 one image per device-worker iteration. Encoding and the individual USB write remain
 synchronous, but a page no longer sends all nine images in a single operation.
 
+While more images remain pending, the physical input check uses a zero timeout
+instead of the ordinary 20 ms wait. This removes an avoidable input wait between
+page-image writes without batching them: every iteration still handles lock,
+control and input work, and writes at most one image. After the display settles,
+the normal idle wait resumes. The same normalization, queued-edge receipt stamps,
+latest-frame replacement and failure/reconnect rules apply to both read modes.
+This adds no threads, caches or persistent buffers. USB/JPEG execution and visible
+LCD response still require separate measurement on the physical device.
+
 Page rendering now creates desired state. The protocol uses page_requested rather
 than page_changed: it does not claim USB completion. display_settled reports when
 all desired images are sent, including initial connection and strip-only changes.
