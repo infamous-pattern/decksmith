@@ -18,6 +18,12 @@ the preview URL installer still use checksums; they have not acquired attestatio
 retroactively. A candidate must pass verification and final release testing before
 it is advertised as V1.
 
+For an accepted signed candidate, use the
+[verified installation helper](release-authenticity.md#verified-installation-helper)
+from a trusted reviewed checkout. It checks signed provenance before executing
+downloaded installer code. The published preview shortcut below remains pinned
+to preview.3 and retains its checksum-only provenance limits.
+
 ## Dependencies
 
 On Fedora, install runtime dependencies using the normal package manager:

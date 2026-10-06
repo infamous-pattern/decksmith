@@ -82,6 +82,43 @@ each GitHub CLI verification command. Follow
 [GitHub's offline verification guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline)
 when offline trust-root handling is needed.
 
+## Verified installation helper
+
+From a reviewed, trusted source checkout, the standard-library-only
+[verification helper](../scripts/verify-install.py) combines the checks above
+with candidate admission and an optional per-user installation:
+
+```sh
+python3 -I scripts/verify-install.py /path/to/downloads \
+    --source-sha FULL_ACCEPTED_PUBLIC_COMMIT_SHA
+```
+
+Its default is verification only. Add `--install` to install after verification,
+or `--install --stage-root /path/to/isolated-test` to exercise installation without
+changing normal integration or managing host services. It never passes
+`--activate` or enables login startup. Runtime dependencies must already be
+installed using the normal trusted package manager.
+
+Obtain the expected commit from independently accepted release evidence, not from
+the downloaded candidate metadata. The helper itself is part of the initial
+trusted checkout; it does not authenticate its own origin. It is not a replacement
+for trusting or inspecting a downloaded bootstrap. Existing preview downloads
+lack these attestations and cannot be installed through this method.
+
+The helper snapshots bounded regular files into a private temporary directory,
+rejecting links, special files and missing subjects. It verifies all six signed
+subjects before importing any downloaded module, then checks complete checksums,
+archive integrity, clean source/platform metadata and bootstrap byte identity.
+Installation runs only from the verified snapshot with isolated Python imports.
+Replacing the original download directory during verification cannot change the
+executed bytes. Any failed check stops before installation.
+
+Add `--bundle /path/to/attestation.json` for a retained signing bundle; trusted
+roots may still require network access. A failed or unavailable verifier is an
+error, never a reason to fall back to checksum-only installation. See the
+[verified installation checkpoint](checkpoints/2026-10-06-verified-installation.md)
+for the exact tested development candidate and remaining release gates.
+
 The existing preview URL bootstrap checks download integrity, but does not perform
 these authenticity checks. It remains pinned to preview.3. V1 publication must
 include a tested verified-install path and accurate instructions; this foundation

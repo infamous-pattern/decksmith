@@ -1322,6 +1322,15 @@ and [verification/promotion procedure](release-authenticity.md).
 
 ## Work order
 
+The signed development candidate now passes the explicit verified-install helper
+on the host's isolated filesystem and in the Fedora 44 VM. Six signature checks
+precede all downloaded code, followed by checksum/archive/source admission.
+Staged backup/restore, emoji labels, imported artwork, uninstall/reinstall and
+private-bus VirtualDeck/native-editor smoke passed. The normal guest setup was
+preserved and all VMs were powered off afterward. This closes the scoped verified
+installation-path check, not final V1 installer qualification. See the
+[verified installation checkpoint](checkpoints/2026-10-06-verified-installation.md).
+
 The 2026-10-06 page-refresh candidate removes idle input waits between pending
 images while retaining one-write-per-turn scheduling and input/lock fairness.
 It passed local quality checks and Fedora 44 isolated validation, was installed
@@ -1334,7 +1343,7 @@ or a complete V1 timing pass. All four VMs are stopped. See the
 The supported boundary and local qualification results are recorded above. The
 current candidate now has quiet and sustained physical resource observations
 and passing dispatch observations for the exercised routes. Remaining gates
-include precise visible-response timing, a tested verified-install path and completion of
+include precise visible-response timing, final-artifact installation qualification and completion of
 exhaustive system-action and fault-recovery coverage. Once those findings are resolved,
 freeze a V1 candidate,
 repeat the release gates—including the complete VM matrix,
