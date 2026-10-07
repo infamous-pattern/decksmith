@@ -9,8 +9,8 @@ change system routing.
 
 **October 7 release decision:** the maintainer accepted the frozen signed V1
 candidate's documented testing coverage and known limits and authorized
-publication of `v1.0.0`. Public-download verification and README promotion remain
-delivery steps; see the [release review](v1-release-review.md). Earlier dated
+publication of `v1.0.0`. Publication, public-download verification and README
+promotion are complete; see the [release review](v1-release-review.md). Earlier dated
 checkpoint lists describe their state at the time, not newly uncompleted tests.
 
 The [reconciled V1 scope and acceptance plan](v1-release-scope.md) is the current
@@ -22,10 +22,10 @@ Debian and Ubuntu are compatibility diagnostics and must not be advertised as
 supported installers because a diagnostic run succeeds. Physical USB/audio and
 suspend acceptance still belongs on the reference desktop.
 
-The remaining V1 work is sustained core/audio/device reliability, a human-paced
-accessibility review, clean install and migration/rollback across changed builds,
-security and release-artifact verification, and a documented release-candidate
-matrix. Advanced profiles/workspaces, workflows, SQLite migration, panoramic
+V1 qualification covered sustained core/audio/device reliability, human-paced
+accessibility review, clean installation and migration/rollback across builds,
+security and release-artifact verification, and the documented candidate matrix.
+Its accepted coverage and limits are recorded in the release review. Advanced profiles/workspaces, workflows, SQLite migration, panoramic
 canvases, general HTTP/MQTT and RPM packaging are post-V1 product goals. Plugins
 and broad GNOME/Wayland distribution compatibility target V1.5; full five-language
 localization targets V2. The earlier broader v0.4 V1 list must not be used to

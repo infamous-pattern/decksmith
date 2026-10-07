@@ -1,9 +1,10 @@
 # V1 release review — October 7, 2026
 
 **Maintainer accepted the documented coverage and limits on October 7, 2026.**
-Publication and public-download verification are authorized and pending. This
-review consolidates the frozen candidate's evidence without replacing the
-original dated checkpoints. The README and URL bootstrap still offer preview.3.
+**V1 was published and its public downloads verified on October 7.** This review
+consolidates the frozen candidate's evidence without replacing the original dated
+checkpoints. The README now offers verified V1 installation; the historical URL
+bootstrap remains pinned to preview.3.
 
 ## Release decision
 
@@ -62,7 +63,7 @@ later documentation commit produced the signed archive.
 | Visible feedback | User reports correct responsive displays; numerical 150/100 ms qualification deferred beyond V1 by October 7 user decision | Neither numeric target is claimed met; synchronized exact-artifact measurement remains follow-up work |
 | Action coverage | [Packaged action safety and physical push-to-talk](checkpoints/2026-10-07-v1-action-safety.md), existing exact-candidate physical use and explicitly identified historical adapter acceptance | Human overlap acceptance and directly observed sustained microphone hold passed; this is not an exhaustive new physical execution of every action |
 | Distribution matrix | Fedora 44, Fedora 45 Beta, Ubuntu 26.04 and Debian 13 exercised | Fedora 44 alone is supported; Ubuntu native GUI and Debian-native runtime remain later compatibility work |
-| Release decision and delivery | Maintainer accepted this coverage and its limits; [notes](v1-release-notes-draft.md) and [verified delivery guide](v1-verified-installation.md) prepared | Final tag/download publication and downloaded-byte re-verification remain pending |
+| Release decision and delivery | Maintainer accepted this coverage and its limits; [V1](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) published, fresh downloads verified; [notes](v1-release-notes.md) and [installation guide](v1-verified-installation.md) | Retained preview bootstrap remains checksum-only; follow the verified V1 guide |
 
 ## Performance assessment for the decision
 
@@ -139,3 +140,29 @@ marker or well-anchored conservative movement bound on the exact artifact.
 The recorded maintainer decision authorizes source synchronization and release
 publication using this procedure. Desktop updates, service restarts, power
 operations and replacement of saved user data are not part of publication.
+
+## Completed delivery — October 7, 2026
+
+- [Evidence quality run 37671119052](https://github.com/infamous-pattern/decksmith/actions/runs/37671119052)
+  passed Rust formatting, Clippy, tests, installer tests and dependency audit.
+  This documentation run did not rebuild the accepted candidate.
+- [Public V1 release](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0)
+  is a stable release at the accepted public source `68c42421ceaa65bb033993b56f0babdde2a14a6e`.
+  Gitea's corresponding source tag points to canonical `aa76487ec1dcfb8561dd747ecf2153fc2b1ddec3`;
+  both source trees are `49d0ac5f41384a52c7f385e7f36dd3f8ee476df1`.
+- The original six subjects and retained signing bundle were uploaded unchanged.
+  Fresh downloads through public HTTPS release URLs matched all seven retained
+  SHA-256 hashes. The unchanged verifier authenticated all six signed subjects
+  against the accepted source/workflow/ref and admitted all 389 manifest files.
+  Verification did not install files or activate controls.
+- The archive remains SHA-256
+  `4334a2df091ccdb0fac2431e416fa51cf4dabe0da1dfe4ccc372f60029a3dda2`.
+  Signed `candidate.json` still carries its original pending/staging text; this
+  separate release decision records promotion without editing signed metadata.
+- README promotion followed successful public-byte verification. Preview.3 and
+  the existing walkthrough remain available. Supplemental installation guidance
+  distinguishes verified V1 from the historical checksum-only preview bootstrap.
+  No desktop update, service restart or saved-layout change was performed.
+
+Private verification logs and hashes remain in ignored local release-review
+storage. The known support, coverage and performance limits above remain in force.

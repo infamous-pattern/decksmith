@@ -1,8 +1,9 @@
-# Verified V1 installation — preparation guide
+# Verified V1 installation
 
-**V1 is not published yet.** The commands below describe the proposed `v1.0.0`
-delivery path and must be checked against the actual release after promotion.
-For the existing public preview, use [preview installation](installation.md).
+**V1 published October 7, 2026.** Fresh public downloads passed signature, hash
+and archive verification. Use [v1.0.0](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0)
+for the supported Fedora Workstation 44 x86_64 GNOME/Wayland installation.
+The retained preview is available through [preview installation](installation.md).
 
 This guide is supplemental release guidance. It is not the signed archive's
 `INSTALL.md`, and it does not alter that file or any candidate download. The
@@ -32,8 +33,8 @@ git checkout --detach 68c42421ceaa65bb033993b56f0babdde2a14a6e
 
 ## Download and verify
 
-After the approved release is published, download its original six subjects and
-retained signing bundle into a new directory:
+Download the original six subjects and retained signing bundle into a new
+directory:
 
 ```sh
 mkdir downloads

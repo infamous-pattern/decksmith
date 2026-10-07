@@ -4,12 +4,9 @@
 
 > A polished, Linux-native control application for Elgato Stream Deck hardware, with the Stream Deck + as the reference device.
 
-**Status:** `v0.1.0-preview.3` — early preview for testing and feedback, not V1.
+**Status:** `v1.0.0` — Fedora Workstation 44, x86_64, GNOME/Wayland, one Stream Deck +.
 
-The `1.0.0` candidate is being qualified; it has not been published as V1.
-See the [candidate preparation and remaining checks](docs/v1-candidate.md).
-
-[Download the preview](https://github.com/infamous-pattern/decksmith/releases/tag/v0.1.0-preview.3) · [Installation and dependencies](docs/installation.md) · [Reviewer guide and known limits](docs/preview-release.md) · [V1 scope and release gates](docs/v1-release-scope.md) · [Report an issue](https://github.com/infamous-pattern/decksmith/issues)
+[Download V1](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) · [Verified V1 installation](docs/v1-verified-installation.md) · [Release notes and known limits](docs/v1-release-notes.md) · [Qualification evidence](docs/v1-release-review.md) · [Report an issue](https://github.com/infamous-pattern/decksmith/issues)
 
 **Reference platform:** Fedora Workstation 44, GNOME, Wayland  
 **Reference hardware:** Elgato Stream Deck +  
@@ -23,23 +20,22 @@ results are diagnostic and do not certify supported installations. Broad
 supported GNOME/Wayland distribution compatibility is a **V1.5 goal**, alongside
 general plugin support. See the [V1 release plan](docs/v1-release-scope.md).
 
-## Quick install (Fedora x86_64)
+## Install V1 (Fedora Workstation 44 x86_64)
 
-Run as your normal desktop user:
+Follow the [verified V1 installation guide](docs/v1-verified-installation.md).
+It checks build provenance, the accepted source/workflow identity, complete
+checksums and archive contents before running the per-user installer. The
+initial verifier comes from reviewed project source; download checksums alone
+do not prove authenticity.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/infamous-pattern/decksmith/v0.1.0-preview.3/scripts/install.sh | sh
-```
+Saved layouts and the existing login preference are preserved. Background
+controls are activated deliberately after installation. Close other Stream Deck
+controllers before starting them. See [dependencies, recovery and USB access](docs/installation.md)
+and the [V1 qualification scope and limits](docs/v1-release-review.md).
 
-The script checks Fedora dependencies (DNF asks for confirmation if packages are
-missing), downloads the preview and verifies its checksums before installation.
-It preserves saved layouts and leaves login startup unchanged. Fedora 44 is the
-reference platform; Fedora 45 is accepted but less extensively validated.
-[Inspect the script first](scripts/install.sh), or follow the
-[manual installation guide](docs/installation.md). Run downloaded code only from
-sources you trust; checksums detect corruption and are not a digital signature.
-
-[Security review and limitations](docs/security-review-2026-09-22.md).
+The [retained preview.3](https://github.com/infamous-pattern/decksmith/releases/tag/v0.1.0-preview.3)
+and its checksum-only URL installer remain available for recovery and comparison;
+they are separate from the verified V1 installation path.
 
 ## Interface walkthrough
 

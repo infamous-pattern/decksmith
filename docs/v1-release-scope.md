@@ -1,5 +1,10 @@
 # V1 release scope and acceptance plan
 
+**V1 published October 7, 2026.** The maintainer accepted the documented coverage
+and known limits. The unchanged signed candidate was promoted and its public
+downloads verified; see the [release review](v1-release-review.md). Earlier dated
+entries below preserve the qualification history.
+
 **Decision recorded September 23, 2026.** This is the release-scope reconciliation for
 the v0.4 design baseline. The original archive under `baseline/` remains unchanged.
 The product requirements describe the longer-term architecture; section 6 and the

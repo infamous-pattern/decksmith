@@ -1,7 +1,4 @@
-# Decksmith 1.0.0 — draft release notes
-
-**Historical preparation draft.** V1 was published October 7, 2026. Use the
-[final release notes](v1-release-notes.md); this draft retains its preparation context.
+# Decksmith 1.0.0
 
 Decksmith provides a native GNOME interface and background controls for one
 Elgato Stream Deck + on Fedora Workstation 44, x86_64, GNOME/Wayland.
@@ -40,8 +37,7 @@ Keyboard navigation, screen-reader names/values, GNOME appearance and reference
 display-scaling review were accepted by the reference user. Clean dependency
 refusal/retry, installation, preview upgrade/rollback, saved-data preservation,
 login and physical recovery were exercised on the frozen candidate. See the
-[release review](v1-release-review.md) for exact scope and outstanding decisions;
-do not substitute this draft for that ledger.
+[release review](v1-release-review.md) for the qualification scope and limits.
 
 ## Known limits
 
@@ -73,8 +69,7 @@ do not substitute this draft for that ledger.
 
 ## Installation and feedback
 
-Use the [verified installation guide](v1-verified-installation.md) after the public
-release exists. Installation uses the regular desktop account, leaves controls
+Use the [verified installation guide](v1-verified-installation.md). Installation uses the regular desktop account, leaves controls
 stopped unless explicitly activated, and preserves an existing login preference.
 Close other Stream Deck controllers before starting background controls.
 

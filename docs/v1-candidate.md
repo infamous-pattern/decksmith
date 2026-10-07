@@ -1,5 +1,10 @@
 # V1 candidate preparation
 
+**Published as V1 on October 7, 2026.** The accepted candidate was promoted
+unchanged and fresh public downloads verified. See the [release review](v1-release-review.md),
+[release notes](v1-release-notes.md) and [verified installation guide](v1-verified-installation.md).
+The dated preparation entries below retain their original qualification context.
+
 Application version `1.0.0` is prepared for qualification. It is not a release
 announcement, tag or public download. The published `v0.1.0-preview.3` remains the
 preview offered by the README and preview installer until a release decision.
