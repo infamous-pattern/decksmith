@@ -13,6 +13,13 @@ V1 release blocker. It remains unmet; this is a change to release criteria, not 
 performance pass. Earlier dated qualification entries retain their original
 assessment. The current requirements below supersede their CPU-gate wording.
 
+**Visible-response decision updated October 7, 2026.** By user approval, numerical
+qualification of the below-150 ms visible key update and below-100 ms local dial
+feedback targets moves beyond V1, with the unmeasured boundary documented. Neither
+target is claimed met. Correct responsive physical behavior, recovery, internal
+dispatch, resource review and security remain required. This change does not
+accept the unmatched CPU comparison or authorize V1 publication.
+
 ## What V1 promises
 
 The supported V1 product is a local, English-language Decksmith installation on
@@ -55,6 +62,7 @@ These remain product goals but are not release blockers for this focused V1:
 | Native RPM/COPR packaging | Later packaging milestone; the V1 per-user installer must meet the release gates below |
 | Simultaneous independent devices and other Stream Deck models | Later hardware milestones, with explicit model-specific certification |
 | Idle daemon CPU normally below 1% of one core | Post-V1 performance milestone; V1 still requires measured idle/loaded resources, regression review and responsive controls |
+| Numerical certification of visible key updates below 150 ms and local dial feedback below 100 ms | Post-V1 measurement milestone by October 7 decision; V1 retains correct responsive feedback and documents the unmeasured boundary |
 
 General plugin delivery and **broad GNOME/Wayland distribution compatibility**
 both target V1.5. The V1.5 distribution goal starts with supported installation,
@@ -113,8 +121,10 @@ new universal CPU limits.
 V1 must still measure idle and four-target interactive load on the final artifact,
 compare results with this baseline and investigate material unexplained increases,
 memory/handle growth, stalls or restarts. Existing memory targets, input-dispatch
-and visible key/dial feedback targets remain in force, as do reliability,
+and functional visible-feedback acceptance remain in force, as do reliability,
 recovery, security and VM-matrix gates. This decision does not close those checks.
+The separate October 7 decision defers numerical visible-feedback qualification;
+the 150/100 ms engineering targets remain goals, not achieved results.
 
 Post-V1 work targets normally below 1% **daemon** idle CPU through profiling and
 reduction of unnecessary background work. Continue reporting full-service CPU so
@@ -1337,6 +1347,17 @@ prior observations; this needs comparison/investigation alongside the remaining
 loaded-resource work. See the [quiet resource checkpoint](checkpoints/2026-10-07-v1-quiet-resources.md).
 The below-1% target remains post-V1; resource regression review remains required.
 
+The subsequent [physical comparison](checkpoints/2026-10-07-v1-matched-resources.md)
+completed two quiet pairs across a user-requested pause. Previous/candidate
+descriptive means were 1.730%/1.772% daemon and 3.143%/3.241% core CPU, with
+bounded memory/handles and no automatic restarts or unplanned actions. All four
+complete phases were recalculated from raw counters; incomplete cancelled data
+is excluded. The requested comparison measurements are complete, with the pause
+and finite-sample limits retained. They do not establish statistical equivalence
+or a universal regression-free result. The signed candidate and saved state were
+verified restored, and all four VMs are off. Final resource/release acceptance
+remains a separate decision in the [release review](v1-release-review.md).
+
 The same signed artifact then completed a ten-minute user-confirmed physical run:
 210 actions succeeded, including 204 dial adjustments across all four targets;
 dial dispatch p95 was 21.445 ms. The expected four-target set was present at
@@ -1400,3 +1421,35 @@ for the exact artifact, package versions, limits and evidence. The retained VM
 disks and desktop installation were untouched, and all test guests are off.
 This complements prior installed-guest reboot evidence; the existing preview
 URL installer remains preview.3/checksum-only and is not signed V1 delivery.
+
+### Physical lifecycle and human accessibility — October 7, 2026
+
+The frozen signed candidate has user-confirmed lock/unlock, USB unplug/reconnect,
+suspend/resume, Quit/complete blanking/relaunch and background-only login startup
+on the reference desktop. Subsequent read-only checks found the device ready,
+Auto-Lock available and zero automatic restarts; intentional Quit/relaunch changed
+the daemon process. User keyboard/focus, screen-reader and theme/enlarged-text/
+display-scaling reviews also passed. The exact scaling choice and numeric contrast
+were not measured. See the [lifecycle](checkpoints/2026-10-07-v1-physical-lifecycle.md)
+and [accessibility](checkpoints/2026-10-07-v1-accessibility.md) checkpoints for
+scope. These complete the requested reference-desktop manual checks, while precise
+visible response, resource reconciliation, experimental companion cases, any
+untested action/fault/draft case and final delivery/publication acceptance remain
+separate. V1 is still unpublished; accepted artifact bytes are unchanged.
+
+### Experimental companion fault/isolation follow-up — October 7, 2026
+
+Fedora 44 VM testing passed 66 regression/authentication/recovery cases, one
+loopback HTTP boundary case and three signed-core/companion isolation cases.
+The 13 candidate runtime files match verified companion `01e396045147cdd7`;
+all 75 companion-package files passed manifest checks. During the three fault
+scenarios, ten private-bus core status/page/preview checks passed, with clean
+explicit stop. Uncertain writes were not replayed. The normal guest profile,
+integration, release links and startup preferences were preserved; temporary
+files were removed and all VMs are off. See the [fault checkpoint](checkpoints/2026-10-07-v1-homebridge-faults.md)
+for artifact correspondence, harness repairs and limits. This closes scoped
+simulated companion checks. The user subsequently confirmed the agreed live
+accessory-toggle/ordinary-brightness and normal-page/audio coexistence check:
+everything responded correctly and stayed available. The scoped experimental
+companion checks are complete; this does not certify general plugin support or
+publish V1.

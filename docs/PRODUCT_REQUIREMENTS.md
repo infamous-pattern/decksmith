@@ -586,6 +586,11 @@ These are engineering targets to validate during hardware-in-loop testing, not m
 - Internal input-event dispatch: p95 target below 25 ms from HID event receipt to capability dispatch.
 - Typical key image update visible on device: target below 150 ms after state change.
 - Dial feedback update: target below 100 ms for local controls where the device transport permits it.
+  Numerical qualification of these two visible-feedback targets is **post-V1** by
+  user decision on October 7, 2026. Neither target is claimed met. V1 still requires
+  correct responsive displays, physical controls and recovery; the below-25 ms
+  internal dispatch target and resource/regression review are unchanged. See the
+  [release review](v1-release-review.md) for evidence and remaining limits.
 - GUI interactions such as profile/page switching should feel immediate, with no blocking I/O on the GTK main thread.
 
 ### NFR-REL — Reliability

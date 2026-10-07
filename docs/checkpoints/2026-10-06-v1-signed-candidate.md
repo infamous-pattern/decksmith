@@ -163,7 +163,15 @@ measurement completed. See the [new resource checkpoint](2026-10-07-v1-quiet-res
 CPU was higher than prior observations. Subsequent [physical interaction](2026-10-07-v1-physical-resources.md)
 and [CPU investigation](2026-10-07-v1-cpu-investigation.md) checkpoints record
 bounded resources, user acceptance and a constrained paired VM comparison.
-The unmatched physical comparison and overall resource gate remain open.
+Final resource acceptance remains separate from the investigative measurements.
+An [October 7 matched attempt](2026-10-07-v1-matched-resources.md) was authorized
+but stopped on transient playback; only one previous-build phase completed.
+Independent checks confirmed candidate restoration and saved-state preservation.
+Further retries completed two quiet pairs across a user-requested pause, with
+previous/candidate descriptive means of 1.730%/1.772% daemon and 3.143%/3.241%
+core CPU. All complete phases had bounded resources and no automatic restarts or
+actions. This completes the requested comparison observations, not statistical
+equivalence or a universal regression-free guarantee; see the same checkpoint.
 
 - Remaining final-artifact physical action/lifecycle/recovery cases, resource
   regression review and precise visible-response qualification. Quiet and bounded
@@ -173,15 +181,38 @@ The unmatched physical comparison and overall resource gate remain open.
   stock dependency readiness, missing-library refusal/provisioning/retry and
   native first run in a disposable live session; installed-guest reboot remains
   separately qualified above. This did not exercise a V1 URL bootstrap.
-- Human-paced final-artifact usability/accessibility, theme/text/scaling checks
-  and any untested advertised action/fault case.
-- Experimental Homebridge failure/expiry/recovery and agreed live qualification
-  if this component ships in the accepted artifact.
+- Any untested advertised action/fault case and draft/error edge case. The
+  [October 7 physical lifecycle](2026-10-07-v1-physical-lifecycle.md) and
+  [human accessibility](2026-10-07-v1-accessibility.md) checks now record
+  recovery, background-only login, keyboard, screen-reader and visual acceptance
+  on the reference setup, with explicit observation limits.
 - Public V1 installation/provenance guidance and the explicit release decision.
   The existing preview URL bootstrap remains checksum-only and defaults to
   preview.3; do not describe it as the signed V1 installation path.
+
+The [October 7 Homebridge checkpoint](2026-10-07-v1-homebridge-faults.md)
+records 70 passing simulated failure/authentication/recovery, HTTP access and
+signed-core isolation checks with byte-identical candidate/companion runtime
+sources, followed by user-confirmed live accessory/built-in coexistence. Scoped
+experimental companion qualification is complete; general plugin compatibility
+and sandboxing remain later-milestone work.
 
 Prior-build physical evidence may support comparison, but must not silently
 qualify this new artifact. The below-1% idle daemon CPU target remains post-V1.
 Publish only the accepted bytes after completing or explicitly reconciling the
 [required release gates](../v1-release-scope.md).
+
+**October 7 scope follow-up:** the user approved moving numerical visible key/dial
+response qualification beyond V1 while documenting that the 150/100 ms targets
+are unmeasured. Functional physical feedback remains accepted; dispatch, resource
+review and final delivery/decision remain separate. The
+[consolidated release review](../v1-release-review.md) supersedes older remaining-
+gate lists without rewriting their historical results or changing signed files.
+
+The [October 7 action-safety checkpoint](2026-10-07-v1-action-safety.md) adds
+15 focused packaged-module tests, five live guardian failure checks, physical
+key/dial/overlap acceptance and a directly observed sustained microphone hold.
+Original configuration, artwork, page and muted state were restored, with the
+daemon PID unchanged. Historical action acceptance is explicitly identified;
+these additions do not claim exhaustive new physical coverage or authorize
+publication.

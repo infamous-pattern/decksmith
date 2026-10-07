@@ -4,6 +4,13 @@ The reference target remains p95 below 25 ms from input receipt to capability
 dispatch. A timing result must state its boundaries, artifact, workload, sample
 counts and exclusions; successful interaction alone does not certify it.
 
+**October 7 scope decision:** numerical qualification of the 150 ms key and
+100 ms local dial visible-feedback targets is deferred beyond V1 by user approval.
+They remain engineering goals, not achieved results. Functional physical feedback
+and recovery, internal dispatch and resource review remain required. The protocol
+below is retained for future numerical qualification; see the
+[current release review](v1-release-review.md).
+
 ## Diagnostic boundaries
 
 The physical Plus adapter records a process-local monotonic `Instant` immediately

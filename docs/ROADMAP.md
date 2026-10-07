@@ -7,6 +7,12 @@ change system routing.
 
 ## Focused V1 boundary and release gates — September 23
 
+**October 7 release decision:** the maintainer accepted the frozen signed V1
+candidate's documented testing coverage and known limits and authorized
+publication of `v1.0.0`. Public-download verification and README promotion remain
+delivery steps; see the [release review](v1-release-review.md). Earlier dated
+checkpoint lists describe their state at the time, not newly uncompleted tests.
+
 The [reconciled V1 scope and acceptance plan](v1-release-scope.md) is the current
 release checklist. V1 supports Fedora 44 GNOME/Wayland x86_64 with one Stream Deck +;
 Fedora 45 final-release support needs separate final-release validation. All four
@@ -40,6 +46,17 @@ Profile remaining periodic work, remove unnecessary queries/encoding and verify
 idle and interactive improvements together. Keep full-service costs visible and
 preserve control responsiveness, safety checks and recovery. Broad GNOME/Wayland
 compatibility and plugin delivery remain V1.5 goals; localization remains V2.
+
+### Post-V1 visible-response measurement — approved October 7
+
+Numerical qualification of visible key updates below 150 ms and local dial
+feedback below 100 ms is deferred beyond V1 by user approval. These targets
+remain unmeasured on the frozen signed candidate, not achieved results. Preserve
+functional responsiveness and the internal dispatch target. Plan synchronized
+input/display capture or a well-anchored conservative movement bound; ordinary
+unsynchronized footage and internal dispatch logs cannot certify pixels. Record
+sample counts, exclusions, workload and exact artifact in the future measurement.
+See the [release review](v1-release-review.md) and [protocol](input-latency.md).
 
 ## Agreed next steps — September 22
 
@@ -609,6 +626,12 @@ Use the testing VM wherever practical; restore temporary preferences and shut it
 down after testing, keeping autostart disabled.
 
 ### Follow-on editor candidates — after the V1 polish pass
+
+- **Narrow windows with enlarged text:** improve horizontal adaptation of the
+  shared editor/preview at 1024-pixel width. The signed candidate's VM fixture
+  passes ordinary text at 1024 and enlarged text at 1280; the combined compact/
+  enlarged case requests 1070 pixels and clips. Retain the wider-window guidance
+  until a fix is packaged and qualified; do not call the failed combination a pass.
 
 - **Searchable navigation and actions:** evaluate a keyboard-accessible search for
   pages, actions, settings and assigned devices. Coordinate it with the integrated
