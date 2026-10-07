@@ -123,6 +123,13 @@ resources and input latency together, preserving display quality, polling safety
 lock detection and recovery. No new release number or calendar deadline is assigned
 to this milestone.
 
+The [October 7 CPU investigation](checkpoints/2026-10-07-v1-cpu-investigation.md)
+provides concrete post-V1 leads: settled-frame dirty/revision tracking to avoid
+repeated pixel-buffer comparisons, and profiling the per-second competing-process
+scan. Preserve latest-wins display scheduling, failed-write/reconnect/lock/blanking
+safety and competing-application protection. The constrained paired VM result
+does not replace a matched physical comparison or remaining V1 acceptance.
+
 ## Current VM test matrix
 
 V1 release-candidate testing includes all four retained VMs: Fedora Workstation
@@ -1324,6 +1331,21 @@ and [verification/promotion procedure](release-authenticity.md).
 
 ## Work order
 
+The signed candidate's previously deferred quiet measurement completed on
+October 7 with bounded memory/handles and zero restarts. CPU was higher than
+prior observations; this needs comparison/investigation alongside the remaining
+loaded-resource work. See the [quiet resource checkpoint](checkpoints/2026-10-07-v1-quiet-resources.md).
+The below-1% target remains post-V1; resource regression review remains required.
+
+The same signed artifact then completed a ten-minute user-confirmed physical run:
+210 actions succeeded, including 204 dial adjustments across all four targets;
+dial dispatch p95 was 21.445 ms. The expected four-target set was present at
+120 of 121 observations, with one Homebridge page visit using its retained fan
+override. Saved layout/page and all five JSON files were restored. Mean CPU was
+3.52% daemon and 6.53% core service/helpers; the higher resource results still
+require investigation. See the [physical resource checkpoint](checkpoints/2026-10-07-v1-physical-resources.md)
+for scope, memory, dispatch limits and remaining gates.
+
 Application version `1.0.0` is consistent across the Cargo workspace, locked
 project packages, runtime bundle metadata and translation extraction. Saved-data
 schemas are unchanged. The [signed V1 candidate](checkpoints/2026-10-06-v1-signed-candidate.md)
@@ -1363,3 +1385,18 @@ bytes with their own checksum and authenticity evidence. Optional features do
 not replace any gate.
 Further work to reach the below-1% daemon CPU target follows V1 under the approved
 performance milestone above.
+
+### Clean Fedora dependency and first-run follow-up — October 7, 2026
+
+The frozen signed candidate passed a separate stock Fedora Workstation 44 live
+GNOME/Wayland check using only read-only ISO drives and a RAM overlay. All 13
+runtime packages were present by default. Removing Pillow in this disposable
+OS caused a clear installer refusal without installed integrations; the documented
+DNF package list restored it using normal signed-package verification. Fresh
+signed per-user installation, runtime doctor, real waiting service, disabled
+startup default, native VirtualDeck/editor smoke and the actual first-run controls
+prompt passed. See the [clean installation checkpoint](checkpoints/2026-10-07-v1-clean-fedora-install.md)
+for the exact artifact, package versions, limits and evidence. The retained VM
+disks and desktop installation were untouched, and all test guests are off.
+This complements prior installed-guest reboot evidence; the existing preview
+URL installer remains preview.3/checksum-only and is not signed V1 delivery.

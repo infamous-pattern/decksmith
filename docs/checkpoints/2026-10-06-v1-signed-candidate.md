@@ -158,10 +158,21 @@ The user deferred the signed candidate's five-minute physical quiet resource
 sample to later. No new idle result was collected; prior-build figures remain
 comparison evidence rather than a final-artifact measurement.
 
-- Final-artifact physical actions, lifecycle/recovery, quiet and interactive
-  resource observations, and precise visible-response qualification.
-- Clean OS dependency provisioning and any remaining real first-run installation
-  cases beyond the existing-system fresh-profile and service/startup checks above.
+**October 7 follow-up:** the user resumed that test and a valid five-minute quiet
+measurement completed. See the [new resource checkpoint](2026-10-07-v1-quiet-resources.md).
+CPU was higher than prior observations. Subsequent [physical interaction](2026-10-07-v1-physical-resources.md)
+and [CPU investigation](2026-10-07-v1-cpu-investigation.md) checkpoints record
+bounded resources, user acceptance and a constrained paired VM comparison.
+The unmatched physical comparison and overall resource gate remain open.
+
+- Remaining final-artifact physical action/lifecycle/recovery cases, resource
+  regression review and precise visible-response qualification. Quiet and bounded
+  interactive observations are now recorded in the October 7 checkpoints above.
+- Public signed-V1 installation delivery still needs final guidance/acceptance.
+  The [October 7 clean Fedora check](2026-10-07-v1-clean-fedora-install.md) passed
+  stock dependency readiness, missing-library refusal/provisioning/retry and
+  native first run in a disposable live session; installed-guest reboot remains
+  separately qualified above. This did not exercise a V1 URL bootstrap.
 - Human-paced final-artifact usability/accessibility, theme/text/scaling checks
   and any untested advertised action/fault case.
 - Experimental Homebridge failure/expiry/recovery and agreed live qualification

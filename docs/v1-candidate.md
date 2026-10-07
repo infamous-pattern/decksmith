@@ -14,6 +14,35 @@ also passed. Resource/lifecycle/accessibility and other final release gates rema
 open. See the [exact-candidate checkpoint](checkpoints/2026-10-06-v1-signed-candidate.md)
 for the archive digest, test scope and remaining work.
 
+The previously deferred five-minute physical quiet observation is now recorded
+in the [October 7 resource checkpoint](checkpoints/2026-10-07-v1-quiet-resources.md).
+Memory and handles were bounded with zero restarts, but CPU was higher than prior
+observations; the comparison remains under investigation. A completed quiet
+measurement does not close the overall resource/reliability gate.
+
+The [October 7 physical resource checkpoint](checkpoints/2026-10-07-v1-physical-resources.md)
+records ten minutes of user-confirmed ordinary/quicker dial use and page switching,
+210 successful actions and complete saved-layout restoration. Four target meters
+were observed at 120 of 121 points; a brief Homebridge page visit retained its
+fan override. Dial dispatch p95 was 21.445 ms. CPU comparison and precise visible
+response remain open; these measurements do not constitute full V1 acceptance.
+
+The [CPU investigation](checkpoints/2026-10-07-v1-cpu-investigation.md) identifies
+existing display-buffer comparisons and competing-process scans as profiling
+leads. A constrained old/signed/signed/old VirtualDeck comparison averaged 1.358%
+versus 1.375% daemon CPU, without reproducing the larger desktop increase.
+The physical comparison remains unmatched; installed code and saved data were
+preserved, and all test VMs are off. This is investigative evidence, not a full
+physical regression or release pass.
+
+The [clean Fedora installation checkpoint](checkpoints/2026-10-07-v1-clean-fedora-install.md)
+now records stock Workstation dependency readiness, genuine missing-Pillow
+refusal, signed-package provisioning and a successful fresh signed-candidate
+installation in a disposable native GNOME/Wayland live session. The actual
+first-run controls prompt and disabled startup default were verified. This
+complements the prior installed-guest reboot test; it does not qualify the
+preview URL installer as signed V1 delivery. All test VMs are off.
+
 Cargo workspace metadata is the application-version source for compiled binaries,
 runtime archive identity/metadata and translation extraction. Layout, package,
 backup, candidate and install-record schema versions remain at their existing
