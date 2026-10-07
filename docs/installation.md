@@ -1,5 +1,10 @@
 # Install, update and recover Decksmith
 
+**V1 is available:** follow the [verified V1 installation guide](v1-verified-installation.md)
+for the published `v1.0.0` downloads and provenance checks. This page also covers
+dependencies, USB access, recovery and the retained preview installer. Its
+preview shortcut installs preview.3, not V1.
+
 Decksmith provides a relocatable **runtime bundle** and a per-user installer.
 It is not an RPM. Obtain an accepted artifact and verify its provenance using
 the [release procedure](release-authenticity.md) before installing it. The bundle
@@ -13,8 +18,9 @@ testing through the [cross-distribution VM matrix](v1-release-scope.md#current-v
 but Fedora 44 remains the only supported V1 platform. Broad, supported
 GNOME/Wayland distribution compatibility is a V1.5 goal.
 
-The [release-authenticity workflow](release-authenticity.md) prepares future
-CI-built candidates with signed build provenance. Existing preview downloads and
+The [release-authenticity workflow](release-authenticity.md) produces
+CI-built candidates with signed build provenance. V1's public downloads passed
+verification against the accepted candidate. Existing preview downloads and
 the preview URL installer still use checksums; they have not acquired attestations
 retroactively. A candidate must pass verification and final release testing before
 it is advertised as V1.
