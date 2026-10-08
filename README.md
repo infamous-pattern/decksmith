@@ -65,6 +65,22 @@ Physical USB/audio, lifecycle recovery and Debian screen-reader testing remain
 unqualified. Debian is **experimental**; Fedora Workstation 44 remains the supported
 V1 platform. See the [qualification record and limits](docs/checkpoints/2026-10-08-debian-signed-preview.md).
 
+## Experimental Ubuntu 26.04 preview
+
+The [signed Ubuntu 26.04 x86_64 preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1)
+is built separately for GNOME/Wayland. Follow the
+[verified Ubuntu installation guide](docs/ubuntu-preview-installation.md);
+the historical Fedora URL installer does not install this package. A Rust
+compiler is not needed to run it.
+
+The exact signed package passed Ubuntu VM installation, saved-data recovery,
+native rendering and VirtualDeck checks. The user also accepted editor layout,
+keyboard focus, the artwork picker and a limited Orca listen-through on that
+package. Physical USB/audio, system actions, lifecycle recovery and GNOME
+extension compatibility remain unqualified. Ubuntu is **experimental**; Fedora
+Workstation 44 remains the supported V1 platform. See the
+[qualification record and limits](docs/checkpoints/2026-10-08-ubuntu-signed-preview.md).
+
 ## Interface preview
 
 The current native GTK4/libadwaita interface follows your GNOME light or dark

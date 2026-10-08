@@ -460,7 +460,8 @@ does not extend physical-device certification or replace final-release testing.
 - Ubuntu preview checkpoint (October 8): separate native Ubuntu 26.04 package
   built, signed, independently verified and qualified in the retained VM for
   installation/recovery, native editor, keyboard focus, artwork picker and
-  limited Orca acceptance. See the
+  limited Orca acceptance. Experimental preview published and fresh public
+  downloads verified. See the
   [preview checkpoint](ubuntu-preview-checkpoint.md). Preserve Fedora V1 support
   and the existing Debian preview; broader certification remains V1.5 work.
 

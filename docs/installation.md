@@ -24,6 +24,12 @@ and isolated installation checks. The separate [signed experimental Debian previ
 is now available. It does not expand V1's supported platforms; physical Debian
 hardware/audio/recovery and screen-reader acceptance remain open.
 
+The separately built [signed experimental Ubuntu 26.04 preview](ubuntu-preview-installation.md)
+also passed retained-VM installation/recovery, native GUI, keyboard/file-picker
+and limited Orca checks. Use its explicit Ubuntu verification target and matching
+archive. Physical hardware/audio, lifecycle and extension acceptance remain open;
+Fedora remains the supported V1 platform.
+
 The [release-authenticity workflow](release-authenticity.md) produces
 CI-built candidates with signed build provenance. V1's public downloads passed
 verification against the accepted candidate. Existing preview downloads and

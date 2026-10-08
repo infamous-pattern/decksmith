@@ -102,8 +102,9 @@ certification. Normal installation and background-service start/stop are tested
 separately from the private-bus fixtures.
 See the [exact qualification record](checkpoints/2026-10-08-ubuntu-signed-preview.md).
 
-Physical USB, real audio/device controls,
-lock/suspend/hotplug recovery and long-term resource use are **not yet qualified**.
+Physical USB, real audio/device controls, system actions, lock/suspend/hotplug,
+login/reboot lifecycle, GNOME extension compatibility and long-term resource use
+are **not yet qualified** on Ubuntu.
 The VM uses VirtualDeck and no physical Stream Deck passthrough. Please report
 Ubuntu findings with distribution/session details and logs after removing private
 data. This preview does not certify other distributions or Stream Deck models.

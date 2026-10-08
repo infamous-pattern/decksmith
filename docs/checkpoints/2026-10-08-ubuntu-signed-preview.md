@@ -64,6 +64,11 @@ Ubuntu. GNOME indicator/automatic-page extension compatibility and experimental
 Homebridge also need their own Ubuntu acceptance. Retained private logs and native
 screenshots are evidence, not public telemetry.
 
-Preview publication and fresh public-download verification are the next steps.
+The [experimental Ubuntu prerelease](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1)
+is published. Fresh public copies of all seven assets matched the tested package
+and signing bundle byte-for-byte; all six signed subjects passed provenance,
+checksum and archive admission again. Fedora `v1.0.0` remains the latest stable
+release. Normal test controls were stopped and the Ubuntu VM shut down cleanly;
+all four test VMs are off and Ubuntu autostart is disabled.
 [Verified Ubuntu preview installation](../ubuntu-preview-installation.md) is
 supplemental guidance; signed archive files are never edited after signing.

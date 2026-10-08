@@ -59,3 +59,13 @@ listen-through on this exact package. See the
 [qualification record](checkpoints/2026-10-08-ubuntu-signed-preview.md) and
 [verified installation guide](ubuntu-preview-installation.md). Physical hardware,
 audio, lifecycle recovery and extension compatibility remain explicit limits.
+
+
+## Publication complete
+
+The [experimental Ubuntu prerelease](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1)
+is public. Fresh copies of all seven assets matched the tested candidate and
+signing bundle byte-for-byte; all six signed subjects again passed provenance,
+checksums and archive admission. Fedora `v1.0.0` remains the latest stable release.
+The Ubuntu VM was shut down cleanly after test controls stopped; all four test
+VMs are off and Ubuntu autostart is disabled.
