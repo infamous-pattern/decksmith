@@ -457,9 +457,10 @@ does not extend physical-device certification or replace final-release testing.
   sizing accepted in the logged-in Debian VM; hardware/recovery qualification
   and broad supported GNOME Wayland compatibility remain V1.5 work.
 
-- Ubuntu preview preparation (October 8): build and sign a separate native
-  Ubuntu 26.04 package using explicit target/workflow verification, then qualify
-  the exact package in the retained Ubuntu VM. See the
+- Ubuntu preview checkpoint (October 8): separate native Ubuntu 26.04 package
+  built, signed, independently verified and qualified in the retained VM for
+  installation/recovery, native editor, keyboard focus, artwork picker and
+  limited Orca acceptance. See the
   [preview checkpoint](ubuntu-preview-checkpoint.md). Preserve Fedora V1 support
   and the existing Debian preview; broader certification remains V1.5 work.
 

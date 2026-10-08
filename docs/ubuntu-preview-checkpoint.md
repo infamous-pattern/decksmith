@@ -46,3 +46,16 @@ interactive editor/file-picker checks before preview publication. Retain full
 source/package identity and scope in the final checkpoint. Physical USB/audio,
 lifecycle recovery and screen-reader acceptance are distinct gates; record any
 untested checks explicitly rather than advertising official support.
+
+
+## Exact signed candidate acceptance — October 8
+
+The clean Ubuntu-native candidate passed the signed-source build, dependency
+audit, six-subject provenance/checksum/archive verification and retained-VM
+installation, recovery, rendering and VirtualDeck checks. Normal service start
+and stop passed; login startup stayed disabled. The user accepted editor
+navigation, key/dial geometry, keyboard focus, artwork picker and a limited Orca
+listen-through on this exact package. See the
+[qualification record](checkpoints/2026-10-08-ubuntu-signed-preview.md) and
+[verified installation guide](ubuntu-preview-installation.md). Physical hardware,
+audio, lifecycle recovery and extension compatibility remain explicit limits.
