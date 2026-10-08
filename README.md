@@ -50,6 +50,21 @@ The [retained preview.3](https://github.com/infamous-pattern/decksmith/releases/
 and its checksum-only URL installer remain available for recovery and comparison;
 they are separate from the verified V1 installation path.
 
+## Experimental Debian 13 preview
+
+The [signed Debian 13 x86_64 preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-debian-preview.1)
+corrects the Fedora archive's newer-glibc requirement using a separate native
+build. Follow the [verified Debian installation guide](docs/debian-preview-installation.md);
+the Fedora URL installer does not install this package. A Rust compiler is not
+needed to run it.
+
+Installation, saved-data recovery, native GNOME/Wayland rendering and VirtualDeck
+checks passed in the Debian VM. Editor layout, keyboard focus and the artwork
+picker were accepted interactively on the preceding native test build.
+Physical USB/audio, lifecycle recovery and Debian screen-reader testing remain
+unqualified. Debian is **experimental**; Fedora Workstation 44 remains the supported
+V1 platform. See the [qualification record and limits](docs/checkpoints/2026-10-08-debian-signed-preview.md).
+
 ## Interface preview
 
 The current native GTK4/libadwaita interface follows your GNOME light or dark

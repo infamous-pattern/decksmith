@@ -64,8 +64,8 @@ For a deliberate normal test-VM installation, omit `--stage-root`. Installation
 preserves saved data and does not enable login startup or start controls
 automatically. Do not use the Fedora URL installer or the published Fedora
 archive for this Debian test. A locally built bundle is not a signed public
-release; public Debian delivery needs its own reviewed build/signing workflow
-and qualification before publication.
+release; use the separately built and verified
+[experimental Debian preview](debian-preview-installation.md) for public testing.
 
 ## Verification and remaining gates
 
@@ -95,9 +95,8 @@ traversal as skipped; its ordinary mode retains the original strict assertion.
 
 This isolated display does not certify human keyboard/screen-reader acceptance,
 file chooser/portal behavior in a full logged-in session, physical USB/audio,
-lock/suspend/hotplug recovery, or long-term resource use. Those checks and signed
-Debian-specific downloads remain required before advertising supported Debian
-installations. Private local logs, package inventories, bundle checksums and
+lock/suspend/hotplug recovery, or long-term resource use. The signed Debian preview now covers download delivery; the remaining
+acceptance checks are required before advertising supported Debian installations. Private local logs, package inventories, bundle checksums and
 screenshots are retained with this compatibility checkpoint.
 
 ## Separate signed Debian candidate
@@ -152,3 +151,7 @@ and [verified preview installation guide](debian-preview-installation.md).
 The user accepted publication as the experimental `v1.0.0-debian-preview.1`
 prerelease. This does not change Fedora V1 support or qualify Debian physical
 hardware/audio/recovery/accessibility gates.
+
+Fresh public prerelease downloads matched the tested candidate byte-for-byte
+and passed all six signature, checksum and archive checks. The original Fedora
+`v1.0.0` remains the latest stable release.

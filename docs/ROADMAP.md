@@ -11,7 +11,7 @@ change system routing.
 the Fedora archive's newer-glibc requirement. Installation/recovery, native
 GNOME 48 headless Wayland editor rendering, VirtualDeck and regression checks
 passed. See [Debian build instructions and remaining gates](debian-native-build.md).
-Signed Debian delivery is being prepared. Full-session navigation and file-picker
+The [signed experimental Debian preview](debian-preview-installation.md) is available. Full-session navigation and file-picker
 checks passed; screen-reader and physical device/audio/recovery qualification
 remain open under the V1.5 compatibility goal; V1's
 published Fedora support boundary is unchanged.

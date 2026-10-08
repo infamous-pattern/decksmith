@@ -20,8 +20,9 @@ GNOME/Wayland distribution compatibility is a V1.5 goal.
 
 A [Debian 13 native build and compatibility checkpoint](debian-native-build.md)
 now resolves the Fedora binary's glibc mismatch and documents Debian dependencies
-and isolated installation checks. It is development test coverage, not a signed
-Debian release or an expansion of V1's supported platforms.
+and isolated installation checks. The separate [signed experimental Debian preview](debian-preview-installation.md)
+is now available. It does not expand V1's supported platforms; physical Debian
+hardware/audio/recovery and screen-reader acceptance remain open.
 
 The [release-authenticity workflow](release-authenticity.md) produces
 CI-built candidates with signed build provenance. V1's public downloads passed

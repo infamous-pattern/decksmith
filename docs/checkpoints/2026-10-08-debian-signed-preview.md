@@ -62,5 +62,10 @@ not included as public telemetry.
 
 Fedora Workstation 44 remains the supported V1 platform. Broad GNOME Wayland
 compatibility is a V1.5 goal. The original Fedora V1 release remains unchanged.
-A separate prerelease and fresh public-download verification are the next
-publication steps; signing alone does not authorize publication.
+The user accepted publication with these limits. The experimental
+[v1.0.0-debian-preview.1 prerelease](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-debian-preview.1)
+is published. Fresh public copies of all seven assets matched the retained
+candidate/signing bundle byte-for-byte; all six signed subjects passed signature,
+checksum and archive admission again. Fedora `v1.0.0` remains the latest stable
+release. [Verified Debian preview installation](../debian-preview-installation.md)
+is supplemental guidance and does not modify the signed archive's `INSTALL.md`.
