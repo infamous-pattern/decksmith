@@ -17,3 +17,18 @@ files under `local/` are not published.
 `decksmith-walkthrough-thumbnail.png` and `decksmith-walkthrough.srt` accompany the approved interface tour. The MP4 is hosted as a preview.2 release asset, keeping video data out of source history. Captured from the native interface with a demonstration layout and simulated connection status; no physical device actions were performed. Plugins are not covered.
 
 Video SHA-256: `c6b543ebd9f070c79d8391de436a69653a5639b2a228d69d33079925aed3b057`.
+
+## V1 video tour
+
+`decksmith-v1-tour-thumbnail.png` and `decksmith-v1-tour.srt` accompany the
+approved [V1 video tour](https://www.youtube.com/watch?v=ZJG1n_8rGNY), hosted on
+James Senecal's YouTube channel. The 2-minute 58-second video shows native V1
+interfaces in Fedora Workstation 44, Fedora Workstation 45 Beta and Ubuntu 26.04
+test VMs with VirtualDeck and a sample layout/status. Fedora 44 remains the
+supported V1 platform; these captures do not qualify physical hardware or live
+meter performance. Debian and experimental plugins are not covered.
+
+The final cut uses half-second fades, four-second stationary title cards and
+five-second interface views. English captions and music credits accompany the
+video, which discloses ChatGPT and Codex assistance. The earlier preview tour
+assets remain available for historical reference.

@@ -20,6 +20,19 @@ results are diagnostic and do not certify supported installations. Broad
 supported GNOME/Wayland distribution compatibility is a **V1.5 goal**, alongside
 general plugin support. See the [V1 release plan](docs/v1-release-scope.md).
 
+## Watch Decksmith V1
+
+[![Watch the Decksmith V1 interface tour on YouTube](docs/images/decksmith-v1-tour-thumbnail.png?v=9b6638d3457e)](https://www.youtube.com/watch?v=ZJG1n_8rGNY)
+
+**[Watch the 2-minute 58-second V1 tour](https://www.youtube.com/watch?v=ZJG1n_8rGNY)** · [English subtitles](docs/images/decksmith-v1-tour.srt)
+
+Explore Home, Pages, Keys & Dials, and About in native interface captures from
+Fedora Workstation 44, Fedora Workstation 45 Beta and Ubuntu 26.04 test VMs.
+The tour uses VirtualDeck and a sample layout; it does not demonstrate physical
+USB hardware or live meter performance. **Fedora Workstation 44 remains the
+supported V1 platform**; the other systems are compatibility demonstrations.
+Experimental plugins are not covered. The video includes captions and music.
+
 ## Install V1 (Fedora Workstation 44 x86_64)
 
 Follow the [verified V1 installation guide](docs/v1-verified-installation.md).
@@ -36,16 +49,6 @@ and the [V1 qualification scope and limits](docs/v1-release-review.md).
 The [retained preview.3](https://github.com/infamous-pattern/decksmith/releases/tag/v0.1.0-preview.3)
 and its checksum-only URL installer remain available for recovery and comparison;
 they are separate from the verified V1 installation path.
-
-## Interface walkthrough
-
-[![Watch the Decksmith interface walkthrough](docs/images/decksmith-walkthrough-thumbnail.png?v=9a67e981708e)](https://github.com/infamous-pattern/decksmith/releases/download/v0.1.0-preview.2/Decksmith-interface-walkthrough.mp4)
-
-**[Watch the 84-second walkthrough](https://github.com/infamous-pattern/decksmith/releases/download/v0.1.0-preview.2/Decksmith-interface-walkthrough.mp4)** · [Subtitles](docs/images/decksmith-walkthrough.srt)
-
-A captioned, silent 1080p tour of Home, Pages, Keys & Dials, and About, using a
-demonstration layout. Explore page organization, key labels and appearance, and
-audio dial assignments. Experimental plugin features are not covered.
 
 ## Interface preview
 
@@ -104,11 +107,11 @@ See [Homebridge setup and recovery](docs/openhomeb-runtime.md).
 
 ## Requirements and dependencies
 
-The current development bundle targets **Fedora Workstation 44, x86_64, GNOME on
-Wayland**, with **Stream Deck +** as the validated physical device. This is not yet
-an RPM or a signed V1 release. Other distributions, desktops, architectures and
-Stream Deck models need their own validation. Independent control of multiple
-devices is still planned.
+The signed V1 bundle targets **Fedora Workstation 44, x86_64, GNOME on
+Wayland**, with **Stream Deck +** as the validated physical device. It uses a
+per-user archive installer; RPM packaging is not yet available. Other
+distributions, desktops, architectures and Stream Deck models need their own
+validation. Independent control of multiple devices is still planned.
 
 ### Running a prebuilt bundle
 

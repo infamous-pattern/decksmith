@@ -1,0 +1,139 @@
+1
+00:00:00,000 --> 00:00:04,000
+Decksmith V1. A native interface tour across three Linux test systems.
+
+2
+00:00:04,000 --> 00:00:08,500
+Fedora Workstation 44. Supported V1 platform.
+
+3
+00:00:08,500 --> 00:00:13,500
+Home: Device controls.
+
+4
+00:00:13,500 --> 00:00:18,500
+Your controls. One workspace. Check device status, login startup and brightness.
+
+5
+00:00:18,500 --> 00:00:23,500
+Pages: Page settings.
+
+6
+00:00:23,500 --> 00:00:28,500
+Organize your pages. Name pages, choose a default and set application associations.
+
+7
+00:00:28,500 --> 00:00:33,500
+Keys & Dials: Key action.
+
+8
+00:00:33,500 --> 00:00:38,500
+Give each key a job. Assign system, media, navigation or application actions.
+
+9
+00:00:38,500 --> 00:00:43,500
+Keys & Dials: Key appearance.
+
+10
+00:00:43,500 --> 00:00:48,500
+Make it your own. Customize labels, artwork, fonts and appearance.
+
+11
+00:00:48,500 --> 00:00:53,500
+Keys & Dials: Audio dial.
+
+12
+00:00:53,500 --> 00:00:58,500
+Choose an audio target. Control app streams and microphones independently.
+
+13
+00:00:58,500 --> 00:01:03,500
+Keys & Dials: Brightness dial.
+
+14
+00:01:03,500 --> 00:01:08,500
+Adjust device brightness. Choose dial behavior and the touch-strip label.
+
+15
+00:01:08,500 --> 00:01:13,500
+About: Project information.
+
+16
+00:01:13,500 --> 00:01:18,500
+Open source. Built for Linux. Apache-2.0. Source, documentation and feedback are linked on GitHub.
+
+17
+00:01:18,500 --> 00:01:23,000
+Fedora Workstation 45 Beta. Forward-compatibility test.
+
+18
+00:01:23,000 --> 00:01:28,000
+Home: Device controls.
+
+19
+00:01:28,000 --> 00:01:33,000
+The next Fedora test. Native V1 in a VM created from Fedora 45 Beta.
+
+20
+00:01:33,000 --> 00:01:38,000
+Pages: Page settings.
+
+21
+00:01:38,000 --> 00:01:43,000
+The same page workflow. The same workflow. Fedora 45 remains a compatibility test.
+
+22
+00:01:43,000 --> 00:01:48,000
+Keys & Dials: Key action.
+
+23
+00:01:48,000 --> 00:01:53,000
+Keys and custom labels. The unchanged V1 bundle, running in the test guest.
+
+24
+00:01:53,000 --> 00:01:58,000
+Keys & Dials: Audio dial.
+
+25
+00:01:58,000 --> 00:02:03,000
+Dial assignments. Preview the controls without connecting physical hardware.
+
+26
+00:02:03,000 --> 00:02:07,500
+Ubuntu 26.04. Experimental VM demo.
+
+27
+00:02:07,500 --> 00:02:12,500
+Home: Device controls.
+
+28
+00:02:12,500 --> 00:02:17,500
+Ubuntu compatibility. Native V1 in Ubuntu. Experimental compatibility; Fedora 44 remains supported.
+
+29
+00:02:17,500 --> 00:02:22,500
+Pages: Page settings.
+
+30
+00:02:22,500 --> 00:02:27,500
+Organize your workspace. Native page settings with the same sample layout.
+
+31
+00:02:27,500 --> 00:02:32,500
+Keys & Dials: Key action.
+
+32
+00:02:32,500 --> 00:02:37,500
+Choose your actions. A native interface demonstration, not full hardware qualification.
+
+33
+00:02:37,500 --> 00:02:42,500
+Keys & Dials: Audio dial.
+
+34
+00:02:42,500 --> 00:02:47,500
+Explore your dials. Broader GNOME/Wayland compatibility is a V1.5 goal.
+
+35
+00:02:47,500 --> 00:02:58,000
+Try Decksmith and share feedback on GitHub. V1 supports Fedora Workstation 44 and Stream Deck +. Development assisted by ChatGPT and Codex.
