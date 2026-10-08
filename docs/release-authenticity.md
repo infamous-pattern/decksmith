@@ -132,3 +132,12 @@ Debian 13 builds use a separate pinned workflow and archive identity. See the
 The verification helper requires explicit `--target debian13`; omitting it keeps
 the existing Fedora verification policy. Candidate signing alone does not grant
 supported-platform status or authorize release publication.
+
+
+## Experimental Ubuntu candidate
+
+Ubuntu 26.04 uses its own pinned workflow and archive identity. See the
+[Ubuntu preview checkpoint](ubuntu-preview-checkpoint.md). The verification
+helper requires `--target ubuntu2604` and rejects mismatched distribution,
+archive/source/target identity or signing provenance. Fedora remains the default
+verification target; no existing release files are modified.

@@ -1,0 +1,100 @@
+name: Experimental Ubuntu candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ubuntu-candidate
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.repository == 'infamous-pattern/decksmith' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Tested Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt --component clippy
+      - name: Build and check in Ubuntu 26.04
+        env:
+          EXPECTED_SOURCE: ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/decksmith-ubuntu-candidate"
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/build/decksmith" \
+            --volume "$HOME/.rustup:/opt/rustup:ro" \
+            --volume "$HOME/.cargo/bin:/opt/rust-bin:ro" \
+            --volume "$RUNNER_TEMP/decksmith-ubuntu-candidate:/output" \
+            --env EXPECTED_SOURCE --env RUSTUP_HOME=/opt/rustup \
+            --env RUSTUP_TOOLCHAIN=1.97.1 --env CARGO_HOME=/tmp/cargo \
+            --env CARGO_TARGET_DIR=/tmp/target --env PYTHONDONTWRITEBYTECODE=1 \
+            --workdir /build/decksmith \
+            ubuntu@sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7 \
+            bash -euo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends build-essential binutils git curl ca-certificates tar gzip pkg-config libudev-dev python3 python3-gi python3-gi-cairo python3-pil python3-cairo gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-rsvg-2.0 libglib2.0-bin dbus-daemon libpulse0 pulseaudio-utils wireplumber systemd
+              export PATH="/opt/rust-bin:$PATH"
+              git config --global --add safe.directory /build/decksmith
+              test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
+              test -z "$(git status --porcelain)"
+              curl --fail --location --proto "=https" --proto-redir "=https" --output /tmp/cargo-deny.tar.gz https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz
+              echo "9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f  /tmp/cargo-deny.tar.gz" | sha256sum -c -
+              tar -xzf /tmp/cargo-deny.tar.gz -C /tmp
+              export DECKSMITH_CARGO_DENY=/tmp/cargo-deny-0.20.2-x86_64-unknown-linux-musl/cargo-deny
+              bash scripts/check.sh
+              sh -n scripts/install.sh
+              python3 -m unittest discover -s scripts -p "test_*.py" -q
+              python3 -m unittest discover -s apps/decksmith-studio -p "test_*.py" -q
+              python3 scripts/build-bundle.py --output /tmp/bundle
+              python3 scripts/prepare-release-candidate.py /tmp/bundle/decksmith-*.tar.gz --output /output/downloads --expected-source "$EXPECTED_SOURCE" --target ubuntu2604
+              test -z "$(git status --porcelain)"
+            '
+      - name: Retain the exact candidate downloads
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ubuntu2604-candidate
+          path: ${{ runner.temp }}/decksmith-ubuntu-candidate/downloads/*
+          if-no-files-found: error
+          retention-days: 14
+  attest:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Retrieve this run's candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ubuntu2604-candidate
+          path: candidate
+      - name: Sign build provenance for every candidate file
+        id: provenance
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: candidate/*
+      - name: Verify the signed identity and exact source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE: ${{ github.sha }}
+        run: |
+          cd candidate
+          sha256sum -c SHA256SUMS
+          for file in decksmith-ubuntu2604-x86_64.tar.gz decksmith-install.py package_io.py INSTALL.md SHA256SUMS candidate.json; do
+            gh attestation verify "$file" --repo infamous-pattern/decksmith \
+              --signer-workflow infamous-pattern/decksmith/.github/workflows/ubuntu-candidate.yml \
+              --source-ref refs/heads/main --source-digest "$EXPECTED_SOURCE" \
+              --deny-self-hosted-runners
+          done
+      - name: Retain the signing bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ubuntu2604-attestation
+          path: ${{ steps.provenance.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 14

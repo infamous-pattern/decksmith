@@ -28,6 +28,13 @@ class NativeBundleTests(unittest.TestCase):
         self.assertEqual(result['build_environment']['libc_version'], '2.41')
         self.assertEqual(result['architecture'], 'x86_64')
 
+    def test_ubuntu_native_label_preserves_full_release_version(self):
+        with self.environment('ubuntu', '26.04'), patch('platform.system', return_value='Linux'):
+            result = bundle_platform()
+        self.assertEqual(result['tested_distribution'], 'Ubuntu 26.04')
+        self.assertEqual(result['build_environment']['distribution'], 'ubuntu')
+        self.assertEqual(result['build_environment']['version'], '26.04')
+
     def test_fedora_candidate_target_remains_exact(self):
         with self.environment('fedora', '44'), patch('platform.system', return_value='Linux'):
             self.assertEqual(bundle_platform()['tested_distribution'], 'Fedora 44')

@@ -15,6 +15,7 @@ SUBJECTS = ('decksmith-linux-x86_64.tar.gz', 'decksmith-install.py',
 TARGETS = {
     'fedora44': ('Fedora 44', SUBJECTS[0]),
     'debian13': ('Debian 13', 'decksmith-debian13-x86_64.tar.gz'),
+    'ubuntu2604': ('Ubuntu 26.04', 'decksmith-ubuntu2604-x86_64.tar.gz'),
 }
 
 

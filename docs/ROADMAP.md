@@ -457,6 +457,12 @@ does not extend physical-device certification or replace final-release testing.
   sizing accepted in the logged-in Debian VM; hardware/recovery qualification
   and broad supported GNOME Wayland compatibility remain V1.5 work.
 
+- Ubuntu preview preparation (October 8): build and sign a separate native
+  Ubuntu 26.04 package using explicit target/workflow verification, then qualify
+  the exact package in the retained Ubuntu VM. See the
+  [preview checkpoint](ubuntu-preview-checkpoint.md). Preserve Fedora V1 support
+  and the existing Debian preview; broader certification remains V1.5 work.
+
 
 V1.5 targets broad compatibility across Linux distributions running GNOME on
 Wayland, alongside its plugin milestone. Start with installable Debian 13 and

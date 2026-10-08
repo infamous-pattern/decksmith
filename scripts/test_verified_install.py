@@ -37,7 +37,8 @@ class VerifiedInstallTests(unittest.TestCase):
         self.manifest = {'format': 'decksmith-release', 'version': 1,
                          'id': '0.1.0-fixture', 'source_commit': SOURCE,
                          'source_dirty': False, 'platform': 'Linux',
-                         'architecture': 'x86_64', 'tested_distribution': 'Debian 13' if getattr(self, 'target', 'fedora44') == 'debian13' else 'Fedora 44',
+                         'architecture': 'x86_64',
+                         'tested_distribution': VERIFIER.target_config(getattr(self, 'target', 'fedora44'))[0],
                          'files': {name: digest(data) for name, data in self.files.items()}}
         self.target = getattr(self, 'target', 'fedora44')
         self.refresh()
@@ -217,6 +218,16 @@ class DebianVerifiedInstallTests(VerifiedInstallTests):
         with patch.object(VERIFIER.subprocess, 'run') as run:
             with self.assertRaises(ValueError):VERIFIER.verify_install(self.downloads, SOURCE, target='unknown')
             run.assert_not_called()
+
+
+class UbuntuVerifiedInstallTests(DebianVerifiedInstallTests):
+    target = 'ubuntu2604'
+
+    def test_debian_signer_and_archive_are_not_ubuntu(self):
+        ubuntu = VERIFIER.target_config(self.target)
+        debian = VERIFIER.target_config('debian13')
+        self.assertNotEqual(ubuntu[1], debian[1])
+        self.assertNotEqual(ubuntu[2][0], debian[2][0])
 
 
 if __name__ == '__main__':unittest.main()

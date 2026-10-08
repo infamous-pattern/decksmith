@@ -26,6 +26,8 @@ TARGETS = {
     'fedora44': ('Fedora 44', DOWNLOADS[0], WORKFLOW),
     'debian13': ('Debian 13', 'decksmith-debian13-x86_64.tar.gz',
                  REPOSITORY + '/.github/workflows/debian-candidate.yml'),
+    'ubuntu2604': ('Ubuntu 26.04', 'decksmith-ubuntu2604-x86_64.tar.gz',
+                   REPOSITORY + '/.github/workflows/ubuntu-candidate.yml'),
 }
 
 

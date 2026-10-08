@@ -136,3 +136,24 @@ class DebianCandidateAdmission(CandidateAdmission):
         with self.assertRaises(ValueError):
             CANDIDATE.prepare(self.archive, self.output, SOURCE, target='debian13')
         self.assertFalse(self.output.exists())
+
+
+class UbuntuCandidateAdmission(CandidateAdmission):
+    def test_ubuntu_requires_explicit_target_and_preserves_all_downloads(self):
+        self.manifest['tested_distribution'] = 'Ubuntu 26.04'
+        self.write_bundle()
+        for target in ('fedora44', 'debian13'):
+            with self.assertRaises(ValueError):
+                CANDIDATE.prepare(self.archive, self.output, SOURCE, target=target)
+        CANDIDATE.prepare(self.archive, self.output, SOURCE, target='ubuntu2604')
+        archive = self.output / 'decksmith-ubuntu2604-x86_64.tar.gz'
+        self.assertEqual(archive.read_bytes(), self.archive.read_bytes())
+        metadata = json.loads((self.output / 'candidate.json').read_text())
+        self.assertEqual(metadata['target'], 'ubuntu2604')
+        self.assertEqual(set(metadata['files']), {archive.name, *CANDIDATE.SUBJECTS[1:]})
+
+    def test_debian_archive_cannot_be_staged_as_ubuntu(self):
+        self.manifest['tested_distribution'] = 'Debian 13'; self.write_bundle()
+        with self.assertRaises(ValueError):
+            CANDIDATE.prepare(self.archive, self.output, SOURCE, target='ubuntu2604')
+        self.assertFalse(self.output.exists())
