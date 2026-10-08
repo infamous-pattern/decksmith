@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible problem in the preview
+about: Report a reproducible problem in Decksmith V1
 labels: bug
 ---
 
