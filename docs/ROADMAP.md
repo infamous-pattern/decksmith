@@ -449,8 +449,10 @@ does not extend physical-device certification or replace final-release testing.
 
 ### Broad GNOME/Wayland distribution compatibility — V1.5 goal; V1 VM diagnostics
 
-- Debian delivery checkpoint (October 8): prepare a separately named, signed
-  Debian 13 candidate with explicit target verification; keep Fedora V1 assets
+- Debian delivery checkpoint (October 8): separately named Debian 13 candidate
+  built, signed, independently verified and installed/tested in the retained VM;
+  experimental preview publication accepted. See the
+  [qualification record](checkpoints/2026-10-08-debian-signed-preview.md). Continue to keep Fedora V1 assets
   and support boundaries unchanged. Full GNOME editor navigation and key/dial
   sizing accepted in the logged-in Debian VM; hardware/recovery qualification
   and broad supported GNOME Wayland compatibility remain V1.5 work.

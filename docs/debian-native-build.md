@@ -136,3 +136,19 @@ and keyboard navigation/focus worked correctly. The native artwork file picker o
 Debian screen-reader acceptance remains untested; signed-candidate checks
 are recorded separately when completed. Fedora 44 remains
 the supported V1 platform while Debian-specific preview qualification proceeds.
+
+
+## Signed candidate qualification — October 8
+
+The [separate signing run](https://github.com/infamous-pattern/decksmith/actions/runs/37817883387)
+passed from clean public source. Bundle `1.0.0-ca725bc8a704` then passed independent
+signature/checksum/archive verification and Debian VM installation, recovery,
+native GTK/Wayland and VirtualDeck tests. It is installed in the retained guest,
+with the previous build/configuration backup retained and startup disabled.
+All four test VMs were shut down afterward. See the
+[qualification evidence and limits](checkpoints/2026-10-08-debian-signed-preview.md)
+and [verified preview installation guide](debian-preview-installation.md).
+
+The user accepted publication as the experimental `v1.0.0-debian-preview.1`
+prerelease. This does not change Fedora V1 support or qualify Debian physical
+hardware/audio/recovery/accessibility gates.
