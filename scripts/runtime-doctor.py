@@ -4,20 +4,30 @@ import argparse,ctypes,json,os,platform,shutil,subprocess,sys
 from pathlib import Path
 sys.dont_write_bytecode=True
 ROOT=Path(__file__).resolve().parents[1]
+def package_hints():
+    try:distribution=platform.freedesktop_os_release().get('ID','')
+    except OSError:distribution=''
+    if distribution in ('debian','ubuntu'):
+        return {'gdbus':'libglib2.0-bin','artwork':'gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-rsvg-2.0, python3-gi, python3-gi-cairo, python3-pil, python3-cairo',
+                'libpulse.so.0':'libpulse0','libudev.so.1':'libudev1'}
+    return {'gdbus':'glib2','artwork':'gtk4, libadwaita, python3-gobject, python3-pillow, python3-cairo, librsvg2',
+            'libpulse.so.0':'pulseaudio-libs','libudev.so.1':'systemd-libs'}
 def check(root=ROOT,verify=True):
-    root=Path(root);results=[]
+    root=Path(root);results=[];packages=package_hints()
     def result(name,ok,detail):results.append({'check':name,'ok':bool(ok),'detail':detail})
     result('Linux',sys.platform=='linux',platform.platform())
-    for executable,package in [('python3','python3'),('systemctl','systemd'),('gdbus','glib2'),('pactl','pulseaudio-utils'),('wpctl','wireplumber')]:result(executable,shutil.which(executable),package)
+    for executable,package in [('python3','python3'),('systemctl','systemd'),('gdbus',packages['gdbus']),('pactl','pulseaudio-utils'),('wpctl','wireplumber')]:result(executable,shutil.which(executable),package)
     try:
         import gi
+        gi.require_foreign('cairo')
         gi.require_version('Gtk','4.0');gi.require_version('Adw','1');gi.require_version('Rsvg','2.0')
         from gi.repository import Gtk,Adw,Gio,Rsvg
         import cairo
         from PIL import Image
-        result('GTK/Python artwork libraries',hasattr(Gtk,'FileDialog') and hasattr(Adw,'Dialog'),'gtk4, libadwaita, python3-gobject, python3-pillow, python3-cairo, librsvg2')
-    except (ImportError,ValueError):result('GTK/Python artwork libraries',False,'Install gtk4 libadwaita python3-gobject python3-pillow python3-cairo librsvg2')
-    for library,package in [('libpulse.so.0','pulseaudio-libs'),('libudev.so.1','systemd-libs')]:
+        result('GTK/Python artwork libraries',hasattr(Gtk,'FileDialog') and hasattr(Adw,'Dialog'),packages['artwork'])
+    except (ImportError,ValueError):result('GTK/Python artwork libraries',False,'Install '+packages['artwork'])
+    for library in ('libpulse.so.0','libudev.so.1'):
+        package=packages[library]
         try:ctypes.CDLL(library);result(library,True,package)
         except OSError:result(library,False,'Install '+package)
     if verify:

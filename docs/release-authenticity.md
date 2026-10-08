@@ -123,3 +123,12 @@ The existing preview URL bootstrap checks download integrity, but does not perfo
 these authenticity checks. It remains pinned to preview.3. V1 publication must
 include a tested verified-install path and accurate instructions; this foundation
 does not silently promote the preview installer to V1.
+
+
+## Experimental Debian candidate
+
+Debian 13 builds use a separate pinned workflow and archive identity. See the
+[Debian native-build checkpoint](debian-native-build.md#separate-signed-debian-candidate).
+The verification helper requires explicit `--target debian13`; omitting it keeps
+the existing Fedora verification policy. Candidate signing alone does not grant
+supported-platform status or authorize release publication.

@@ -37,44 +37,46 @@ class VerifiedInstallTests(unittest.TestCase):
         self.manifest = {'format': 'decksmith-release', 'version': 1,
                          'id': '0.1.0-fixture', 'source_commit': SOURCE,
                          'source_dirty': False, 'platform': 'Linux',
-                         'architecture': 'x86_64', 'tested_distribution': 'Fedora 44',
+                         'architecture': 'x86_64', 'tested_distribution': 'Debian 13' if getattr(self, 'target', 'fedora44') == 'debian13' else 'Fedora 44',
                          'files': {name: digest(data) for name, data in self.files.items()}}
+        self.target = getattr(self, 'target', 'fedora44')
         self.refresh()
         self.commands = []
         self.real_run = subprocess.run
 
     def refresh(self):
-        write_archive(self.downloads / VERIFIER.DOWNLOADS[0], self.files | {
+        downloads = VERIFIER.target_config(self.target)[2]
+        write_archive(self.downloads / downloads[0], self.files | {
             'release.json': json.dumps(self.manifest).encode()})
         for name, member in [('decksmith-install.py', 'scripts/decksmith-install.py'),
                              ('package_io.py', 'scripts/package_io.py'),
                              ('INSTALL.md', 'docs/installation.md')]:
             (self.downloads / name).write_bytes(self.files[member])
         hashes = {name: digest((self.downloads / name).read_bytes())
-                  for name in VERIFIER.DOWNLOADS}
+                  for name in VERIFIER.target_config(self.target)[2]}
         (self.downloads / 'SHA256SUMS').write_text(''.join(
             value + '  ' + name + '\n' for name, value in hashes.items()))
         (self.downloads / 'candidate.json').write_text(json.dumps({
             'format': 'decksmith-release-candidate', 'version': 1,
-            'bundle': self.manifest['id'], 'source_commit': SOURCE, 'files': hashes}))
+            'bundle': self.manifest['id'], 'source_commit': SOURCE, 'files': hashes, 'target': self.target}))
 
     def accepted(self, command, **kwargs):
         self.commands.append(command)
         if command[0] == 'gh':
             self.assertIn('--deny-self-hosted-runners', command)
             self.assertEqual(command[command.index('--source-digest') + 1], SOURCE)
-            self.assertEqual(command[command.index('--signer-workflow') + 1], VERIFIER.WORKFLOW)
+            self.assertEqual(command[command.index('--signer-workflow') + 1], VERIFIER.target_config(self.target)[1])
             return subprocess.CompletedProcess(command, 0)
         return self.real_run(command, **kwargs)
 
     def verify(self, **kwargs):
-        return VERIFIER.verify_install(self.downloads, SOURCE, **kwargs)
+        return VERIFIER.verify_install(self.downloads, SOURCE, target=self.target, **kwargs)
 
     def test_any_signature_failure_prevents_import_and_install(self):
         # Even a package library that crashes if imported must never run before
         # every subject passes; fail each position independently.
         (self.downloads / 'package_io.py').write_bytes(b'raise AssertionError("executed unverified code")')
-        for failed in VERIFIER.SUBJECTS:
+        for failed in VERIFIER.target_config(self.target)[3]:
             self.commands.clear()
             def reject(command, **kwargs):
                 self.commands.append(command)
@@ -150,7 +152,7 @@ class VerifiedInstallTests(unittest.TestCase):
                 self.refresh()
                 if mode == 'bootstrap':
                     (self.downloads / 'decksmith-install.py').write_bytes(b'other standalone')
-                    hashes = {name: digest((self.downloads / name).read_bytes()) for name in VERIFIER.DOWNLOADS}
+                    hashes = {name: digest((self.downloads / name).read_bytes()) for name in VERIFIER.target_config(self.target)[2]}
                     (self.downloads / 'SHA256SUMS').write_text(''.join(h + '  ' + n + '\n' for n,h in hashes.items()))
                     path = self.downloads / 'candidate.json'
                     data = json.loads(path.read_text()); data['files'] = hashes
@@ -178,6 +180,43 @@ class VerifiedInstallTests(unittest.TestCase):
         for command in self.commands:
             argument = Path(command[command.index('--bundle') + 1])
             self.assertNotEqual(argument, bundle)
+
+
+    def test_missing_target_only_accepts_legacy_fedora_metadata(self):
+        path = self.downloads / 'candidate.json'
+        metadata = json.loads(path.read_text()); metadata.pop('target')
+        path.write_text(json.dumps(metadata))
+        with patch.object(VERIFIER.subprocess, 'run', side_effect=self.accepted):
+            if self.target == 'fedora44':
+                self.assertEqual(self.verify()['target'], 'fedora44')
+            else:
+                with self.assertRaises(ValueError):self.verify()
+
+
+class DebianVerifiedInstallTests(VerifiedInstallTests):
+    target = 'debian13'
+
+    def test_wrong_target_never_installs(self):
+        path = self.downloads / 'candidate.json'
+        metadata = json.loads(path.read_text())
+        metadata['target'] = 'fedora44'
+        path.write_text(json.dumps(metadata))
+        with patch.object(VERIFIER.subprocess, 'run', side_effect=self.accepted):
+            with self.assertRaises(ValueError):
+                self.verify(install=True, stage_root=self.root / 'stage')
+        self.assertFalse(self.executed.exists())
+
+    def test_debian_distribution_must_match_even_when_signed(self):
+        self.manifest['tested_distribution'] = 'Fedora 44'
+        self.refresh()
+        with patch.object(VERIFIER.subprocess, 'run', side_effect=self.accepted):
+            with self.assertRaises(ValueError):self.verify()
+
+    def test_pinned_debian_signer_is_distinct_and_unknown_target_fails(self):
+        self.assertNotEqual(VERIFIER.target_config(self.target)[1], VERIFIER.WORKFLOW)
+        with patch.object(VERIFIER.subprocess, 'run') as run:
+            with self.assertRaises(ValueError):VERIFIER.verify_install(self.downloads, SOURCE, target='unknown')
+            run.assert_not_called()
 
 
 if __name__ == '__main__':unittest.main()

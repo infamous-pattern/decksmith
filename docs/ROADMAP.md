@@ -7,6 +7,15 @@ change system routing.
 
 ## Focused V1 boundary and release gates — September 23
 
+**October 8 Debian compatibility checkpoint:** a native Debian 13 build resolves
+the Fedora archive's newer-glibc requirement. Installation/recovery, native
+GNOME 48 headless Wayland editor rendering, VirtualDeck and regression checks
+passed. See [Debian build instructions and remaining gates](debian-native-build.md).
+Signed Debian delivery is being prepared. Full-session navigation and file-picker
+checks passed; screen-reader and physical device/audio/recovery qualification
+remain open under the V1.5 compatibility goal; V1's
+published Fedora support boundary is unchanged.
+
 **October 7 release decision:** the maintainer accepted the frozen signed V1
 candidate's documented testing coverage and known limits and authorized
 publication of `v1.0.0`. Publication, public-download verification and README
@@ -439,6 +448,13 @@ A Fedora package-daemon shutdown delay was recorded separately. This beta sample
 does not extend physical-device certification or replace final-release testing.
 
 ### Broad GNOME/Wayland distribution compatibility — V1.5 goal; V1 VM diagnostics
+
+- Debian delivery checkpoint (October 8): prepare a separately named, signed
+  Debian 13 candidate with explicit target verification; keep Fedora V1 assets
+  and support boundaries unchanged. Full GNOME editor navigation and key/dial
+  sizing accepted in the logged-in Debian VM; hardware/recovery qualification
+  and broad supported GNOME Wayland compatibility remain V1.5 work.
+
 
 V1.5 targets broad compatibility across Linux distributions running GNOME on
 Wayland, alongside its plugin milestone. Start with installable Debian 13 and

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Build a versioned Fedora development runtime; never installs or changes services."""
-import argparse,json,os,platform,shlex,shutil,subprocess,tempfile
+"""Build a versioned native Linux runtime; never installs or changes services."""
+import argparse,json,os,shlex,shutil,subprocess,tempfile
 from pathlib import Path
 from package_io import digest,tree_files,write_archive,atomic
 from localization import compiled_catalogs
 from project_version import application_version
+from build_platform import bundle_platform
 ROOT=Path(__file__).resolve().parents[1]
 def build(output,binaries=None):
     version=application_version(ROOT)
+    environment=bundle_platform()
     if binaries is None:
         env=dict(os.environ)
         flags=env['CARGO_ENCODED_RUSTFLAGS'].split('\x1f') if env.get('CARGO_ENCODED_RUSTFLAGS') else shlex.split(env.get('RUSTFLAGS',''))
@@ -16,6 +18,10 @@ def build(output,binaries=None):
         subprocess.run(['cargo','build','--release','--locked','-p','decksmithd','-p','decksmithctl','--features','decksmithd/hardware,decksmithctl/hardware'],cwd=ROOT,check=True,env=env)
         target=Path(env.get('CARGO_TARGET_DIR',ROOT/'target'))
         binaries=(target if target.is_absolute() else ROOT/target)/'release'
+    # Reject binaries that cannot run on the named build environment, including
+    # Fedora binaries copied to a Debian bundle. These checks do not open USB.
+    for name,args in (('decksmithd',['--self-check']),('decksmithd',['--virtual-once']),('decksmithctl',['--help'])):
+        subprocess.run([str(Path(binaries)/name),*args],check=True,capture_output=True,text=True,timeout=15)
     files=compiled_catalogs(ROOT)
     with tempfile.TemporaryDirectory() as temporary:
         for name in ('decksmithd','decksmithctl'):
@@ -32,8 +38,8 @@ def build(output,binaries=None):
     source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True).strip())
     hashes={name:digest(data) for name,data in files.items()}
-    identity=version+'-'+digest(json.dumps({'files':hashes,'source':source,'application_version':version},sort_keys=True).encode())[:12]
-    manifest={'format':'decksmith-release','version':1,'id':identity,'application_version':version,'source_commit':source,'source_dirty':dirty,'platform':'Linux','architecture':platform.machine(),'tested_distribution':'Fedora 44','files':hashes}
+    identity=version+'-'+digest(json.dumps({'files':hashes,'source':source,'application_version':version,**environment},sort_keys=True).encode())[:12]
+    manifest={'format':'decksmith-release','version':1,'id':identity,'application_version':version,'source_commit':source,'source_dirty':dirty,**environment,'files':hashes}
     files['release.json']=json.dumps(manifest,sort_keys=True,indent=2).encode()
     output=Path(output);output.mkdir(parents=True,exist_ok=True);destination=output/('decksmith-'+identity+'.tar.gz')
     write_archive(destination,files);atomic(destination.with_suffix(destination.suffix+'.sha256'),(digest(destination.read_bytes())+'  '+destination.name+'\n').encode())

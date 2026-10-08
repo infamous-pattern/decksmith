@@ -116,3 +116,23 @@ class CandidateAdmission(unittest.TestCase):
         with patch.object(CANDIDATE, 'release_files', side_effect=replace_input):
             self.prepare()
         self.assertEqual((self.output / CANDIDATE.SUBJECTS[0]).read_bytes(), original)
+
+
+class DebianCandidateAdmission(CandidateAdmission):
+    def test_debian_requires_explicit_target_and_uses_distinct_archive(self):
+        self.manifest['tested_distribution'] = 'Debian 13'
+        self.write_bundle()
+        with self.assertRaises(ValueError):
+            self.prepare()
+        CANDIDATE.prepare(self.archive, self.output, SOURCE, target='debian13')
+        archive = self.output / 'decksmith-debian13-x86_64.tar.gz'
+        self.assertEqual(archive.read_bytes(), self.archive.read_bytes())
+        self.assertFalse((self.output / CANDIDATE.SUBJECTS[0]).exists())
+        metadata = json.loads((self.output / 'candidate.json').read_text())
+        self.assertEqual(metadata['target'], 'debian13')
+        self.assertIn(archive.name, metadata['files'])
+
+    def test_fedora_archive_cannot_be_staged_as_debian(self):
+        with self.assertRaises(ValueError):
+            CANDIDATE.prepare(self.archive, self.output, SOURCE, target='debian13')
+        self.assertFalse(self.output.exists())

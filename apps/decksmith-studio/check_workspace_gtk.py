@@ -1,5 +1,6 @@
 """Native shell regression check. Run from the repo root; fake writes only.
 --render uses the live daemon's read-only image methods. No device actions are sent.
+--headless permits a compositor without input focus; it does not certify keyboard traversal.
 """
 import sys,json,time,traceback,resource
 sys.dont_write_bytecode=True
@@ -92,12 +93,18 @@ def tick():
    assert ed.key==3 and ed.label.get_text()=='Test label';assert not ed.shell.test.get_sensitive()
    for i,name in enumerate(ed.shell.nav):
     assert ed.history_shortcut(None,panel.Gdk.KEY_1+i,0,panel.Gdk.ModifierType.ALT_MASK)
-    assert ed.shell.section==name and ed.shell.nav[name].has_focus()
+    assert ed.shell.section==name
+    if '--headless' in sys.argv and not ed.is_active():
+     assert ed.shell.nav[name].is_focus(), 'Shortcut did not set logical focus'
+    else:assert ed.shell.nav[name].has_focus()
    ed.shell.navigate('keys');ed.shell.nav['keys'].grab_focus()
    ed.allocate(ed.get_width(),ed.get_height(),-1,None);visible_fields(ed)
    snapshot(ed,'keys');ed.history_step(False);assert ed.label.get_text()!='Test label'
    stage=11;return True
   if stage==11:
+   if '--headless' in sys.argv and not ed.is_active():
+    print('SKIP compositor keyboard-focus traversal: headless window has no input focus',flush=True)
+    stage=12;return True
    ed.shell.nav['keys'].grab_focus()
    visited=set()
    for _ in range(180):

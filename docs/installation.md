@@ -18,6 +18,11 @@ testing through the [cross-distribution VM matrix](v1-release-scope.md#current-v
 but Fedora 44 remains the only supported V1 platform. Broad, supported
 GNOME/Wayland distribution compatibility is a V1.5 goal.
 
+A [Debian 13 native build and compatibility checkpoint](debian-native-build.md)
+now resolves the Fedora binary's glibc mismatch and documents Debian dependencies
+and isolated installation checks. It is development test coverage, not a signed
+Debian release or an expansion of V1's supported platforms.
+
 The [release-authenticity workflow](release-authenticity.md) produces
 CI-built candidates with signed build provenance. V1's public downloads passed
 verification against the accepted candidate. Existing preview downloads and
@@ -51,6 +56,8 @@ installed runtime. Build with `python3 scripts/build-bundle.py`; the builder use
 the locked dependency graph and hardware features. `--binaries DIR` packages already
 built hardware-enabled binaries. Development bundles record the source commit and
 whether uncommitted changes were present.
+They also identify the native build distribution and C-library environment;
+incompatible copied binaries are rejected before packaging.
 
 ## One-command installation
 

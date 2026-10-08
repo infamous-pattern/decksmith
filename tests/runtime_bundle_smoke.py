@@ -34,14 +34,13 @@ with log.open('w') as output:
         if '--native' in sys.argv:
             call('ShowPage',GLib.Variant('(y)',(1,)))
             import panel
-            from editor import Editor
             panel.read_status=lambda:dict(json.loads(call('GetStatus')[0]),running=True)
             app=panel.Panel();app.set_application_id('cc.senecal.Decksmith.BundleTest')
             errors=[];began=time.monotonic();selected=[]
             def inspect():
                 try:
-                    if time.monotonic()-began>12:raise RuntimeError('Editor preview timeout')
                     ed=app.editor
+                    if time.monotonic()-began>12:raise RuntimeError(f'Editor preview timeout: visible={ed.get_visible()}, pending={ed.pending}, keys={ed.key_preview.rendered}/{ed.key_preview.revision}, touch={ed.touch_preview.rendered_revision}/{ed.touch_preview.revision}')
                     if ed.draft is None or ed.pending or ed.key_preview.rendered!=ed.key_preview.revision or ed.touch_preview.rendered_revision!=ed.touch_preview.revision:return True
                     assert app.edit_button.get_sensitive()
                     assert ed.page==1
@@ -54,7 +53,9 @@ with log.open('w') as output:
                     print('PASS relocated native panel/editor, keys, strip and icons',flush=True)
                     app.quit();return False
                 except BaseException as error:errors.append(error);app.quit();return False
-            def show(_):app.editor=Editor(app,call);GLib.timeout_add(300,inspect)
+            # Panel presents its integrated editor during activation. Creating
+            # another unpresented Editor here leaves every preview unmapped.
+            def show(_):GLib.timeout_add(300,inspect)
             app.connect('activate',show);app.run(None)
             if errors:raise errors[0]
         print('PASS private-bus VirtualDeck startup, shared previews, page navigation, save and layout validation',flush=True)

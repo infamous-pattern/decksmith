@@ -12,7 +12,17 @@ SUBJECTS = ('decksmith-linux-x86_64.tar.gz', 'decksmith-install.py',
             'package_io.py', 'INSTALL.md')
 
 
-def prepare(archive, output, expected_source):
+TARGETS = {
+    'fedora44': ('Fedora 44', SUBJECTS[0]),
+    'debian13': ('Debian 13', 'decksmith-debian13-x86_64.tar.gz'),
+}
+
+
+def prepare(archive, output, expected_source, *, target='fedora44'):
+    if target not in TARGETS:
+        raise ValueError('Unknown candidate target')
+    distribution, archive_name = TARGETS[target]
+    subjects = (archive_name,) + SUBJECTS[1:]
     if not re.fullmatch(r'[0-9a-f]{40}', expected_source):
         raise ValueError('Expected source must be a full Git commit SHA.')
     archive, output = Path(archive), Path(output)
@@ -34,12 +44,12 @@ def prepare(archive, output, expected_source):
         raise ValueError('Release candidates require a clean source tree.')
     if (manifest.get('platform') != 'Linux' or
             manifest.get('architecture') != 'x86_64' or
-            manifest.get('tested_distribution') != 'Fedora 44'):
-        raise ValueError('Candidate must target Fedora 44 Linux x86_64.')
+            manifest.get('tested_distribution') != distribution):
+        raise ValueError('Candidate must target ' + distribution + ' Linux x86_64.')
     companions = {'decksmith-install.py': 'scripts/decksmith-install.py',
                   'package_io.py': 'scripts/package_io.py',
                   'INSTALL.md': 'docs/installation.md'}
-    downloads = {SUBJECTS[0]: archive_bytes}
+    downloads = {archive_name: archive_bytes}
     for name, member in companions.items():
         path = archive.parent / name
         if path.is_symlink() or path.read_bytes() != files.get(member):
@@ -54,10 +64,10 @@ def prepare(archive, output, expected_source):
         for name, data in downloads.items():
             atomic(staged / name, data)
         atomic(staged / 'SHA256SUMS', ''.join(
-            digest(downloads[name]) + '  ' + name + '\n' for name in SUBJECTS).encode())
+            digest(downloads[name]) + '  ' + name + '\n' for name in subjects).encode())
         atomic(staged / 'candidate.json', json.dumps({
             'format': 'decksmith-release-candidate', 'version': 1,
-            'bundle': manifest['id'], 'source_commit': expected_source,
+            'bundle': manifest['id'], 'target': target, 'source_commit': expected_source,
             'files': {name: digest(data) for name, data in downloads.items()},
             'qualification': 'pending; staging is not release acceptance',
         }, indent=2, sort_keys=True).encode())
@@ -70,8 +80,9 @@ if __name__ == '__main__':
     parser.add_argument('archive', type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--expected-source', required=True)
+    parser.add_argument('--target', choices=TARGETS, default='fedora44')
     args = parser.parse_args()
     try:
-        print(prepare(args.archive, args.output, args.expected_source))
+        print(prepare(args.archive, args.output, args.expected_source, target=args.target))
     except (ValueError, OSError) as error:
         parser.exit(1, str(error) + '\n')
