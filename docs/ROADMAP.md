@@ -37,7 +37,9 @@ Runtime package hints follow Ubuntu/Debian ancestry; GNOME-only DND correctly
 reports unavailable. The bounded initial monitor lookup does not fully fix small
 1280×800 launches: COSMIC can still select 900×540 and clip controls; enlarge the
 window. Physical USB/audio, lifecycle recovery, resources and COSMIC-specific
-integration remain unqualified. Experimental prerelease publication is pending.
+integration remain unqualified. The experimental `v1.0.0-popos-preview.1` prerelease is published; fresh downloads
+matched and verified. Test controls are stopped and the VM is shut off with
+autostart disabled.
 See the [signed COSMIC qualification record](checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
 
 ## V1.5 feature plan — organized October 8

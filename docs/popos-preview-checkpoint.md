@@ -79,7 +79,9 @@ References: [System76 Pop!_OS](https://system76.com/pop) and
 The final candidate 1.0.0-5b198a52075d passed independent signature/archive admission,
 isolated installation/recovery and native COSMIC tests, followed by normal
 installation and service start/stop. The user accepted the editor and file picker.
-Public prerelease approval/download verification are pending.
+The user approved the experimental prerelease; all seven fresh public downloads
+matched and passed signature/archive verification again. The test VM is shut off
+with autostart disabled.
 [Installation guide](popos-preview-installation.md) and
 [qualification record](checkpoints/2026-10-09-popos-cosmic-signed-preview.md)
 record exact identity and the remaining limits.

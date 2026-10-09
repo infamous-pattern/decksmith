@@ -20,9 +20,9 @@ results are diagnostic and do not certify supported installations. Broad
 supported GNOME/Wayland distribution compatibility is a **V1.5 goal**, alongside
 general plugin support. See the [V1 release plan](docs/v1-release-scope.md).
 
-**Additional initial testing:** Pop!_OS 24.04 with COSMIC is being qualified as a
-separate experimental preview. Its Ubuntu 24.04 build baseline and desktop-specific
-limits are documented in the [COSMIC preview checkpoint](docs/popos-preview-checkpoint.md).
+**Additional initial testing:** Pop!_OS 24.04 with COSMIC has a separate
+experimental preview. Its Ubuntu 24.04 build baseline and desktop-specific limits
+are documented in the [COSMIC qualification record](docs/checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
 
 ## Watch Decksmith V1
 
@@ -84,6 +84,24 @@ package. Physical USB/audio, system actions, lifecycle recovery and GNOME
 extension compatibility remain unqualified. Ubuntu is **experimental**; Fedora
 Workstation 44 remains the supported V1 platform. See the
 [qualification record and limits](docs/checkpoints/2026-10-08-ubuntu-signed-preview.md).
+
+## Experimental Pop!_OS 24.04 COSMIC preview
+
+The [signed Pop!_OS 24.04 COSMIC x86_64 preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1)
+uses a separate Ubuntu 24.04 library baseline and includes the optional dual-arc
+touch-strip gauges. Follow the [verified COSMIC installation guide](docs/popos-preview-installation.md);
+the Fedora URL installer and Ubuntu 26.04 archive are not COSMIC installers.
+A Rust compiler is not needed to run it.
+
+The exact signed package passed VM installation, saved-data recovery, native
+editor/VirtualDeck tests and normal service start/stop. The user accepted editor
+layout, stable key/dial sizing, keyboard navigation/focus and the artwork picker
+on COSMIC at 1920×1200. Small 1280×800 launches can clip controls; enlarge the
+window. Physical USB/audio, system actions, lifecycle recovery, Orca speech and
+resource qualification remain untested. GNOME extensions and desktop-specific
+actions are not COSMIC integrations; keep Auto-Lock off until real COSMIC
+lock/unlock acceptance. COSMIC is **experimental**; Fedora Workstation 44 remains
+the supported V1 platform. See the [qualification record and limits](docs/checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
 
 ## Interface preview
 

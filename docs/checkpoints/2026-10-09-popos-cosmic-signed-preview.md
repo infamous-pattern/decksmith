@@ -81,8 +81,12 @@ controls; manually enlarge it. The initial monitor lookup is bounded before map,
 but the small-display limitation is not claimed fixed. Native tests at the
 reviewed 1920×1200 display mapped the editor at 1280×736 without forced resizing.
 
-The signed candidate is qualified for this limited experimental preview scope.
-Public release approval and fresh public-download verification are pending.
-[Verified installation instructions](../popos-preview-installation.md) are ready
-for the proposed `v1.0.0-popos-preview.1` prerelease; download URLs become usable
-only after publication. Signed metadata retains its original staging text.
+The user approved publication within this limited experimental scope. The
+[experimental COSMIC prerelease](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1)
+is published. Fresh public copies of all seven assets matched the tested package
+and signing bundle byte-for-byte; all six signed subjects passed provenance,
+checksum and archive admission again. Fedora `v1.0.0` remains the latest stable
+release. The user saved and closed VM edits; test controls were stopped and the
+COSMIC VM shut down cleanly with autostart disabled.
+[Verified installation instructions](../popos-preview-installation.md) identify
+this exact package. Signed metadata retains its original staging text.
