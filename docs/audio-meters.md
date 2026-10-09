@@ -1,13 +1,14 @@
 # Live audio meters
 
 Implemented September 13, 2026 for the Stream Deck + prototype. The October 9
-local test build adds the dual-arc presentation below; this is not yet in a
-published download.
+development build adds the dual-arc presentation below, also included in the
+[experimental COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1).
+The original Fedora V1, Debian and Ubuntu downloads retain the classic display.
 
 ## Touch-strip styles
 
-Choose a dial's **Appearance → Touch-strip style** in Keys & Dials. The local
-test build defaults existing audio and device-brightness dials to **Dual-arc
+Choose a dial's **Appearance → Touch-strip style** in Keys & Dials. The updated
+build defaults existing audio and device-brightness dials to **Dual-arc
 gauge** without rewriting saved assignments. **Classic bar** remains available
 per dial, including shared defaults and page overrides.
 
@@ -31,7 +32,8 @@ missing measurements, mute, enlarged text, style persistence and preview/device
 pixel parity. On October 9 the user accepted the installed local build's physical
 audio-dial/mute response, blue setting arc, independent signal arc, red Muted and
 crossed-out icon, and green microphone Live text. A controlled resource comparison
-remains before public release.
+remains before a public Fedora gauge update. COSMIC resource use and physical
+hardware/audio remain unqualified in its experimental preview.
 
 ## Classic bar presentation
 

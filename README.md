@@ -24,6 +24,30 @@ general plugin support. See the [V1 release plan](docs/v1-release-scope.md).
 experimental preview. Its Ubuntu 24.04 build baseline and desktop-specific limits
 are documented in the [COSMIC qualification record](docs/checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
 
+## New touch-strip dial gauges
+
+The dual-arc design keeps volume and audio activity easy to tell apart: the
+**inner blue arc and pointer** show your volume setting, while the **outer arc**
+responds to the target's live audio signal. Device brightness uses the blue
+setting arc without an audio meter.
+
+![Decksmith touch strip with blue volume gauges, independent signal meters, green microphone Live status and device brightness](docs/images/decksmith-dial-gauges.png?v=0b74777f09e5)
+
+Muted inputs keep the red crossed-out device icon and **Muted** text, without a
+red border. Unmuted microphone controls show **Live** in green.
+
+![The same Decksmith touch strip with the microphone muted, showing a red crossed-out microphone and red Muted text](docs/images/decksmith-dial-gauges-muted.png?v=d8684d20ec65)
+
+Choose **Keys & Dials → select a dial → Appearance → Touch-strip style** to use
+**Dual-arc gauge** or **Classic bar**, with shared defaults or page overrides.
+These images use demonstration values from the same renderer as the physical
+Stream Deck; they are static examples of a live display.
+
+**Availability:** included in the current development build and the
+[experimental COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1).
+The original Fedora V1, Debian and Ubuntu downloads retain their earlier display.
+[Meter behavior and limitations](docs/audio-meters.md).
+
 ## Watch Decksmith V1
 
 [![Watch the Decksmith V1 interface tour on YouTube](docs/images/decksmith-v1-tour-thumbnail.png?v=9b6638d3457e)](https://www.youtube.com/watch?v=ZJG1n_8rGNY)
@@ -139,7 +163,7 @@ editor leaves background controls running.
 
 ![Decksmith key editor showing a Lock Desktop system action](docs/images/decksmith-keys.png?v=398cb45aebf1)
 
-**Dials — choose audio targets, rotation and press behavior, and touch-strip styling.**
+**Dials — choose audio targets, rotation and press behavior, and touch-strip styling (classic bar shown).**
 
 ![Decksmith dial editor with audio assignment and touch-strip preview](docs/images/decksmith-dials.png?v=e5c77595d635)
 
