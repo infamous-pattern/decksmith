@@ -38,7 +38,8 @@ release support: physical USB/audio, lifecycle recovery, accessibility and
 COSMIC-specific desktop integration remain unqualified. Runtime package hints
 now follow Ubuntu/Debian ancestry for Pop!_OS; the focused regression checks pass.
 The normal COSMIC launch initially chooses a small 900×540 window and clips some
-preview content; initial sizing/responsive layout needs follow-up. The native
+preview content; the initial monitor lookup is corrected in the COSMIC candidate
+source and awaits exact-package acceptance. The native
 editor checks used 1200×700, where the tabs and key/dial settings rendered correctly.
 
 ## V1.5 feature plan — organized October 8

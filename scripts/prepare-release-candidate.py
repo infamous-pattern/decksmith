@@ -16,6 +16,8 @@ TARGETS = {
     'fedora44': ('Fedora 44', SUBJECTS[0]),
     'debian13': ('Debian 13', 'decksmith-debian13-x86_64.tar.gz'),
     'ubuntu2604': ('Ubuntu 26.04', 'decksmith-ubuntu2604-x86_64.tar.gz'),
+    # Honest build environment: COSMIC qualification happens in Pop!_OS's VM.
+    'popos2404': ('Ubuntu 24.04', 'decksmith-popos2404-x86_64.tar.gz'),
 }
 
 

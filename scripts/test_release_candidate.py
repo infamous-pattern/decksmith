@@ -157,3 +157,20 @@ class UbuntuCandidateAdmission(CandidateAdmission):
         with self.assertRaises(ValueError):
             CANDIDATE.prepare(self.archive, self.output, SOURCE, target='ubuntu2604')
         self.assertFalse(self.output.exists())
+
+    def test_cosmic_requires_its_own_archive_and_actual_ubuntu24_build_environment(self):
+        for distribution in ('Fedora 44', 'Debian 13', 'Ubuntu 26.04', 'Pop!_OS 24.04'):
+            self.manifest['tested_distribution'] = distribution
+            self.write_bundle()
+            with self.assertRaises(ValueError):
+                CANDIDATE.prepare(self.archive, self.output, SOURCE, target='popos2404')
+            self.assertFalse(self.output.exists())
+        self.manifest['tested_distribution'] = 'Ubuntu 24.04'
+        self.write_bundle()
+        with self.assertRaises(ValueError):
+            self.prepare()
+        CANDIDATE.prepare(self.archive, self.output, SOURCE, target='popos2404')
+        archive = self.output / 'decksmith-popos2404-x86_64.tar.gz'
+        self.assertEqual(archive.read_bytes(), self.archive.read_bytes())
+        metadata = json.loads((self.output / 'candidate.json').read_text())
+        self.assertEqual(metadata['target'], 'popos2404')

@@ -68,7 +68,13 @@ class Editor(Adw.ApplicationWindow):
         self.pool = ThreadPoolExecutor(max_workers=1)
         # Monitor geometry is an upper bound; the compositor applies the actual
         # work area (panels/docks) when mapping the window, including on Wayland.
-        monitor=Gdk.Display.get_default().get_monitor_at_surface(owner.window.get_surface()) if owner.window.get_surface() else None
+        display=Gdk.Display.get_default()
+        monitor=display.get_monitor_at_surface(owner.window.get_surface()) if owner.window.get_surface() else None
+        # The integrated window replaces an unmapped parent at first launch.
+        # Still bound its initial request to an available monitor: COSMIC can
+        # otherwise reject an oversized request and fall back to the minimum.
+        if monitor is None and display.get_monitors().get_n_items():
+            monitor=display.get_monitors().get_item(0)
         bounds=monitor.get_geometry() if monitor else None
         self.set_default_size(min(1440,bounds.width-64) if bounds else 1440,
                               min(900,bounds.height-96) if bounds else 900)

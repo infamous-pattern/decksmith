@@ -28,6 +28,8 @@ TARGETS = {
                  REPOSITORY + '/.github/workflows/debian-candidate.yml'),
     'ubuntu2604': ('Ubuntu 26.04', 'decksmith-ubuntu2604-x86_64.tar.gz',
                    REPOSITORY + '/.github/workflows/ubuntu-candidate.yml'),
+    'popos2404': ('Ubuntu 24.04', 'decksmith-popos2404-x86_64.tar.gz',
+                  REPOSITORY + '/.github/workflows/popos-candidate.yml'),
 }
 
 

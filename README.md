@@ -20,6 +20,10 @@ results are diagnostic and do not certify supported installations. Broad
 supported GNOME/Wayland distribution compatibility is a **V1.5 goal**, alongside
 general plugin support. See the [V1 release plan](docs/v1-release-scope.md).
 
+**Additional initial testing:** Pop!_OS 24.04 with COSMIC is being qualified as a
+separate experimental preview. Its Ubuntu 24.04 build baseline and desktop-specific
+limits are documented in the [COSMIC preview checkpoint](docs/popos-preview-checkpoint.md).
+
 ## Watch Decksmith V1
 
 [![Watch the Decksmith V1 interface tour on YouTube](docs/images/decksmith-v1-tour-thumbnail.png?v=9b6638d3457e)](https://www.youtube.com/watch?v=ZJG1n_8rGNY)

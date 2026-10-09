@@ -230,4 +230,17 @@ class UbuntuVerifiedInstallTests(DebianVerifiedInstallTests):
         self.assertNotEqual(ubuntu[2][0], debian[2][0])
 
 
+class CosmicVerifiedInstallTests(DebianVerifiedInstallTests):
+    target = 'popos2404'
+
+    def test_gnome_preview_signers_and_archives_cannot_be_substituted(self):
+        cosmic = VERIFIER.target_config(self.target)
+        self.assertEqual(cosmic[0], 'Ubuntu 24.04')
+        self.assertTrue(cosmic[1].endswith('/popos-candidate.yml'))
+        for target in ('fedora44', 'debian13', 'ubuntu2604'):
+            other = VERIFIER.target_config(target)
+            self.assertNotEqual(cosmic[1], other[1])
+            self.assertNotEqual(cosmic[2][0], other[2][0])
+
+
 if __name__ == '__main__':unittest.main()
