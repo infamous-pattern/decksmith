@@ -1,0 +1,146 @@
+1
+00:00:00,000 --> 00:00:06,000
+Decksmith update: new dial gauges and experimental Linux
+previews.
+
+2
+00:00:06,000 --> 00:00:11,000
+Fedora Workstation 44: supported platform. Development
+build shown.
+
+3
+00:00:11,000 --> 00:00:19,000
+Fedora Workstation 44. The default desktop wallpaper
+stays visible behind the native Decksmith editor.
+
+4
+00:00:19,000 --> 00:00:26,000
+Fedora Workstation 44. Pages and themes share one
+workspace, with the device preview alongside.
+
+5
+00:00:26,000 --> 00:00:31,000
+Keys & Dials: actions and appearance stay in the native
+editor.
+
+6
+00:00:31,000 --> 00:00:38,000
+Fedora Workstation 44. Customize key actions and
+appearance in the foreground editor.
+
+7
+00:00:38,000 --> 00:00:45,000
+Fedora Workstation 44. Choose audio targets, dial
+actions and touch-strip appearance.
+
+8
+00:00:45,000 --> 00:00:50,000
+Dual-arc gauges show volume and audio activity
+separately.
+
+9
+00:00:50,000 --> 00:00:58,000
+The blue arc shows configured volume. The outer arc
+shows illustrative audio activity.
+
+10
+00:00:58,000 --> 00:01:03,000
+Red means Muted. Green means the microphone is Live.
+
+11
+00:01:03,000 --> 00:01:11,000
+Muted shows a red crossed-out microphone and red text,
+without a red panel border.
+
+12
+00:01:11,000 --> 00:01:16,000
+Single-arc meter: audio activity, with the volume
+percentage beside it.
+
+13
+00:01:16,000 --> 00:01:24,000
+The single activity arc keeps the percentage on the
+right and preserves assigned dial actions.
+
+14
+00:01:24,000 --> 00:01:29,000
+Fedora 45 Beta: compatibility testing; Fedora 44 remains
+supported.
+
+15
+00:01:29,000 --> 00:01:37,000
+Fedora Workstation 45 Beta. The signed Fedora V1 app
+runs in the Fedora 45 Beta test desktop.
+
+16
+00:01:37,000 --> 00:01:44,000
+Fedora Workstation 45 Beta. The V1 dial editor retains
+its earlier bar display.
+
+17
+00:01:44,000 --> 00:01:49,000
+Debian 13: signed experimental preview. See GitHub for
+installation.
+
+18
+00:01:49,000 --> 00:01:57,000
+Debian 13. The signed preview runs in front of the
+default OS wallpaper.
+
+19
+00:01:57,000 --> 00:02:03,000
+Debian 13. Manage pages and themes in the native editor.
+
+20
+00:02:03,000 --> 00:02:10,000
+Debian 13. Preview dial assignments using a private
+VirtualDeck.
+
+21
+00:02:10,000 --> 00:02:15,000
+Ubuntu 26.04: signed experimental preview. See GitHub
+for installation.
+
+22
+00:02:15,000 --> 00:02:23,000
+Ubuntu 26.04. The signed preview runs in front of the
+default OS wallpaper.
+
+23
+00:02:23,000 --> 00:02:29,000
+Ubuntu 26.04. Manage pages and themes in the native
+editor.
+
+24
+00:02:29,000 --> 00:02:36,000
+Ubuntu 26.04. Preview dial assignments using a private
+VirtualDeck.
+
+25
+00:02:36,000 --> 00:02:41,000
+Pop!_OS 24.04 COSMIC: signed experimental preview.
+
+26
+00:02:41,000 --> 00:02:49,000
+Pop!_OS 24.04 / COSMIC. The signed preview runs in front
+of the default OS wallpaper.
+
+27
+00:02:49,000 --> 00:02:55,000
+Pop!_OS 24.04 / COSMIC. Manage pages and themes in the
+native editor.
+
+28
+00:02:55,000 --> 00:03:02,000
+Pop!_OS 24.04 / COSMIC. Preview dial assignments using a
+private VirtualDeck.
+
+29
+00:03:02,000 --> 00:03:07,000
+Preview VM checks passed. Hardware, audio and recovery
+testing is pending.
+
+30
+00:03:07,000 --> 00:03:17,000
+Try Decksmith and share feedback on GitHub. Built with
+ChatGPT and Codex assistance.

@@ -55,18 +55,31 @@ the published COSMIC preview.
 
 ![Decksmith mixed touch-strip styles: dual-arc speakers, single-arc browser and microphone Live meters, and brightness](docs/images/decksmith-single-arc-meter.png?v=50e23c1281bb)
 
-## Watch Decksmith V1
+## Watch the desktop tour and new gauges
 
-[![Watch the Decksmith V1 interface tour on YouTube](docs/images/decksmith-v1-tour-thumbnail.png?v=9b6638d3457e)](https://www.youtube.com/watch?v=ZJG1n_8rGNY)
+[![Watch the Decksmith Linux desktop tour and new dial gauges on YouTube](docs/images/decksmith-desktop-tour-thumbnail.png?v=9a8e3926581d)](https://www.youtube.com/watch?v=wQgieOBo1VM)
 
-**[Watch the 2-minute 58-second V1 tour](https://www.youtube.com/watch?v=ZJG1n_8rGNY)** · [English subtitles](docs/images/decksmith-v1-tour.srt)
+**[Watch the 3-minute 17-second desktop tour](https://www.youtube.com/watch?v=wQgieOBo1VM)** · [English subtitles](docs/images/decksmith-desktop-tour.srt)
 
-Explore Home, Pages, Keys & Dials, and About in native interface captures from
-Fedora Workstation 44, Fedora Workstation 45 Beta and Ubuntu 26.04 test VMs.
-The tour uses VirtualDeck and a sample layout; it does not demonstrate physical
-USB hardware or live meter performance. **Fedora Workstation 44 remains the
-supported V1 platform**; the other systems are compatibility demonstrations.
-Experimental plugins are not covered. The video includes captions and music.
+See Decksmith in the foreground of actual 1920 × 1200 test desktops: Fedora
+Workstation 44, Fedora Workstation 45 Beta, Debian 13, Ubuntu 26.04 and
+Pop!_OS 24.04 COSMIC, with their default wallpapers. Close-ups show the new
+dual-arc gauges, mute/Live states and the single-arc development option.
+
+**Fedora Workstation 44 remains the supported V1 platform.** Debian, Ubuntu
+and COSMIC are experimental previews. Dual-arc gauges are available in the
+COSMIC preview and current development build; single-arc is development only.
+The original Fedora V1 and Debian/Ubuntu downloads retain their earlier display.
+COSMIC does not inherit GNOME-only integrations.
+
+The editor captures use a private VirtualDeck and sample layouts; gauge
+close-ups use illustrative activity values from the shared device renderer.
+These are interface demonstrations, not physical USB/audio or latency tests.
+Experimental plugins are not shown. The video includes English captions,
+music credits and disclosure of ChatGPT/Codex assistance.
+
+The [original V1 interface tour](https://www.youtube.com/watch?v=ZJG1n_8rGNY)
+and its [English subtitles](docs/images/decksmith-v1-tour.srt) remain available.
 
 ## Install V1 (Fedora Workstation 44 x86_64)
 

@@ -57,3 +57,29 @@ The single activity arcs sit left of the configured volume percentage; microphon
 Live/Muted uses the same right-hand readout as Dual-arc. The image verifies mixed
 styles without changing assigned actions. Single-arc
 is newer than the published COSMIC preview; the existing signed assets are unchanged.
+
+## Linux desktop tour and new gauges — October 9, 2026
+
+`decksmith-desktop-tour-thumbnail.png` and `decksmith-desktop-tour.srt` accompany
+the approved [desktop tour](https://www.youtube.com/watch?v=wQgieOBo1VM),
+hosted on James Senecal's YouTube channel. The 3-minute 17-second video uses
+fresh actual 1920 × 1200 desktop captures from Fedora Workstation 44, Fedora
+Workstation 45 Beta, Debian 13, Ubuntu 26.04 and Pop!_OS 24.04 COSMIC, with
+native GTK editors in the foreground and each system's default wallpaper.
+
+The editor uses a private VirtualDeck and sample layouts. Gauge close-ups use
+the shared Rust device renderer with illustrative activity values, not live
+audio. The Fedora 44 editor shows the current development build; Fedora 45
+Beta shows signed V1. Debian/Ubuntu show their signed experimental previews,
+and COSMIC shows its signed dual-arc preview. Single-arc is development only.
+These captures do not qualify physical USB/audio, recovery or latency on the
+experimental systems. The existing signed release files are unchanged.
+
+The light-themed cut uses half-second fades and title cards with at least four
+seconds of stationary reading time. English captions, ChatGPT/Codex assistance
+disclosure and music credits accompany it. Music is “Morning Calm” by Harris
+Heller / StreamBeats, under the StreamBeats licensing terms; remixing is disabled
+on YouTube. Experimental plugins are not shown. The MP4 is hosted on YouTube,
+keeping video data out of source history; earlier tour assets remain available.
+
+Video SHA-256: `dae761fd9cb3588e1df98129fdfc203d28ff3047399db525c246dc3602258606`.
