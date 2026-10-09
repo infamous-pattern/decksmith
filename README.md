@@ -48,6 +48,13 @@ Stream Deck; they are static examples of a live display.
 The original Fedora V1, Debian and Ubuntu downloads retain their earlier display.
 [Meter behavior and limitations](docs/audio-meters.md).
 
+**Also in development: Single-arc meter.** One wider arc displays audio activity
+only, with no volume percentage or pointer; assigned turn/press actions stay
+unchanged. Choose it from the same Touch-strip style selector. It is newer than
+the published COSMIC preview.
+
+![Decksmith mixed touch-strip styles: dual-arc speakers, single-arc browser and microphone Live meters, and brightness](docs/images/decksmith-single-arc-meter.png?v=1fe80e63f8f8)
+
 ## Watch Decksmith V1
 
 [![Watch the Decksmith V1 interface tour on YouTube](docs/images/decksmith-v1-tour-thumbnail.png?v=9b6638d3457e)](https://www.youtube.com/watch?v=ZJG1n_8rGNY)

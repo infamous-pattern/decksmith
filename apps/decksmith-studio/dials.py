@@ -5,6 +5,7 @@ from media_picker import MediaPicker
 from gi.repository import Adw,Gtk
 
 ROTATIONS=['none','volume','brightness']
+DISPLAY_STYLES=['dual_arc','bar','single_arc']
 PRESSES=['none','mute_toggle','next_page','previous_page','media_play_pause','media_previous','media_next','push_to_talk']
 
 from dial_model import defaults,effective,is_override,customize,revert,store
@@ -46,8 +47,8 @@ class DialControls(Gtk.Box):
         self.catalog.set_visible(False)
         appearance=Adw.PreferencesGroup();box.append(appearance)
         self.appearance_group=Adw.ExpanderRow(title='Appearance',subtitle='Gauge style, font and colors');appearance.add(self.appearance_group)
-        self.display_style=Adw.ComboRow(title='Touch-strip style',model=Gtk.StringList.new(['Dual-arc gauge','Classic bar']))
-        self.display_style.set_tooltip_text('Inner blue arc: volume setting. Outer arc: live audio activity. Classic bar keeps the previous display.')
+        self.display_style=Adw.ComboRow(title='Touch-strip style',model=Gtk.StringList.new(['Dual-arc gauge','Classic bar','Single-arc meter']))
+        self.display_style.set_tooltip_text('Dual-arc: volume plus audio activity. Single-arc: audio activity only; assigned dial actions stay unchanged. Classic bar keeps the previous display. Brightness retains its setting arc.')
         self.display_style.connect('notify::selected',self.changed);self.appearance_group.add_row(self.display_style)
         from theme_dialog import StyleRows
         self.style_rows=StyleRows(self.appearance_group,lambda:self.data[self.index].get('appearance',{}),self.style_changed,('font','size','label_color','background_color'))
@@ -72,7 +73,7 @@ class DialControls(Gtk.Box):
         self.media_player.select(dial.get('media_player',''))
         self.target.select(dial.get('audio_target','system'),inputs_only=dial['press']['type']=='push_to_talk')
         self.step.set_value(dial['step']);self.press.set_selected(PRESSES.index(dial['press']['type']))
-        self.display_style.set_selected(1 if dial.get('display_style')=='bar' else 0)
+        self.display_style.set_selected(DISPLAY_STYLES.index(dial.get('display_style','dual_arc')))
         self.syncing=False;self.validate()
         if hasattr(self,"style_rows"):self.style_rows.sync()
     def clear_homebridge(self,*_):
@@ -147,7 +148,7 @@ class DialControls(Gtk.Box):
         if _args and _args[0] is self.press:plugins.pop('plugin_press',None)
         self.data[self.index]={'label':self.label.get_text(),'rotation':ROTATIONS[self.rotation.get_selected()],'step':round(self.step.get_value()),'press':{'type':PRESSES[self.press.get_selected()]}}
         self.data[self.index].update(plugins)
-        if self.display_style.get_selected()==1:self.data[self.index]['display_style']='bar'
+        if self.display_style.get_selected()!=0:self.data[self.index]['display_style']=DISPLAY_STYLES[self.display_style.get_selected()]
         if appearance:self.data[self.index]['appearance']=appearance
         if target_icon:self.data[self.index]['target_icon_png']=target_icon
         if self.press.get_selected() in (4,5,6) and self.media_player.value():self.data[self.index]['media_player']=self.media_player.value()

@@ -49,3 +49,9 @@ showing the red crossed-out icon and Muted text without a red border. These
 examples describe development/COSMIC-preview artwork, not an update to the
 original V1, Debian or Ubuntu release bytes. Older native editor screenshots
 remain useful for layout and the available Classic bar presentation.
+
+`decksmith-single-arc-meter.png` uses the same private capture method and synthetic
+values with the current development renderer. Speakers retain Dual-arc, Browser
+and Microphone use Single-arc meter, and Brightness retains its setting gauge.
+The image verifies mixed styles without changing assigned actions. Single-arc
+is newer than the published COSMIC preview; the existing signed assets are unchanged.

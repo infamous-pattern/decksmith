@@ -145,6 +145,32 @@ pub fn draw_gauge_value(rgb: &mut [u8], label: &str, color: [u8; 3], typography:
     }
 }
 
+/// Keep meter-only status inside the arc, away from the title and live fill.
+pub fn draw_meter_status(rgb: &mut [u8], label: &str, color: [u8; 3], typography: Typography) {
+    let mut center = Vec::with_capacity(96 * 32 * 3);
+    for y in 60..92 {
+        center.extend_from_slice(&rgb[(y * 200 + 52) * 3..(y * 200 + 148) * 3]);
+    }
+    draw_canvas(
+        &mut center,
+        label,
+        color,
+        Canvas {
+            left_aligned: false,
+            width: 96,
+            height: 32,
+            anchor: 1,
+            size: 24. * typography.scale,
+            font: typography.font,
+            backing: false,
+        },
+    );
+    for y in 0..32 {
+        rgb[((y + 60) * 200 + 52) * 3..((y + 60) * 200 + 148) * 3]
+            .copy_from_slice(&center[y * 96 * 3..(y + 1) * 96 * 3]);
+    }
+}
+
 /// Start titles at x=44, leaving a consistent gap after the 36-pixel icon area.
 #[allow(dead_code)] // The key-only caption example does not use audio titles.
 pub fn draw_strip_audio_title(rgb: &mut [u8], label: &str) {

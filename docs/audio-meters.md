@@ -12,6 +12,16 @@ build defaults existing audio and device-brightness dials to **Dual-arc
 gauge** without rewriting saved assignments. **Classic bar** remains available
 per dial, including shared defaults and page overrides.
 
+The current development build also offers **Single-arc meter** for audio targets.
+It shows one wider centered arc of measured audio activity, without a volume
+percentage or pointer. Existing turn/press actions, target selections and labels
+stay unchanged. Microphone Live and Muted status remains centered inside the arc;
+missing/silent measurements and No Audio retain distinct states without a yellow
+border. Its geometry is cached once and the sampling budget is unchanged.
+Brightness remains a setting gauge because it has no audio signal to meter.
+The published COSMIC preview has Dual-arc and Classic bar; Single-arc is newer
+development work and does not change any existing release assets.
+
 The dual-arc layout keeps the device icon and label across the top, with the
 configured percentage in the right-hand column. The inner blue arc and pointer
 show configured volume or brightness. For audio controls, the independent outer

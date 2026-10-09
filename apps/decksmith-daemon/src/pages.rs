@@ -64,6 +64,7 @@ enum DisplayStyle {
     #[default]
     DualArc,
     Bar,
+    SingleArc,
 }
 impl DisplayStyle {
     fn is_default(&self) -> bool {
@@ -1270,7 +1271,7 @@ impl Pages {
                 let state = self.dial_audio(dial, audio);
                 let level = state.and_then(|_| self.levels.get(target).copied().flatten());
                 let mut panel = [0u8; 200 * 100 * 3];
-                let top = if dial.display_style == DisplayStyle::DualArc {
+                let top = if dial.display_style != DisplayStyle::Bar {
                     35
                 } else {
                     72
@@ -1279,7 +1280,13 @@ impl Pages {
                     let start = (y * 800 + index * 200) * 3;
                     panel[y * 600..(y + 1) * 600].copy_from_slice(&strip[start..start + 600]);
                 }
-                if dial.display_style == DisplayStyle::DualArc {
+                if dial.display_style == DisplayStyle::SingleArc {
+                    crate::dial_gauge::draw_meter_signal(
+                        &mut panel,
+                        level,
+                        state.is_some_and(|s| s.muted),
+                    );
+                } else if dial.display_style == DisplayStyle::DualArc {
                     crate::dial_gauge::draw_signal(
                         &mut panel,
                         level,
@@ -1315,7 +1322,7 @@ impl Pages {
                 if no_audio
                     && self
                         .effective_dials()
-                        .is_some_and(|d| d[index].display_style == DisplayStyle::DualArc)
+                        .is_some_and(|d| d[index].display_style != DisplayStyle::Bar)
                 {
                     let mut style = crate::theme::Style::new(
                         self.config.theme.as_ref(),
@@ -1326,18 +1333,34 @@ impl Pages {
                     if let Some(appearance) = &self.effective_dials().unwrap()[index].appearance {
                         style.apply(appearance);
                     }
-                    for y in 34..94 {
-                        for x in 119..200 {
+                    let meter_only = self.effective_dials().unwrap()[index].display_style
+                        == DisplayStyle::SingleArc;
+                    let (left, right, top, bottom) = if meter_only {
+                        (52, 148, 60, 92)
+                    } else {
+                        (119, 200, 34, 94)
+                    };
+                    for y in top..bottom {
+                        for x in left..right {
                             panel[(y * 200 + x) * 3..(y * 200 + x) * 3 + 3]
                                 .copy_from_slice(&style.background);
                         }
                     }
-                    crate::key_text::draw_gauge_value(
-                        &mut panel,
-                        "No Audio",
-                        style.color,
-                        style.typography(),
-                    );
+                    if meter_only {
+                        crate::key_text::draw_meter_status(
+                            &mut panel,
+                            "No Audio",
+                            style.color,
+                            style.typography(),
+                        );
+                    } else {
+                        crate::key_text::draw_gauge_value(
+                            &mut panel,
+                            "No Audio",
+                            style.color,
+                            style.typography(),
+                        );
+                    }
                     for y in 34..94 {
                         let start = (y * 800 + index * 200) * 3;
                         strip[start..start + 600].copy_from_slice(&panel[y * 600..(y + 1) * 600]);
@@ -1479,7 +1502,8 @@ impl Pages {
                     && (dial.audio_target.as_deref().is_some_and(|target| {
                         target.starts_with("input:") || target == "microphone"
                     }) || matches!(dial.press, Action::PushToTalk { .. }));
-                let gauge = dial.display_style == DisplayStyle::DualArc
+                let meter_only = dial.display_style == DisplayStyle::SingleArc && audio_control;
+                let gauge = dial.display_style != DisplayStyle::Bar
                     && (audio_control || matches!(dial.rotation, Rotation::Brightness));
                 let value_color = if audio_control && audio.is_some_and(|state| state.muted) {
                     [255, 75, 85]
@@ -1490,7 +1514,23 @@ impl Pages {
                 } else {
                     style.accent
                 };
-                if gauge {
+                if meter_only {
+                    let status = if audio.is_some_and(|state| state.muted) {
+                        "Muted"
+                    } else if live {
+                        "Live"
+                    } else if audio.is_none() {
+                        "--"
+                    } else {
+                        ""
+                    };
+                    crate::key_text::draw_meter_status(
+                        &mut panel,
+                        status,
+                        value_color,
+                        style.typography(),
+                    );
+                } else if gauge {
                     crate::key_text::draw_gauge_value(
                         &mut panel,
                         &value,
@@ -1511,7 +1551,9 @@ impl Pages {
                     Rotation::Brightness => self.brightness,
                     Rotation::None => None,
                 };
-                if gauge {
+                if meter_only {
+                    crate::dial_gauge::draw_meter_base(&mut panel);
+                } else if gauge {
                     crate::dial_gauge::draw_base(
                         &mut panel,
                         if audio_control {
@@ -3675,5 +3717,104 @@ mod tests {
         deck.disconnect();
         assert!(p.show(&mut deck, 0).is_err());
         assert_eq!(p.index, 1);
+    }
+    #[test]
+    fn single_meter_ignores_volume_but_preserves_actions_and_device_pixels() {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../../../config/audio.json")).unwrap();
+        let dial = serde_json::json!({"label":"Microphone", "rotation":"volume", "step":1,
+            "audio_target":"input:mic", "press":{"type":"mute_toggle"}, "display_style":"single_arc"});
+        value["dials"] = serde_json::json!([dial, dial, dial, dial]);
+        let original = value["dials"].clone();
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let mut pages = Pages::parse(&bytes).unwrap();
+        let mut deck = decksmith_device::VirtualDeck::default();
+        pages.show(&mut deck, 0).unwrap();
+        let mut baseline = None;
+        for percent in [0, 68, 100] {
+            pages.apply_targets(vec![(
+                "input:mic".into(),
+                Some(crate::audio::State {
+                    percent,
+                    muted: false,
+                    active: Some(true),
+                    icon: crate::audio_icon::Kind::Microphone,
+                }),
+            )]);
+            pages.apply_audio(&mut deck, None).unwrap();
+            pages
+                .apply_levels(
+                    &mut deck,
+                    [("input:mic".into(), Some(42))].into_iter().collect(),
+                )
+                .unwrap();
+            let preview = Pages::parse(&bytes)
+                .unwrap()
+                .preview_touch(0, pages.touch_state())
+                .unwrap();
+            assert_eq!(preview, deck.touch_image());
+            if let Some(previous) = &baseline {
+                assert_eq!(
+                    &preview, previous,
+                    "meter-only display must not change with volume"
+                );
+            }
+            baseline = Some(preview);
+        }
+        for muted in [false, true] {
+            for level in [None, Some(0), Some(100)] {
+                pages.apply_targets(vec![(
+                    "input:mic".into(),
+                    Some(crate::audio::State {
+                        percent: 68,
+                        muted,
+                        active: Some(true),
+                        icon: crate::audio_icon::Kind::Microphone,
+                    }),
+                )]);
+                pages.apply_audio(&mut deck, None).unwrap();
+                pages
+                    .apply_levels(
+                        &mut deck,
+                        [("input:mic".into(), level)].into_iter().collect(),
+                    )
+                    .unwrap();
+                assert_eq!(
+                    Pages::parse(&bytes)
+                        .unwrap()
+                        .preview_touch(0, pages.touch_state())
+                        .unwrap(),
+                    deck.touch_image()
+                );
+            }
+        }
+        pages.apply_targets(vec![("input:mic".into(), None)]);
+        pages.apply_audio(&mut deck, None).unwrap();
+        assert_eq!(
+            Pages::parse(&bytes)
+                .unwrap()
+                .preview_touch(0, pages.touch_state())
+                .unwrap(),
+            deck.touch_image()
+        );
+        let roundtrip: serde_json::Value = serde_json::from_str(&pages.json()).unwrap();
+        assert_eq!(
+            roundtrip["dials"], original,
+            "presentation must retain turn/press bindings"
+        );
+        value["pages"][1]["dial_overrides"] = serde_json::json!([{
+            "label":"Page meter", "rotation":"volume", "step":2,
+            "audio_target":"input:mic", "press":{"type":"mute_toggle"}, "display_style":"single_arc"
+        },null,null,null]);
+        let pages = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        let roundtrip = Pages::parse(pages.json().as_bytes()).unwrap();
+        assert_eq!(
+            roundtrip.resolved_dials[1].as_ref().unwrap()[0].label,
+            "Page meter"
+        );
+        assert!(
+            roundtrip.resolved_dials[1].as_ref().unwrap()[0].display_style
+                == DisplayStyle::SingleArc
+        );
     }
 }

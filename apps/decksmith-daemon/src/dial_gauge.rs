@@ -1,4 +1,4 @@
-//! Compact dual-arc display. Geometry is sampled once, never on live-meter ticks.
+//! Compact dual-arc and meter-only displays. Geometry is sampled once, never on live-meter ticks.
 use std::sync::OnceLock;
 use tiny_skia::{Paint, PathBuilder, Pixmap, Stroke, Transform};
 
@@ -14,6 +14,7 @@ struct Pixel {
 struct Geometry {
     volume: Vec<ArcPixel>,
     signal: Vec<ArcPixel>,
+    meter: Vec<ArcPixel>,
     ticks: Vec<Pixel>,
     pointers: [Vec<Pixel>; 101],
 }
@@ -31,8 +32,9 @@ fn geometry() -> &'static Geometry {
             ticks.line_to(64. - 49. * angle.cos(), 91. - 49. * angle.sin());
         }
         Geometry {
-            volume: arc(41., 7.),
-            signal: arc(52., 4.),
+            volume: arc(41., 7., 64., 1.),
+            signal: arc(52., 4., 64., 1.),
+            meter: arc(52., 9., 100., 70. / 52.),
             ticks: mask(ticks.finish().unwrap(), 1.3),
             pointers: std::array::from_fn(|n| {
                 let angle = std::f32::consts::PI * n as f32 / 100.;
@@ -44,14 +46,14 @@ fn geometry() -> &'static Geometry {
         }
     })
 }
-fn arc(radius: f32, width: f32) -> Vec<ArcPixel> {
+fn arc(radius: f32, width: f32, center: f32, stretch: f32) -> Vec<ArcPixel> {
     let mut pixels = Vec::new();
     for y in 35..94 {
-        for x in 8..119 {
+        for x in 0..200 {
             let mut thresholds = [255; 16];
             for sy in 0..4 {
                 for sx in 0..4 {
-                    let dx = 64. - (x as f32 + (sx as f32 + 0.5) / 4.);
+                    let dx = (center - (x as f32 + (sx as f32 + 0.5) / 4.)) / stretch;
                     let dy = 91. - (y as f32 + (sy as f32 + 0.5) / 4.);
                     if dy >= 0. && (dx.hypot(dy) - radius).abs() <= width / 2. {
                         thresholds[sy * 4 + sx] = (dy.atan2(dx) / std::f32::consts::PI * 100.)
@@ -164,6 +166,29 @@ pub fn draw_signal(rgb: &mut [u8], level: Option<u8>, muted: bool) {
     }
 }
 
+/// Meter-only panels have one centered signal track, without a volume pointer.
+pub fn draw_meter_base(rgb: &mut [u8]) {
+    draw_arc(rgb, &geometry().meter, 100, TRACK);
+}
+pub fn draw_meter_signal(rgb: &mut [u8], level: Option<u8>, muted: bool) {
+    if muted {
+        return;
+    }
+    if let Some(value) = level {
+        let color = crate::level_bar::signal_tint(value.min(100))
+            .map(|color| color.map(|channel| channel as u8))
+            .unwrap_or(GREEN);
+        draw_arc(rgb, &geometry().meter, value.min(100), color);
+    } else {
+        // A missing measurement must remain distinct from measured silence.
+        for y in 85..87 {
+            for x in 95..105 {
+                rgb[(y * 200 + x) * 3..(y * 200 + x) * 3 + 3].copy_from_slice(&[150, 160, 170]);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,6 +230,34 @@ mod tests {
                     let offset = (y * 200 + x) * 3;
                     assert_eq!(&low[offset..offset + 3], &high[offset..offset + 3]);
                 }
+            }
+        }
+    }
+    #[test]
+    fn single_meter_preserves_title_status_and_mute_at_every_level() {
+        let background = [30, 34, 39].repeat(200 * 100);
+        let mut base = background.clone();
+        draw_meter_base(&mut base);
+        let mut missing = base.clone();
+        draw_meter_signal(&mut missing, None, false);
+        assert_ne!(
+            missing, base,
+            "missing measurement differs from silent signal"
+        );
+        for value in 0..=100 {
+            let mut muted = base.clone();
+            draw_meter_signal(&mut muted, Some(value), true);
+            assert_eq!(muted, base);
+            let mut live = base.clone();
+            draw_meter_signal(&mut live, Some(value), false);
+            assert_eq!(&live[..35 * 600], &background[..35 * 600]);
+            assert_eq!(&live[94 * 600..], &background[94 * 600..]);
+            for y in 60..92 {
+                assert_eq!(
+                    &live[(y * 200 + 52) * 3..(y * 200 + 148) * 3],
+                    &base[(y * 200 + 52) * 3..(y * 200 + 148) * 3],
+                    "live arc must leave the centered status clear"
+                );
             }
         }
     }
