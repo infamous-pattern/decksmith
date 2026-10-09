@@ -36,7 +36,14 @@ signed COSMIC candidate. Package hints now follow Pop!_OS's Ubuntu/Debian ancest
 First-launch sizing also exposed an unmapped-parent monitor lookup: an oversized
 1440×900 request on a 1280×800 display caused COSMIC to choose the 900×540 minimum.
 The editor now bounds its first request to an available monitor even before the
-parent maps. Exact-package normal-session rendering and user review remain gates.
+parent maps. At 1920×1200, the source-matched native workspace passes tab/layout,
+focus, settings and gauge-selector checks. COSMIC can still choose a narrower
+window on a 1280×800 display; manually enlarge the window if controls clip.
+Exact-package normal-session rendering and user review remain gates.
+
+Do Not Disturb now requires a running GNOME Shell before reading or changing
+GNOME's notification setting. COSMIC reports it unavailable; changing an ignored
+GNOME preference must not masquerade as COSMIC notification control.
 
 ## Runtime dependencies and limitations
 

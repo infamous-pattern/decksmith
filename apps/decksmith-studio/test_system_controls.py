@@ -3,6 +3,18 @@ from unittest.mock import Mock,patch
 from system_controls import Controls,COMMANDS,LABELS
 from system_confirm import confirmed_power
 class SystemControlTests(unittest.TestCase):
+ def test_non_gnome_dnd_never_claims_or_changes_gnome_notification_settings(self):
+  c=Controls();c.call=Mock(return_value=(False,));c.setting=Mock()
+  self.assertEqual(c.state('dnd'),{'available':False,'active':False,'text':'Unavailable'})
+  with self.assertRaises(ValueError):c.execute('dnd')
+  c.setting.assert_not_called()
+  self.assertEqual(c.call.call_args.args[4],'NameHasOwner')
+ def test_gnome_dnd_still_reads_and_toggles_banner_setting(self):
+  c=Controls();c.call=Mock(return_value=(True,));setting=Mock();setting.get_boolean.return_value=True
+  c.setting=Mock(return_value=setting)
+  self.assertEqual(c.state('dnd'),{'available':True,'active':False,'text':'Off'})
+  with patch('system_controls.Gio.Settings.sync'):c.execute('dnd')
+  setting.set_boolean.assert_called_once_with('show-banners',False)
  def test_unknown_command_rejected_before_bus_access(self):
   c=Controls();c.call=Mock()
   with self.assertRaises(ValueError):c.execute('run_shell')

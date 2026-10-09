@@ -25,6 +25,8 @@ class Controls:
     def state(self,command):
         if command not in COMMANDS:raise ValueError('Unsupported system action')
         if command=='dnd':
+            if not self.call(False,'org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','NameHasOwner',GLib.Variant('(s)',('org.gnome.Shell',)))[0]:
+                return dict(available=False,active=False,text='Unavailable')
             s=self.setting('org.gnome.desktop.notifications')
             if not s.is_writable('show-banners'):raise ValueError('Notification setting is managed')
             active=not s.get_boolean('show-banners');return dict(available=True,active=active,text='On' if active else 'Off')
