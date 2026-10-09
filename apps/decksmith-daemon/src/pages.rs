@@ -1333,34 +1333,18 @@ impl Pages {
                     if let Some(appearance) = &self.effective_dials().unwrap()[index].appearance {
                         style.apply(appearance);
                     }
-                    let meter_only = self.effective_dials().unwrap()[index].display_style
-                        == DisplayStyle::SingleArc;
-                    let (left, right, top, bottom) = if meter_only {
-                        (52, 148, 60, 92)
-                    } else {
-                        (119, 200, 34, 94)
-                    };
-                    for y in top..bottom {
-                        for x in left..right {
+                    for y in 34..94 {
+                        for x in 119..200 {
                             panel[(y * 200 + x) * 3..(y * 200 + x) * 3 + 3]
                                 .copy_from_slice(&style.background);
                         }
                     }
-                    if meter_only {
-                        crate::key_text::draw_meter_status(
-                            &mut panel,
-                            "No Audio",
-                            style.color,
-                            style.typography(),
-                        );
-                    } else {
-                        crate::key_text::draw_gauge_value(
-                            &mut panel,
-                            "No Audio",
-                            style.color,
-                            style.typography(),
-                        );
-                    }
+                    crate::key_text::draw_gauge_value(
+                        &mut panel,
+                        "No Audio",
+                        style.color,
+                        style.typography(),
+                    );
                     for y in 34..94 {
                         let start = (y * 800 + index * 200) * 3;
                         strip[start..start + 600].copy_from_slice(&panel[y * 600..(y + 1) * 600]);
@@ -1514,23 +1498,7 @@ impl Pages {
                 } else {
                     style.accent
                 };
-                if meter_only {
-                    let status = if audio.is_some_and(|state| state.muted) {
-                        "Muted"
-                    } else if live {
-                        "Live"
-                    } else if audio.is_none() {
-                        "--"
-                    } else {
-                        ""
-                    };
-                    crate::key_text::draw_meter_status(
-                        &mut panel,
-                        status,
-                        value_color,
-                        style.typography(),
-                    );
-                } else if gauge {
+                if gauge {
                     crate::key_text::draw_gauge_value(
                         &mut panel,
                         &value,
@@ -3719,7 +3687,7 @@ mod tests {
         assert_eq!(p.index, 1);
     }
     #[test]
-    fn single_meter_ignores_volume_but_preserves_actions_and_device_pixels() {
+    fn single_meter_keeps_volume_readout_actions_and_device_pixels() {
         let mut value: serde_json::Value =
             serde_json::from_slice(include_bytes!("../../../config/audio.json")).unwrap();
         let dial = serde_json::json!({"label":"Microphone", "rotation":"volume", "step":1,
@@ -3730,7 +3698,7 @@ mod tests {
         let mut pages = Pages::parse(&bytes).unwrap();
         let mut deck = decksmith_device::VirtualDeck::default();
         pages.show(&mut deck, 0).unwrap();
-        let mut baseline = None;
+        let mut baseline: Option<Vec<u8>> = None;
         for percent in [0, 68, 100] {
             pages.apply_targets(vec![(
                 "input:mic".into(),
@@ -3754,10 +3722,35 @@ mod tests {
                 .unwrap();
             assert_eq!(preview, deck.touch_image());
             if let Some(previous) = &baseline {
-                assert_eq!(
-                    &preview, previous,
-                    "meter-only display must not change with volume"
-                );
+                assert_ne!(&preview, previous, "configured percentage must update");
+                for y in 35..94 {
+                    for panel in 0..4 {
+                        let left = (y * 800 + panel * 200) * 3;
+                        assert_eq!(
+                            &preview[left..left + 119 * 3],
+                            &previous[left..left + 119 * 3],
+                            "configured volume must not change the signal arc"
+                        );
+                    }
+                }
+            }
+            let mut dual = value.clone();
+            for dial in dual["dials"].as_array_mut().unwrap() {
+                dial["display_style"] = serde_json::json!("dual_arc");
+            }
+            let dual_preview = Pages::parse(&serde_json::to_vec(&dual).unwrap())
+                .unwrap()
+                .preview_touch(0, pages.touch_state())
+                .unwrap();
+            for y in 35..94 {
+                for panel in 0..4 {
+                    let right = (y * 800 + panel * 200 + 119) * 3;
+                    assert_eq!(
+                        &preview[right..right + 81 * 3],
+                        &dual_preview[right..right + 81 * 3],
+                        "single and dual styles must share the percentage/Live readout"
+                    );
+                }
             }
             baseline = Some(preview);
         }

@@ -48,7 +48,7 @@ class DialControls(Gtk.Box):
         appearance=Adw.PreferencesGroup();box.append(appearance)
         self.appearance_group=Adw.ExpanderRow(title='Appearance',subtitle='Gauge style, font and colors');appearance.add(self.appearance_group)
         self.display_style=Adw.ComboRow(title='Touch-strip style',model=Gtk.StringList.new(['Dual-arc gauge','Classic bar','Single-arc meter']))
-        self.display_style.set_tooltip_text('Dual-arc: volume plus audio activity. Single-arc: audio activity only; assigned dial actions stay unchanged. Classic bar keeps the previous display. Brightness retains its setting arc.')
+        self.display_style.set_tooltip_text('Dual-arc: volume plus audio activity. Single-arc: one audio activity arc with configured percentage on the right; assigned dial actions stay unchanged. Classic bar keeps the previous display. Brightness retains its setting arc.')
         self.display_style.connect('notify::selected',self.changed);self.appearance_group.add_row(self.display_style)
         from theme_dialog import StyleRows
         self.style_rows=StyleRows(self.appearance_group,lambda:self.data[self.index].get('appearance',{}),self.style_changed,('font','size','label_color','background_color'))

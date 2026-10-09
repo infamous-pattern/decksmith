@@ -34,7 +34,7 @@ fn geometry() -> &'static Geometry {
         Geometry {
             volume: arc(41., 7., 64., 1.),
             signal: arc(52., 4., 64., 1.),
-            meter: arc(52., 9., 100., 70. / 52.),
+            meter: arc(49., 9., 64., 1.),
             ticks: mask(ticks.finish().unwrap(), 1.3),
             pointers: std::array::from_fn(|n| {
                 let angle = std::f32::consts::PI * n as f32 / 100.;
@@ -166,7 +166,7 @@ pub fn draw_signal(rgb: &mut [u8], level: Option<u8>, muted: bool) {
     }
 }
 
-/// Meter-only panels have one centered signal track, without a volume pointer.
+/// Meter-only panels have one left-hand signal track, without a volume pointer.
 pub fn draw_meter_base(rgb: &mut [u8]) {
     draw_arc(rgb, &geometry().meter, 100, TRACK);
 }
@@ -181,8 +181,8 @@ pub fn draw_meter_signal(rgb: &mut [u8], level: Option<u8>, muted: bool) {
         draw_arc(rgb, &geometry().meter, value.min(100), color);
     } else {
         // A missing measurement must remain distinct from measured silence.
-        for y in 85..87 {
-            for x in 95..105 {
+        for y in 76..78 {
+            for x in 59..69 {
                 rgb[(y * 200 + x) * 3..(y * 200 + x) * 3 + 3].copy_from_slice(&[150, 160, 170]);
             }
         }
@@ -252,11 +252,11 @@ mod tests {
             draw_meter_signal(&mut live, Some(value), false);
             assert_eq!(&live[..35 * 600], &background[..35 * 600]);
             assert_eq!(&live[94 * 600..], &background[94 * 600..]);
-            for y in 60..92 {
+            for y in 0..100 {
                 assert_eq!(
-                    &live[(y * 200 + 52) * 3..(y * 200 + 148) * 3],
-                    &base[(y * 200 + 52) * 3..(y * 200 + 148) * 3],
-                    "live arc must leave the centered status clear"
+                    &live[(y * 200 + 119) * 3..(y + 1) * 600],
+                    &background[(y * 200 + 119) * 3..(y + 1) * 600],
+                    "live arc must leave the percentage/status column clear"
                 );
             }
         }

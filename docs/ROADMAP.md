@@ -20,7 +20,8 @@ change system routing.
 
 **October 9 checkpoint:** the dual-arc design is implemented in a local test build,
 with the classic bar available per dial. A subsequent Single-arc meter option
-shows audio activity only while preserving assigned turn/press actions. It passes
+shows one audio activity arc with the configured percentage on its right, while
+preserving assigned turn/press actions. It passes
 rendering, scope/persistence and Fedora VM native-selector checks; physical
 acceptance remains pending. Existing public release assets are unchanged. Cached arc geometry and pointer masks
 keep the existing meter sampling rate; preview/device pixel parity, all integer

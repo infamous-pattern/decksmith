@@ -13,9 +13,9 @@ gauge** without rewriting saved assignments. **Classic bar** remains available
 per dial, including shared defaults and page overrides.
 
 The current development build also offers **Single-arc meter** for audio targets.
-It shows one wider centered arc of measured audio activity, without a volume
-percentage or pointer. Existing turn/press actions, target selections and labels
-stay unchanged. Microphone Live and Muted status remains centered inside the arc;
+It shows one wider left-hand arc of measured audio activity, with the configured
+volume percentage on its right and no second volume arc or pointer. Existing turn/press actions, target selections and labels
+stay unchanged. Microphone Live and Muted status uses the same right-hand column as Dual-arc;
 missing/silent measurements and No Audio retain distinct states without a yellow
 border. Its geometry is cached once and the sampling budget is unchanged.
 Brightness remains a setting gauge because it has no audio signal to meter.

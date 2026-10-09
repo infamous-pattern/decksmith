@@ -49,11 +49,11 @@ The original Fedora V1, Debian and Ubuntu downloads retain their earlier display
 [Meter behavior and limitations](docs/audio-meters.md).
 
 **Also in development: Single-arc meter.** One wider arc displays audio activity
-only, with no volume percentage or pointer; assigned turn/press actions stay
+with the configured volume percentage on its right and no volume arc or pointer; assigned turn/press actions stay
 unchanged. Choose it from the same Touch-strip style selector. It is newer than
 the published COSMIC preview.
 
-![Decksmith mixed touch-strip styles: dual-arc speakers, single-arc browser and microphone Live meters, and brightness](docs/images/decksmith-single-arc-meter.png?v=1fe80e63f8f8)
+![Decksmith mixed touch-strip styles: dual-arc speakers, single-arc browser and microphone Live meters, and brightness](docs/images/decksmith-single-arc-meter.png?v=50e23c1281bb)
 
 ## Watch Decksmith V1
 
