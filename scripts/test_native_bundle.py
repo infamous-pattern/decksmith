@@ -62,6 +62,15 @@ class NativeBundleTests(unittest.TestCase):
         with self.environment('fedora', '44'):
             self.assertEqual(DOCTOR.package_hints()['libpulse.so.0'], 'pulseaudio-libs')
 
+    def test_pop_os_inherits_ubuntu_runtime_package_hints(self):
+        with patch('platform.freedesktop_os_release', return_value={
+                'ID': 'pop', 'VERSION_ID': '24.04', 'ID_LIKE': 'ubuntu debian'}):
+            hints = DOCTOR.package_hints()
+            self.assertEqual(hints['gdbus'], 'libglib2.0-bin')
+            self.assertEqual(hints['libudev.so.1'], 'libudev1')
+            self.assertEqual(hints['libpulse.so.0'], 'libpulse0')
+            self.assertIn('gir1.2-adw-1', hints['artwork'])
+
     def test_incompatible_client_is_rejected_even_with_a_working_daemon(self):
         def execute(args, **kwargs):
             if Path(args[0]).name == 'decksmithctl':

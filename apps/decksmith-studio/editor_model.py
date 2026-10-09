@@ -269,6 +269,7 @@ class Draft:
             if not valid_label(dial['label']):
                 raise ValueError(f'Dial {index+1} needs 1–24 visible characters; emoji are supported.')
             if dial.get('rotation') not in ('none','volume','brightness') or not isinstance(dial.get('step'),int) or not 1<=dial['step']<=10:raise ValueError('Invalid dial rotation or step.')
+            if dial.get('display_style','dual_arc') not in ('dual_arc','bar'):raise ValueError('Choose a valid touch-strip display style.')
             from audio_targets import validate
             validate(dial.get('audio_target','system'))
             if dial['press']['type']=='push_to_talk':

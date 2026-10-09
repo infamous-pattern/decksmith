@@ -24,6 +24,8 @@ with patch.object(AudioTargetPicker, 'refresh'), patch('applications.audio_icon_
     assert layout['dials'][3]['label'] == 'System sounds'
     assert layout['dials'][3]['rotation'] == 'volume'
     controls.label.set_text('🎙️ My Alerts')
+    controls.display_style.set_selected(1)
+    assert layout['dials'][3]['display_style']=='bar'
     assert controls.apply.get_sensitive(), controls.status.get_text()
     assert controls.data[3]['label'] == '🎙️ My Alerts'
     controls.target.select('system')  # Inventory sync must keep custom text.
@@ -35,4 +37,7 @@ with patch.object(AudioTargetPicker, 'refresh'), patch('applications.audio_icon_
     controls.rotation.set_selected(1)
     assert controls.label.get_text() == 'Default microphone'
     assert layout['dials'][3]['audio_target'] == 'microphone'
+    assert layout['dials'][3]['display_style']=='bar'
+    controls.display_style.set_selected(0)
+    assert 'display_style' not in layout['dials'][3]
 print('PASS: Brightness to preselected audio target updates label; custom text survives refresh/reselection')

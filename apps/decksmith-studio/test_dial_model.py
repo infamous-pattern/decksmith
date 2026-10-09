@@ -45,3 +45,15 @@ class DialScopeTests(unittest.TestCase):
         data=self.sample();original=deepcopy(data)
         effective(data,1)[0]['label']='changed'
         self.assertEqual(data,original)
+    def test_display_style_survives_shared_edits_override_history_and_export(self):
+        draft=Draft(self.sample());dial=effective(draft.data,0)[0];dial['display_style']='bar'
+        store(draft.data,0,0,dial);draft.checkpoint()
+        customize(draft.data,1,0);local=effective(draft.data,1)[0];local['display_style']='dual_arc'
+        store(draft.data,1,0,local);draft.checkpoint()
+        self.assertEqual(effective(draft.data,0)[0]['display_style'],'bar')
+        self.assertEqual(decode(encode(draft.data)[0]),draft.data)
+        self.assertTrue(draft.travel());self.assertEqual(effective(draft.data,1)[0]['display_style'],'bar')
+        self.assertTrue(draft.travel(redo=True));self.assertEqual(effective(draft.data,1)[0]['display_style'],'dual_arc')
+        draft.validate()
+        draft.data['dials'][0]['display_style']='unknown'
+        with self.assertRaises(ValueError):draft.validate()

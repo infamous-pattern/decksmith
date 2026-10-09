@@ -1,6 +1,39 @@
 # Live audio meters
 
-Implemented September 13, 2026 for the Stream Deck + prototype.
+Implemented September 13, 2026 for the Stream Deck + prototype. The October 9
+local test build adds the dual-arc presentation below; this is not yet in a
+published download.
+
+## Touch-strip styles
+
+Choose a dial's **Appearance → Touch-strip style** in Keys & Dials. The local
+test build defaults existing audio and device-brightness dials to **Dual-arc
+gauge** without rewriting saved assignments. **Classic bar** remains available
+per dial, including shared defaults and page overrides.
+
+The dual-arc layout keeps the device icon and label across the top, with the
+configured percentage in the right-hand column. The inner blue arc and pointer
+show configured volume or brightness. For audio controls, the independent outer
+arc shows actual measured signal: green below 80, yellow from 80, orange from 90,
+and red from 95 on the normalized meter scale. A silent measured signal leaves
+the outer track empty; an unavailable measurement shows a gray dash.
+
+Mute retains the red crossed-out device icon and **Muted** text, dims the volume
+gauge and suppresses signal fill; it does not add a red border. Live microphone
+controls retain green **Live** text. **No Audio** uses two lines in the value
+column without a yellow border. Brightness has only the setting arc, with no
+audio measurement. The existing default-device marker remains below the gauge.
+
+The preview and physical Deck share the same renderer. Arc geometry and pointer
+masks are cached once, and meter ticks reuse the static frame; the 20 Hz sampling
+budget is unchanged. Regression checks cover every integer level, silence,
+missing measurements, mute, enlarged text, style persistence and preview/device
+pixel parity. On October 9 the user accepted the installed local build's physical
+audio-dial/mute response, blue setting arc, independent signal arc, red Muted and
+crossed-out icon, and green microphone Live text. A controlled resource comparison
+remains before public release.
+
+## Classic bar presentation
 
 Each audio dial panel has three separate displays:
 
@@ -42,7 +75,7 @@ This is a visual peak-activity display, not a calibrated loudness/SPL meter. The
 scale spans approximately -60 to 0 dBFS with a quick rise and short decay. Monitor
 peaks can precede hardware volume, so changing output volume need not change the
 meter proportionally. Signal fill uses a logarithmic peak scale, independently of the configured
-volume percentage. Mute suppresses blue fill regardless
+volume percentage. Mute suppresses signal fill regardless
 of the monitor tap.
 
 Only transient numeric peak values are retained. Decksmith does not record, save,

@@ -45,7 +45,10 @@ class DialControls(Gtk.Box):
             [('Press',label,lambda i=i:self.press.set_selected(i)) for i,label in enumerate(['No action','Toggle mute','Next page','Previous page','Play / Pause','Previous track','Next track','Push to talk'])])
         self.catalog.set_visible(False)
         appearance=Adw.PreferencesGroup();box.append(appearance)
-        self.appearance_group=Adw.ExpanderRow(title='Appearance',subtitle='Font and colors');appearance.add(self.appearance_group)
+        self.appearance_group=Adw.ExpanderRow(title='Appearance',subtitle='Gauge style, font and colors');appearance.add(self.appearance_group)
+        self.display_style=Adw.ComboRow(title='Touch-strip style',model=Gtk.StringList.new(['Dual-arc gauge','Classic bar']))
+        self.display_style.set_tooltip_text('Inner blue arc: volume setting. Outer arc: live audio activity. Classic bar keeps the previous display.')
+        self.display_style.connect('notify::selected',self.changed);self.appearance_group.add_row(self.display_style)
         from theme_dialog import StyleRows
         self.style_rows=StyleRows(self.appearance_group,lambda:self.data[self.index].get('appearance',{}),self.style_changed,('font','size','label_color','background_color'))
         reset_style=Gtk.Button(label='Reset to theme');reset_style.connect('clicked',self.reset_style);self.appearance_group.add_row(reset_style)
@@ -69,6 +72,7 @@ class DialControls(Gtk.Box):
         self.media_player.select(dial.get('media_player',''))
         self.target.select(dial.get('audio_target','system'),inputs_only=dial['press']['type']=='push_to_talk')
         self.step.set_value(dial['step']);self.press.set_selected(PRESSES.index(dial['press']['type']))
+        self.display_style.set_selected(1 if dial.get('display_style')=='bar' else 0)
         self.syncing=False;self.validate()
         if hasattr(self,"style_rows"):self.style_rows.sync()
     def clear_homebridge(self,*_):
@@ -143,6 +147,7 @@ class DialControls(Gtk.Box):
         if _args and _args[0] is self.press:plugins.pop('plugin_press',None)
         self.data[self.index]={'label':self.label.get_text(),'rotation':ROTATIONS[self.rotation.get_selected()],'step':round(self.step.get_value()),'press':{'type':PRESSES[self.press.get_selected()]}}
         self.data[self.index].update(plugins)
+        if self.display_style.get_selected()==1:self.data[self.index]['display_style']='bar'
         if appearance:self.data[self.index]['appearance']=appearance
         if target_icon:self.data[self.index]['target_icon_png']=target_icon
         if self.press.get_selected() in (4,5,6) and self.media_player.value():self.data[self.index]['media_player']=self.media_player.value()
@@ -164,6 +169,7 @@ class DialControls(Gtk.Box):
         self.label_error.set_visible(not valid)
         self.media_player.set_visible(self.press.get_selected() in (4,5,6))
         self.target.set_visible(self.rotation.get_selected()==1 or self.press.get_selected() in (1,7))
+        self.display_style.set_visible(not self.data[self.index].get('plugin_rotation') and (self.rotation.get_selected()!=0 or self.press.get_selected() in (1,7)))
         if any(d['press']['type']=='push_to_talk' and not d.get('audio_target','').startswith('input:') for d in self.data):
             self.apply.set_sensitive(False);self.status.set_text('Choose a named microphone for push to talk.');return
         self.apply.set_sensitive(bool(valid));self.step.set_sensitive(self.rotation.get_selected()!=0 or bool(self.data[self.index].get('plugin_rotation')))

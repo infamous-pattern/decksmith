@@ -8,6 +8,7 @@ mod audio_target;
 mod audio_worker;
 #[cfg(any(feature = "hardware", test))]
 mod control;
+mod dial_gauge;
 #[cfg(any(feature = "hardware", test))]
 mod display;
 mod feedback;

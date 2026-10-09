@@ -5,9 +5,10 @@ from pathlib import Path
 sys.dont_write_bytecode=True
 ROOT=Path(__file__).resolve().parents[1]
 def package_hints():
-    try:distribution=platform.freedesktop_os_release().get('ID','')
-    except OSError:distribution=''
-    if distribution in ('debian','ubuntu'):
+    try:release=platform.freedesktop_os_release()
+    except OSError:release={}
+    distribution=release.get('ID','')
+    if {distribution,*release.get('ID_LIKE','').split()} & {'debian','ubuntu'}:
         return {'gdbus':'libglib2.0-bin','artwork':'gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-rsvg-2.0, python3-gi, python3-gi-cairo, python3-pil, python3-cairo',
                 'libpulse.so.0':'libpulse0','libudev.so.1':'libudev1'}
     return {'gdbus':'glib2','artwork':'gtk4, libadwaita, python3-gobject, python3-pillow, python3-cairo, librsvg2',

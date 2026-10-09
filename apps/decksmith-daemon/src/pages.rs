@@ -58,9 +58,23 @@ enum Rotation {
     Volume,
     Brightness,
 }
+#[derive(Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum DisplayStyle {
+    #[default]
+    DualArc,
+    Bar,
+}
+impl DisplayStyle {
+    fn is_default(&self) -> bool {
+        *self == Self::DualArc
+    }
+}
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Dial {
+    #[serde(default, skip_serializing_if = "DisplayStyle::is_default")]
+    display_style: DisplayStyle,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     plugin_rotation: Option<crate::plugin_binding::Binding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -592,6 +606,7 @@ impl Pages {
             std::array::from_fn(|i| {
                 let audio = i == 0 && config.audio_dial;
                 Dial {
+                    display_style: DisplayStyle::default(),
                     plugin_rotation: None,
                     plugin_press: None,
                     target_icon_png: None,
@@ -1254,13 +1269,26 @@ impl Pages {
                 let target = dial.audio_target.as_deref().unwrap_or("system");
                 let state = self.dial_audio(dial, audio);
                 let level = state.and_then(|_| self.levels.get(target).copied().flatten());
-                let mut panel = vec![0u8; 200 * 100 * 3];
-                for y in 72..94 {
+                let mut panel = [0u8; 200 * 100 * 3];
+                let top = if dial.display_style == DisplayStyle::DualArc {
+                    35
+                } else {
+                    72
+                };
+                for y in top..94 {
                     let start = (y * 800 + index * 200) * 3;
                     panel[y * 600..(y + 1) * 600].copy_from_slice(&strip[start..start + 600]);
                 }
-                crate::meter::draw(&mut panel, level, state.is_some_and(|s| s.muted));
-                for y in 72..94 {
+                if dial.display_style == DisplayStyle::DualArc {
+                    crate::dial_gauge::draw_signal(
+                        &mut panel,
+                        level,
+                        state.is_some_and(|s| s.muted),
+                    );
+                } else {
+                    crate::meter::draw(&mut panel, level, state.is_some_and(|s| s.muted));
+                }
+                for y in top..94 {
                     let start = (y * 800 + index * 200) * 3;
                     strip[start..start + 600].copy_from_slice(&panel[y * 600..(y + 1) * 600]);
                 }
@@ -1282,14 +1310,46 @@ impl Pages {
                 } else {
                     [255, 190, 65]
                 };
+                let no_audio =
+                    notice.short.eq_ignore_ascii_case("No audio") && notice.status != "failed";
+                if no_audio
+                    && self
+                        .effective_dials()
+                        .is_some_and(|d| d[index].display_style == DisplayStyle::DualArc)
+                {
+                    let mut style = crate::theme::Style::new(
+                        self.config.theme.as_ref(),
+                        [30, 34, 39],
+                        false,
+                        true,
+                    );
+                    if let Some(appearance) = &self.effective_dials().unwrap()[index].appearance {
+                        style.apply(appearance);
+                    }
+                    for y in 34..94 {
+                        for x in 119..200 {
+                            panel[(y * 200 + x) * 3..(y * 200 + x) * 3 + 3]
+                                .copy_from_slice(&style.background);
+                        }
+                    }
+                    crate::key_text::draw_gauge_value(
+                        &mut panel,
+                        "No Audio",
+                        style.color,
+                        style.typography(),
+                    );
+                    for y in 34..94 {
+                        let start = (y * 800 + index * 200) * 3;
+                        strip[start..start + 600].copy_from_slice(&panel[y * 600..(y + 1) * 600]);
+                    }
+                    continue;
+                }
                 for y in 34..100 {
                     for x in 0..200 {
                         panel[(y * 200 + x) * 3..(y * 200 + x) * 3 + 3]
                             .copy_from_slice(&[24, 27, 32]);
                     }
                 }
-                let no_audio =
-                    notice.short.eq_ignore_ascii_case("No audio") && notice.status != "failed";
                 let mut style =
                     crate::theme::Style::new(self.config.theme.as_ref(), [30, 34, 39], false, true);
                 if let Some(dials) = self.effective_dials()
@@ -1414,30 +1474,55 @@ impl Pages {
                     style.color,
                     style.typography(),
                 );
-                crate::key_text::draw_strip_styled(
-                    &mut panel,
-                    &value,
-                    1,
-                    if audio_control && audio.is_some_and(|state| state.muted) {
-                        [255, 75, 85]
-                    } else if audio_control
-                        && value.ends_with("Live")
-                        && (dial.audio_target.as_deref().is_some_and(|target| {
-                            target.starts_with("input:") || target == "microphone"
-                        }) || matches!(dial.press, Action::PushToTalk { .. }))
-                    {
-                        [55, 210, 115]
-                    } else {
-                        style.accent
-                    },
-                    style.typography(),
-                );
+                let live = audio_control
+                    && value.ends_with("Live")
+                    && (dial.audio_target.as_deref().is_some_and(|target| {
+                        target.starts_with("input:") || target == "microphone"
+                    }) || matches!(dial.press, Action::PushToTalk { .. }));
+                let gauge = dial.display_style == DisplayStyle::DualArc
+                    && (audio_control || matches!(dial.rotation, Rotation::Brightness));
+                let value_color = if audio_control && audio.is_some_and(|state| state.muted) {
+                    [255, 75, 85]
+                } else if live {
+                    [55, 210, 115]
+                } else if gauge {
+                    style.color
+                } else {
+                    style.accent
+                };
+                if gauge {
+                    crate::key_text::draw_gauge_value(
+                        &mut panel,
+                        &value,
+                        value_color,
+                        style.typography(),
+                    );
+                } else {
+                    crate::key_text::draw_strip_styled(
+                        &mut panel,
+                        &value,
+                        1,
+                        value_color,
+                        style.typography(),
+                    );
+                }
                 let level = match dial.rotation {
                     Rotation::Volume => audio.map(|state| state.percent.min(100) as u8),
                     Rotation::Brightness => self.brightness,
                     Rotation::None => None,
                 };
-                if !matches!(dial.rotation, Rotation::None) {
+                if gauge {
+                    crate::dial_gauge::draw_base(
+                        &mut panel,
+                        if audio_control {
+                            audio.map(|state| state.percent.min(100) as u8)
+                        } else {
+                            level
+                        },
+                        audio_control && audio.is_some_and(|state| state.muted),
+                        audio_control,
+                    );
+                } else if !matches!(dial.rotation, Rotation::None) {
                     crate::level_bar::draw(
                         &mut panel,
                         level,
@@ -2809,6 +2894,53 @@ mod tests {
                 deck.touch_image()
             );
         }
+    }
+
+    #[test]
+    fn gauge_styles_roundtrip_and_page_overrides_match_the_device() {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../../../config/audio.json")).unwrap();
+        let dial = serde_json::json!({"label":"Microphone", "rotation":"volume", "step":1,
+            "audio_target":"input:mic", "press":{"type":"mute_toggle"}, "display_style":"bar"});
+        value["dials"] = serde_json::json!([dial, dial, dial, dial]);
+        value["pages"][1]["dial_overrides"] = serde_json::json!([{
+            "label":"Mic Live", "rotation":"volume", "step":1, "audio_target":"input:mic",
+            "press":{"type":"mute_toggle"}, "display_style":"dual_arc"
+        },null,null,null]);
+        let mut pages = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        let roundtrip = Pages::parse(pages.json().as_bytes()).unwrap();
+        assert!(
+            roundtrip.resolved_dials[0].as_ref().unwrap()[0].display_style == DisplayStyle::Bar
+        );
+        assert!(
+            roundtrip.resolved_dials[1].as_ref().unwrap()[0].display_style == DisplayStyle::DualArc
+        );
+        let mut deck = decksmith_device::VirtualDeck::default();
+        let state = crate::audio::State {
+            percent: 68,
+            muted: false,
+            active: Some(true),
+            icon: crate::audio_icon::Kind::Microphone,
+        };
+        for page in 0..=1 {
+            pages.show(&mut deck, page).unwrap();
+            pages.apply_targets(vec![("input:mic".into(), Some(state))]);
+            for level in [None, Some(0), Some(100)] {
+                pages
+                    .apply_levels(
+                        &mut deck,
+                        [("input:mic".into(), level)].into_iter().collect(),
+                    )
+                    .unwrap();
+                let mut preview = Pages::parse(pages.json().as_bytes()).unwrap();
+                assert_eq!(
+                    preview.preview_touch(page, pages.touch_state()).unwrap(),
+                    deck.touch_image()
+                );
+            }
+        }
+        value["dials"][0]["display_style"] = "unknown".into();
+        assert!(Pages::parse(&serde_json::to_vec(&value).unwrap()).is_err());
     }
 
     #[test]

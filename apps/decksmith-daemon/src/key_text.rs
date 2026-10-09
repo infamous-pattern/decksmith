@@ -108,6 +108,43 @@ pub fn draw_strip_styled(
     );
 }
 
+/// Gauge values occupy the right-hand column, clear of both arcs and the title.
+pub fn draw_gauge_value(rgb: &mut [u8], label: &str, color: [u8; 3], typography: Typography) {
+    for (text, top, height, size) in if label.ends_with(" Live") {
+        vec![
+            ("Live", 38, 30, 24.),
+            (label.trim_end_matches(" Live"), 69, 23, 18.),
+        ]
+    } else if label == "No Audio" {
+        vec![("No", 37, 27, 24.), ("Audio", 64, 27, 24.)]
+    } else {
+        vec![(label, 35, 57, 24.)]
+    } {
+        let mut column = Vec::with_capacity(81 * height * 3);
+        for y in top..top + height {
+            column.extend_from_slice(&rgb[(y * 200 + 119) * 3..(y * 200 + 200) * 3]);
+        }
+        draw_canvas(
+            &mut column,
+            text,
+            color,
+            Canvas {
+                left_aligned: false,
+                width: 81,
+                height,
+                anchor: 1,
+                size: size * typography.scale,
+                font: typography.font,
+                backing: false,
+            },
+        );
+        for y in 0..height {
+            rgb[((top + y) * 200 + 119) * 3..((top + y) * 200 + 200) * 3]
+                .copy_from_slice(&column[y * 81 * 3..(y + 1) * 81 * 3]);
+        }
+    }
+}
+
 /// Start titles at x=44, leaving a consistent gap after the 36-pixel icon area.
 #[allow(dead_code)] // The key-only caption example does not use audio titles.
 pub fn draw_strip_audio_title(rgb: &mut [u8], label: &str) {
@@ -247,7 +284,9 @@ fn draw_canvas(rgb: &mut [u8], label: &str, color: [u8; 3], canvas: Canvas) {
             return;
         };
         if path.bounds().width() <= (width - 16) as f32
-            && path.bounds().height() <= if lines.len() > 1 { 80.0 } else { 40.0 }
+            && path.bounds().height()
+                <= (if lines.len() > 1 { 80.0f32 } else { 40.0 })
+                    .min(canvas_height.saturating_sub(4) as f32)
         {
             break path;
         }
@@ -356,6 +395,31 @@ fn decorative_runes(text: &str) -> String {
 #[cfg(test)]
 mod font_tests {
     use super::*;
+    #[test]
+    fn enlarged_gauge_values_fit_inside_their_rows() {
+        for font in 0..14 {
+            for (label, rows) in [("Live", 30), ("100%", 23), ("Audio", 27)] {
+                let mut pixels = vec![0; 81 * rows * 3];
+                draw_canvas(
+                    &mut pixels,
+                    label,
+                    [255; 3],
+                    Canvas {
+                        left_aligned: false,
+                        width: 81,
+                        height: rows,
+                        anchor: 1,
+                        size: 48.,
+                        font,
+                        backing: false,
+                    },
+                );
+                assert!(pixels.iter().any(|v| *v != 0), "font {font}, {label}");
+                assert!(pixels[..81 * 3].iter().all(|v| *v == 0));
+                assert!(pixels[(rows - 1) * 81 * 3..].iter().all(|v| *v == 0));
+            }
+        }
+    }
     #[test]
     fn every_font_renders_and_runic_retains_numbers() {
         for kind in 0..14 {

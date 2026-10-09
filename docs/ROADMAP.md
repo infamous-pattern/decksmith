@@ -1,9 +1,145 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap as of September 23, 2026. The v0.4 product
+This is the implementation roadmap, updated October 9, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
+
+## Today's short list — October 9
+
+1. **Touch-strip dial gauges:** implement the accepted dual-arc mock-up
+   inspired by the supplied Wave Link recording. Keep volume and live signal
+   distinct; retain red Muted/crossed-out icons without a red border and green
+   microphone Live text. Offer the existing bar presentation as another style.
+   Qualify rendering, controls and resource use before installing app changes.
+2. **Pop!_OS COSMIC initial compatibility:** create a separate Pop!_OS 24.04 LTS
+   VM in virt-manager's User session, with autostart disabled. Establish native
+   editor/dependency, file-picker, service, audio and session capability results.
+   Track COSMIC separately from the GNOME/Wayland certification goal; do not assume
+   GNOME extensions or desktop-specific actions work. Shut down when not testing.
+
+**October 9 checkpoint:** the dual-arc design is implemented in a local test build,
+with the classic bar available per dial. Cached arc geometry and pointer masks
+keep the existing meter sampling rate; preview/device pixel parity, all integer
+levels, mute/missing signal states, enlarged text and style persistence pass.
+Fedora 44 native editor and VirtualDeck checks pass. The local build is installed
+on the desktop with the prior build and configuration backup retained; saved
+configuration/artwork hashes are unchanged. The user confirmed physical gauge
+readability, mute/live indications and responsive controls. A measured resource
+comparison remains before a public release.
+
+The Pop!_OS VM is
+registered with autostart disabled, updated and rebooted successfully. Initial
+checks using the unchanged Debian preview passed runtime integrity/dependencies,
+VirtualDeck, shared previews, page navigation/save and native editor key/dial
+selection across the tabs. The artwork-picker API opened and cancelled cleanly
+through COSMIC's real desktop portal. This is initial test evidence, not Pop!_OS
+release support: physical USB/audio, lifecycle recovery, accessibility and
+COSMIC-specific desktop integration remain unqualified. Runtime package hints
+now follow Ubuntu/Debian ancestry for Pop!_OS; the focused regression checks pass.
+The normal COSMIC launch initially chooses a small 900×540 window and clips some
+preview content; initial sizing/responsive layout needs follow-up. The native
+editor checks used 1200×700, where the tabs and key/dial settings rendered correctly.
+
+## V1.5 feature plan — organized October 8
+
+This is the current V1.5 overview, grouped by feature. Detailed requirements and
+accepted checkpoints remain in the related sections linked below. These are
+planned tasks, not features in published V1 or a calendar promise. Earlier dated
+next-step lists describe their historical checkpoint; use this overview to resume.
+
+### Appearance and artwork
+
+- **Website-artwork refresh polish:** automatic icons follow URL changes while
+  preserving custom images and labels.
+- **Panoramic key wallpaper:** one static image across the key grid, automatically
+  sliced using physical geometry, with inline positioning and per-key overrides.
+- Work within the existing native Page Appearance/editor and shared preview/device
+  renderer. See [appearance requirements](#4-appearance-presets-and-local-icon-library--implemented-september-14).
+
+### Audio, media and dial controls
+
+- **Now Playing:** touch-strip track/artist, optional artwork and playback progress
+  through the existing Linux media integration.
+- **Action Wheel:** rotate to select an action, press explicitly to execute.
+- **Dial Stacks:** tap the relevant touch-strip section to switch adjustable
+  controls, then rotate to adjust the selected target.
+- **Dial gauge presentation:** accepted dual arcs for configured volume and
+  independent live signal, with the classic bar retained. Implemented in the
+  October 9 local test build, with physical acceptance complete; resource
+  qualification remains before release.
+- Define clear selected-target feedback and consistent tap/press/hold behavior;
+  preserve audio mute, push-to-talk and page overrides. See
+  [media and dial requirements](#now-playing-dial-action-wheels-and-dial-stacks--v15-targets-added-october-8).
+
+### Pages and shared actions
+
+- **Sticky keys:** one shared action/appearance/label binding across pages, with
+  visible inheritance, edit propagation and explicit per-page conflicts/overrides.
+- Preserve existing automatic/manual page switching and saved layouts. See
+  [pages and reusable actions](#profiles-pages-and-reusable-actions--clarified-september-13).
+
+### Plugins and integrations
+
+- **Native host foundations:** versioned contracts and saved settings, isolated
+  processes, bounded dispatch, permissions, cancellation and recovery.
+- **Plugin management:** installation, enable/disable/removal, inline settings,
+  reference plugin and developer documentation.
+- **Built-in system monitors:** ship local system-information displays with
+  Decksmith, including CPU, memory, storage, network and uptime; expose available
+  hardware temperatures/GPU metrics with clear fallbacks. No third-party plugin
+  download is required. See [system monitor requirements](#built-in-system-monitors--v15-target).
+- **Dependency diagnostics:** actionable missing/incompatible-provider information
+  while retaining unavailable assignments and settings.
+- **Compatibility:** native host first, then the verified OpenAction subset and
+  catalog; separately qualify compatible Linux-native/Node.js Stream Deck plugins.
+- **Optional feasibility only:** Spotify-specific and AI controls after the native
+  host; neither is a V1.5 release blocker. See [plugin foundations](#plugin-architecture-foundations--remaining-production-work)
+  and [plugin delivery](#plugin-support--v15-target).
+
+### GNOME/Wayland compatibility and installation
+
+- Build on the experimental Debian 13 and Ubuntu 26.04 previews; complete native
+  dependencies, GNOME extension/session integration and distribution-aware install,
+  upgrade and recovery paths.
+- Maintain the Fedora 44, Fedora 45, Ubuntu and Debian qualification matrix;
+  certify each advertised version/architecture independently. VM results do not
+  replace physical USB/audio/recovery acceptance. See
+  [distribution compatibility](#broad-gnomewayland-distribution-compatibility--v15-goal-v1-vm-diagnostics).
+- **Pop!_OS 24.04 COSMIC investigation:** add an isolated, manually started VM
+  for initial compatibility checks. Treat COSMIC's session, portals, lock state
+  and desktop actions as a separate integration track; the GNOME extension does
+  not establish COSMIC compatibility. Initial tests are not a supported release.
+
+### Shared quality gates and delivery dependencies
+
+Every feature preserves custom labels/artwork, saved assignments, undo/redo and
+import/export; stays inside the integrated GNOME editor where practical; and
+passes accessibility, security, lock/cancellation, recovery, preview parity and
+idle/loaded resource checks. Cache static work and use bounded asynchronous/event
+updates rather than adding unnecessary polling.
+
+Resume tomorrow by reviewing the native plugin foundation checkpoint and selecting
+its first unfinished production gate. The existing architecture priority remains:
+settle action identity/settings and shared lifecycle rules before dependent control
+or plugin changes. Within Appearance, refresh polish precedes wallpaper. Within
+Media/Dials, specify interaction/rendering behavior before implementation, starting
+with Now Playing, then Action Wheel and Dial Stacks. Catalog and optional service
+integrations follow a qualified native host. Compatibility checks accompany each
+packaged feature rather than waiting until the end.
+
+**Separate future work:** full five-language localization remains V2. Below-1%
+idle CPU and numeric visible-response qualification retain their post-V1 goals
+without becoming new V1.5 promises. Animated wallpaper, independent full-width
+touch-strip backgrounds, the full profile/workspace/state theme hierarchy and
+other hardware certification remain separately scoped. In particular, MK.2/XL
+and Neo support follow the hardware matrix, not an implied V1.5 certification.
+
+Review references:
+
+- [Stream Deck app overview](https://www.elgato.com/us/en/s/stream-deck-app)
+- [Stream Deck 7.6 release notes](https://help.elgato.com/hc/en-us/articles/51156609278737-Elgato-Stream-Deck-7-6-Release-Notes)
+- [Stream Deck 7.5 release notes](https://help.elgato.com/hc/en-us/articles/48328697898897-Elgato-Stream-Deck-7-5-0-Release-Notes)
 
 ## Focused V1 boundary and release gates — September 23
 
@@ -55,6 +191,13 @@ Profile remaining periodic work, remove unnecessary queries/encoding and verify
 idle and interactive improvements together. Keep full-service costs visible and
 preserve control responsiveness, safety checks and recovery. Broad GNOME/Wayland
 compatibility and plugin delivery remain V1.5 goals; localization remains V2.
+
+**V1.5 supporting performance work — added October 8:** retain asynchronous,
+cached installed-app discovery and event-driven audio inventory updates. Measure
+catalog refresh costs and coalesce redundant scans, following Elgato 7.6's
+application-discovery performance improvement as a review prompt. Verify install/
+uninstall changes remain discoverable, saved unavailable targets remain intact,
+and new media displays do not materially regress idle CPU or memory.
 
 ### Post-V1 visible-response measurement — approved October 7
 
@@ -147,10 +290,11 @@ be undone automatically. See the lab handoff for evidence and remaining acceptan
 
 ## Plugin architecture foundations — remaining production work
 
-User priority for the next project session, September 17: work through these tasks
-before taking on other feature work. Plugin delivery remains V1.5; these are
-focused pre-V1 preparations to avoid breaking saved layouts or rebuilding working
-execution paths later. Use the September 22 sequence above for the next session; these remain the architectural acceptance gates.
+The September 17 architecture priority remains: complete the necessary contract,
+saved-layout and lifecycle foundations before dependent feature work. Plugin
+delivery remains V1.5; the limited managed experiment does not close the general
+host gates below. Use the current V1.5 feature overview to resume; the September 22
+sequence records an earlier reliability checkpoint.
 
 1. **Review existing boundaries and write an architecture decision.** Map action
    definitions, saved layouts, dispatch, Auto-Lock/cancellation, rendering and
@@ -246,10 +390,59 @@ Deliver the native plugin foundation first:
 - Separate plugin processes with bounded communication, crash/hang recovery and
   clear diagnostics; built-in controls must continue working after plugin failure.
 - Manifest/runtime validation, local installation, enable/disable and removal.
+- **V1.5 dependency diagnostics — added October 8:** imported layouts must identify
+  the required provider/action, required versus installed version, missing runtime
+  or unsupported platform, and an actionable next step. Preserve unavailable
+  assignments/settings through editing, save and export; never execute an
+  incompatible provider or silently substitute another action. Test missing,
+  disabled, incompatible and recovered dependencies. Elgato's 7.5 import diagnostics
+  inform this UX; catalog availability is not proof of compatibility.
 - Declarative settings shown within the main GTK editor, plus clear capability
   and permission information. Do not describe process isolation as a full sandbox.
 - At least one reference plugin and developer documentation, with acceptance for
   installation/removal, missing dependencies, crashes, restarts and resource use.
+
+#### Built-in system monitors — V1.5 target
+
+User request, October 8: include system-information capabilities with Decksmith
+and organize them in the Plugins section as built-in providers. These ship with
+the app, work locally without an account or marketplace download, and use the
+native action/state/rendering contracts. They are separate from the external
+OpenAction System Information plugin used for compatibility testing.
+
+Initial monitor choices:
+
+- **CPU:** overall utilization, with optional per-core display.
+- **Memory:** used/total RAM and percentage; distinguish available memory/cache
+  from actual pressure, with swap information where available.
+- **Storage:** used/free space for a selected filesystem or mount.
+- **Network:** receive/transmit rates for a selected interface, with units and
+  clear disconnected/unavailable states.
+- **System information:** uptime, distribution, kernel and basic hardware summary.
+- **Hardware-dependent sensors:** CPU/GPU temperatures, fan speeds and GPU
+  utilization/memory when a supported read-only source is available. Discover
+  capabilities rather than promising every metric on every machine; missing
+  sensors, guest limitations or permissions must show unavailable, not zero.
+
+Allow assignment to keys and touch-strip regions. Provide readable values, units,
+icons and optional compact bars/graphs with matching preview and hardware
+rendering. Keep metric, source/interface/mount, label and appearance settings
+inline in the main editor. Monitor displays are read-only; they do not alter
+system settings. Retain user-customized labels and saved unavailable sources.
+
+Use one shared sampler for duplicate subscriptions, bounded sample/history
+buffers, cached static information and configurable modest refresh intervals.
+Collect off the UI/input path, render only changed visible values, and reduce or
+stop work for hidden/unassigned displays. Avoid privileged helpers and mandatory
+vendor tools for basic metrics; document optional sensor dependencies. Preserve
+built-in controls if a monitor source or optional collector fails.
+
+Validate units and rate calculations, zero/idle values, counter resets, suspend,
+interface/mount changes, missing sensors, permissions, stale data, import/export,
+long/emoji labels and preview parity. Use all four Linux test VMs for supported
+basic metrics, then physical key/touch-strip readability and representative host
+sensors. Measure idle/loaded CPU and memory with several monitors active before
+release. These capabilities are planned for V1.5, not present in published V1.
 
 **OpenAction is the first V1.5 compatibility target.** This means implementing
 Decksmith's host-side adapter, not embedding the marketplace website or assuming
@@ -291,6 +484,25 @@ that arbitrary existing plugins work.
 A Decksmith-owned marketplace/catalog, Windows plugins through Wine, and broader sandbox policies
 are later work, not V1.5 release requirements. DRM bypass remains out of scope.
 Full five-language localization remains scheduled separately for V2.
+
+**Optional V1.5 integration feasibility — added October 8:**
+
+- **Spotify:** assess library, playlist, search and queue controls through the
+  official Web API, with explicit authorization, secure token storage, account
+  requirements and API limits. Elgato's new Web API actions require Spotify
+  Premium. Keep existing general MPRIS controls available independently; do not
+  make Spotify accounts a core dependency or assume Elgato plugin compatibility.
+- **AI assistant controls/status:** assess saved prompts and working/waiting/done
+  feedback through a documented, authorized Linux integration. Elgato's current
+  ChatGPT/Codex plugin requires its Windows/macOS desktop integration; Linux
+  compatibility has not been established. A feasibility result must precede a
+  delivery commitment; do not automate approvals or execute commands from status
+  data. Follow the same native-host permission and resource boundaries.
+
+These are follow-on candidates after the native host, not V1.5 release blockers.
+References: [ChatGPT/Codex plugin requirements](https://marketplace.elgato.com/product/chatgpt-codex-fb6a7052-2b1a-4500-ba2a-13996edf0b47)
+and [SDK 3 changes](https://docs.elgato.com/streamdeck/sdk/releases/upgrading/v3/).
+Recheck service requirements and supported protocols when implementation starts.
 
 ## Localization — foundation now; five-language release in V2
 
@@ -377,6 +589,56 @@ hardware coverage for multiple streams, reconnects, and unusual devices. Meterin
 from the optional master mixer. Validate icon and label readability on the physical
 touch strip, including long names, unavailable artwork, and all four active panels.
 
+### Now Playing, dial action wheels and Dial Stacks — V1.5 targets, added October 8
+
+**Now Playing:** add an optional touch-strip presentation with track title, artist,
+artwork and playback progress where the selected MPRIS player exposes them. Use
+the existing explicit/automatic player selection rules; missing metadata or a
+closed player must show a clear fallback rather than unrelated media. Keep volume,
+signal level and playback progress distinct. Define panel allocation and tap/press
+behavior in the integrated editor before replacing any saved audio presentation.
+
+Subscribe to metadata/playback changes, cache bounded artwork, and update progress
+only while its panel is visible and playing. Do not add high-frequency player
+polling. Validate absent/long/emoji metadata, seek/pause/player changes, missing
+artwork, page changes, preview parity and idle/loaded resource use. Follow with
+physical readability and playback acceptance. This adapts the information-display
+idea from Neo Infobar to the supported Plus touch strip; it does not require Neo.
+
+**Dial action wheel:** rotate to choose a compatible existing action, then press
+to execute it. Design touch-strip selection and explicit Back/exit behavior without
+conflicting with swipe navigation, existing dial adjustment or held-microphone
+controls. Keep settings inline and share rendering between preview and hardware.
+Apply existing confirmations, Auto-Lock, cancellation and stale-input rules;
+selection alone must not execute an action. Test rapid rotation, page/lock changes,
+unavailable actions, import/export and physical selection/feedback.
+
+**Dial Stacks:** group compatible adjustable controls on one dial, including audio
+targets and device brightness. Tap that dial's touch-strip section to cycle through
+the ordered controls, then rotate to adjust the selected control. Clearly display
+the selected target, icon, value, mute/unavailable state and stack-position marker;
+share rendering between the editor preview and physical device. This switching
+and adjustment model passed the October 8 physical Windows reference review.
+Decksmith implementation and acceptance remain planned.
+
+Keep stack creation, ordering and editing inline. Support shared dial defaults
+with optional page overrides, preserving existing assignments and custom labels.
+Define press, mute and hold-to-talk behavior for each compatible control before
+implementation; switching must not adjust another target or leave a microphone
+hold active. Keep taps distinct from page swipes and leave existing single-control
+dials unchanged unless the user explicitly converts them to a stack.
+
+Use existing audio subscriptions and bounded caches; meter only the visible
+selected control rather than every hidden stack member. Apply Auto-Lock and
+stale-input cancellation on page/target changes, disconnects and recovery. Test
+rapid taps and rotation, missing/reappearing targets, external value/mute changes,
+press/hold release, inheritance, import/export and preview/hardware parity.
+Require physical acceptance and idle/loaded resource checks before release.
+
+References: [Infobar information displays](https://www.elgato.com/us/en/explorer/products/stream-deck/stream-deck-76-infobar-actions-for-stream-deck-neo/),
+[Action Wheel behavior](https://www.elgato.com/us/en/explorer/products/stream-deck/what-is-an-action-wheel-for-stream-deck/)
+and [MPRIS player interface](https://specifications.freedesktop.org/mpris/latest/Player_Interface.html).
+
 ### 4. Appearance presets and local icon library — implemented September 14
 
 Implemented layout-wide typography/color/label defaults, key and dial overrides,
@@ -386,9 +648,45 @@ link to download the full official set. Renderer-backed key/touch previews, draf
 history and theme/layout import/export preserve actions. See
 [appearance and icon behavior](appearance-and-icons.md) and the
 [September 14 checkpoint](checkpoints/2026-09-14.md) for validation and limits.
-The broader v0.4 theme hierarchy and panoramic canvases remain planned. A future
+The broader v0.4 theme hierarchy remains planned; static panoramic key wallpaper
+is now a V1.5 target detailed below. Independent full-width touch-strip backgrounds
+remain a separate appearance milestone. A future
 visual iteration should offer richer, less generic theme presets; the current
 controls and presets are accepted for now.
+
+**Website-artwork refresh polish — V1.5, added October 8:** retain the existing
+Enter/focus-leave lookup and explicit Refresh website icon control, and make
+automatic artwork follow URL changes consistently across relevant editing paths.
+Distinguish automatic website artwork from user-selected artwork so a URL change
+does not overwrite a custom image or label. Ignore stale fetch completions, retain
+usable artwork on failures and preserve undo/redo and Save and Apply semantics.
+Keep requests asynchronous, bounded and coalesced, using the existing URL/redirect
+and image-decoding protections. Test rapid URL changes, custom artwork, failure,
+history and imported layouts without fetching on every keystroke or opening
+websites. This refines existing behavior rather than introducing website icons.
+
+**Panoramic key wallpaper — V1.5, approved October 8:** let users apply one static
+background image across a page's entire key grid without manually slicing it.
+Use device geometry to sample each key's region, accounting for physical gaps so
+the image remains visually coherent. Begin with the supported Stream Deck +;
+reuse model-specific geometry when other devices receive separate qualification.
+
+Keep selection, fit/crop, position, scale and label-legibility adjustments inline
+in Page Appearance. Share the render model between preview and hardware, with
+icons and labels layered over the wallpaper and explicit per-key background
+overrides. Preserve saved artwork, custom labels and action assignments; applying
+or removing wallpaper must not silently replace them. Define how existing full-key
+artwork covers the shared background and make the result clear in the preview.
+
+Decode and resize images asynchronously with existing import protections and
+bounded memory. Cache the static canvas and key slices; rerender only after relevant
+image, geometry or appearance changes. Preserve undo/redo, Save and Apply,
+export/import and backward-compatible saved layouts. Validate gaps and image
+alignment, crop/scale settings, label contrast, overrides, missing assets, page
+changes and reconnects. Require physical preview-parity and resource checks.
+Animated wallpaper and the full profile/workspace/state theme hierarchy remain
+separate future work. This schedules FR-APPEAR-002/003 from the v0.4 baseline;
+wallpaper is not yet an implemented V1 feature.
 
 Later candidates from the recording review include launch-or-focus application
 behavior, browser selection for website actions, multi-action sequences, and idle
@@ -554,8 +852,9 @@ Implement adapters and dependency/status reporting; verify each target rather th
 copying another product's compatibility claims. Default to application identity;
 window-title matching remains a separate privacy/design decision.
 
-**Sticky actions (FR-PROFILE-008):** expose the existing shared binding scopes as a
-simple option to keep a key action in the same position across a profile's pages.
+**Sticky actions (FR-PROFILE-008) — V1.5 target, confirmed October 8:** expose the
+existing shared binding scopes as a simple option to keep a key action in the same
+position across a profile's pages.
 Use one shared action/appearance/label binding, not manual copies. Show inherited
 state, scope and conflicts in the integrated editor; handle edit propagation,
 removal, undo/redo and import/export. Specify page-specific override/conflict behavior

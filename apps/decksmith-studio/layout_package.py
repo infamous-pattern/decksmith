@@ -8,7 +8,7 @@ from zipfile import ZipFile,ZIP_DEFLATED
 
 LIMIT=2*1024*1024
 KEY_STYLE=('label','artwork','follow_page_name','label_position','label_color','label_background','background_color','appearance','icon_source','icon_tint')
-DIAL_STYLE=('label','appearance','target_icon_png')
+DIAL_STYLE=('label','appearance','target_icon_png','display_style')
 
 def encode(layout):
     behavior=deepcopy(layout);appearance=[];files={};redacted=0
