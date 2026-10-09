@@ -28,19 +28,17 @@ configuration/artwork hashes are unchanged. The user confirmed physical gauge
 readability, mute/live indications and responsive controls. A measured resource
 comparison remains before a public release.
 
-The Pop!_OS VM is
-registered with autostart disabled, updated and rebooted successfully. Initial
-checks using the unchanged Debian preview passed runtime integrity/dependencies,
-VirtualDeck, shared previews, page navigation/save and native editor key/dial
-selection across the tabs. The artwork-picker API opened and cancelled cleanly
-through COSMIC's real desktop portal. This is initial test evidence, not Pop!_OS
-release support: physical USB/audio, lifecycle recovery, accessibility and
-COSMIC-specific desktop integration remain unqualified. Runtime package hints
-now follow Ubuntu/Debian ancestry for Pop!_OS; the focused regression checks pass.
-The normal COSMIC launch initially chooses a small 900×540 window and clips some
-preview content; the initial monitor lookup is corrected in the COSMIC candidate
-source and awaits exact-package acceptance. The native
-editor checks used 1200×700, where the tabs and key/dial settings rendered correctly.
+The updated Pop!_OS 24.04 COSMIC VM is registered with autostart disabled.
+A separate Ubuntu 24.04-baseline signed candidate passed provenance/archive
+verification, installation/recovery, native editor and VirtualDeck checks, and
+normal service start/stop. The user accepted all sections, stable key/dial sizing,
+keyboard focus/navigation and the artwork picker at 1920×1200. Orca is not tested.
+Runtime package hints follow Ubuntu/Debian ancestry; GNOME-only DND correctly
+reports unavailable. The bounded initial monitor lookup does not fully fix small
+1280×800 launches: COSMIC can still select 900×540 and clip controls; enlarge the
+window. Physical USB/audio, lifecycle recovery, resources and COSMIC-specific
+integration remain unqualified. Experimental prerelease publication is pending.
+See the [signed COSMIC qualification record](checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
 
 ## V1.5 feature plan — organized October 8
 

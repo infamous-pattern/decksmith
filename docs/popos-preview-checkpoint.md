@@ -39,7 +39,9 @@ The editor now bounds its first request to an available monitor even before the
 parent maps. At 1920×1200, the source-matched native workspace passes tab/layout,
 focus, settings and gauge-selector checks. COSMIC can still choose a narrower
 window on a 1280×800 display; manually enlarge the window if controls clip.
-Exact-package normal-session rendering and user review remain gates.
+The final signed package passed native and normal-session rendering at 1920×1200;
+the user accepted layout, keyboard navigation and the artwork picker. Orca was
+not tested. See the [exact-package qualification record](checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
 
 Do Not Disturb now requires a running GNOME Shell before reading or changing
 GNOME's notification setting. COSMIC reports it unavailable; changing an ignored
@@ -71,3 +73,13 @@ as a protective guarantee before a real COSMIC lock/unlock test.
 
 References: [System76 Pop!_OS](https://system76.com/pop) and
 [COSMIC desktop documentation](https://system76.com/support/pop-basics/).
+
+## Final signed candidate
+
+The final candidate 1.0.0-5b198a52075d passed independent signature/archive admission,
+isolated installation/recovery and native COSMIC tests, followed by normal
+installation and service start/stop. The user accepted the editor and file picker.
+Public prerelease approval/download verification are pending.
+[Installation guide](popos-preview-installation.md) and
+[qualification record](checkpoints/2026-10-09-popos-cosmic-signed-preview.md)
+record exact identity and the remaining limits.
