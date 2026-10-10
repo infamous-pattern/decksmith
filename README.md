@@ -24,6 +24,13 @@ general plugin support. See the [V1 release plan](docs/v1-release-scope.md).
 experimental preview. Its Ubuntu 24.04 build baseline and desktop-specific limits
 are documented in the [COSMIC qualification record](docs/checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
 
+**Additional development testing:** openSUSE Tumbleweed with GNOME/Wayland is
+now included in the on-demand AI-server VM test environment. Initial installation,
+native editor and VirtualDeck checks passed on snapshot 20261009 using the current
+development build. This is a test environment; no openSUSE preview download or
+supported installation is published. Physical USB/audio, accessibility and
+lifecycle qualification remain pending. See the [OS testing plan](docs/ROADMAP.md#os-testing-host-policy--october-10).
+
 ## New touch-strip dial gauges
 
 The dual-arc design keeps volume and audio activity easy to tell apart: the

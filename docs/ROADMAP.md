@@ -1,9 +1,40 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 9, 2026. The v0.4 product
+This is the implementation roadmap, updated October 10, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
+
+## OS testing host policy — October 10
+
+Use the AI server as the primary host for OS compatibility and VM-based tests.
+The Linux test guests (Fedora Workstation 44, Fedora Workstation 45 Beta,
+Debian 13, Ubuntu 26.04 and Pop!_OS 24.04 COSMIC) have independent server copies
+managed from the workstation through virt-manager. Keep workstation originals
+as recovery copies; Windows reference-review testing remains on the workstation.
+
+Use the workstation when a test requires direct physical Stream Deck access.
+VirtualDeck and VM checks complement physical acceptance and do not replace it.
+Refresh each guest's installed build before qualifying a new candidate, and record
+the build and environment with its results. Start guests only when needed, shut
+them down or pause them when not in use, and keep VM autostart disabled. Prefer
+the server's on-demand test runner for unattended checks; do not interrupt a
+guest already in use. This policy does not enable recurring jobs or scheduling.
+
+**openSUSE Tumbleweed GNOME — added October 10:** the sixth Linux test guest is
+installed directly on the AI server, registered in its virt-manager User session,
+with desktop autologin, a 1920 × 1200 display and VM autostart disabled. Initial
+checks passed for checksum-verified development-build installation, native
+GNOME/Wayland integrated Home/Pages/Keys/About navigation, stable window sizing,
+key/dial selection, artwork picker cancellation, VirtualDeck previews, page
+navigation, layout save/validation, SSH and HTTPS. The recorded environment is
+Tumbleweed snapshot 20261009, GNOME 50.5, GTK 4.22.5, libadwaita 1.9.4 and
+Decksmith development build `1.0.0-80b6faedd10b`.
+Record the rolling snapshot, dependency versions and candidate build for each
+qualification. Include native GNOME/Wayland editor, artwork picker, installation,
+VirtualDeck and service checks in the OS test matrix. Physical USB/audio,
+accessibility and lifecycle checks retain separate acceptance gates. Adding this
+test environment does not establish a supported openSUSE release.
 
 ## Today's short list — October 9
 
