@@ -1,6 +1,6 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 10, 2026. The v0.4 product
+This is the implementation roadmap, updated October 11, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
@@ -19,7 +19,22 @@ Refresh each guest's installed build before qualifying a new candidate, and reco
 the build and environment with its results. Start guests only when needed, shut
 them down or pause them when not in use, and keep VM autostart disabled. Prefer
 the server's on-demand test runner for unattended checks; do not interrupt a
-guest already in use. This policy does not enable recurring jobs or scheduling.
+guest already in use.
+
+**Scheduled testing — authorized October 10:** run source builds, Rust/Python
+regression tests, VirtualDeck checks and the dependency audit nightly at 2 AM
+Eastern. Test the six Linux guests sequentially on Sundays at 6 AM Eastern.
+Before each guest test, save and verify an offline recovery copy, apply OS package
+updates, reboot and confirm a new boot ID. Leave guests off afterward and skip
+guests already in use. Record update/reboot failures separately from test failures.
+Nightly tests use a separate checkout of published GitHub main; VM tests record
+the installed guest build and updated OS/kernel. Those are distinct qualification
+contexts, not a promise that every guest automatically receives a new build.
+Server timers run independently of the workstation; an hourly Codex follow-up
+reports new failures, incomplete runs and recovery when the desktop app is
+available. Keep logs and backup manifests; do not automatically restore disks or
+force off a failed guest. The AI server host and Windows reference VM are outside
+these guest-update jobs.
 
 **openSUSE Tumbleweed GNOME — added October 10:** the sixth Linux test guest is
 installed directly on the AI server, registered in its virt-manager User session,
@@ -35,6 +50,16 @@ qualification. Include native GNOME/Wayland editor, artwork picker, installation
 VirtualDeck and service checks in the OS test matrix. Physical USB/audio,
 accessibility and lifecycle checks retain separate acceptance gates. Adding this
 test environment does not establish a supported openSUSE release.
+
+## Optional research toolbox — October 11
+
+Ghidra is available as a separate AI-server research tool alongside the existing
+workstation REA trial. Use official HID/SDK documentation, saved profiles and
+observed behavior first; use targeted native analysis when a specific gap remains.
+Keep reference binaries and recovered implementation/assets outside public source,
+and verify findings through physical/reference-app acceptance. These tools are not
+Decksmith runtime dependencies or automatic release gates. See the
+[research toolbox](research-toolbox.md) for scope and workflow.
 
 ## Today's short list — October 9
 
@@ -110,10 +135,27 @@ next-step lists describe their historical checkpoint; use this overview to resum
 
 ### Pages and shared actions
 
+- **Key press gestures:** finish independent Single press, Double press and Hold
+  assignments in the integrated key editor and daemon. Reuse the existing core
+  resolver, retain normal single-press behavior and push-to-talk, and make gesture
+  conflicts and timing clear. See [key gesture requirements](#key-single-press-double-press-and-hold--v15-target-added-october-9).
 - **Sticky keys:** one shared action/appearance/label binding across pages, with
   visible inheritance, edit propagation and explicit per-page conflicts/overrides.
 - Preserve existing automatic/manual page switching and saved layouts. See
   [pages and reusable actions](#profiles-pages-and-reusable-actions--clarified-september-13).
+
+### Devices and simultaneous control
+
+- **Multi-device support — V1.5 requirement:** run multiple connected Stream
+  Decks at the same time, with a named Choose Device selector, connection status,
+  independent layouts/pages and device preferences. Disconnecting or recovering
+  one device must not interrupt another. See
+  [multi-device requirements](#simultaneous-multiple-device-support--clarified-september-13).
+- **Initial mixed-device acceptance:** Stream Deck + together with the user's
+  incoming 15-key MK.2. Complete MK.2 geometry, key rendering/input, brightness and
+  recovery prerequisites for this pair; qualify each model before advertising
+  support. Simulate two identical devices as well as mixed models, and track the
+  additional physical identical-model check separately.
 
 ### Plugins and integrations
 
@@ -158,7 +200,9 @@ updates rather than adding unnecessary polling.
 Resume tomorrow by reviewing the native plugin foundation checkpoint and selecting
 its first unfinished production gate. The existing architecture priority remains:
 settle action identity/settings and shared lifecycle rules before dependent control
-or plugin changes. Within Appearance, refresh polish precedes wallpaper. Within
+or plugin changes. Establish per-device identity, geometry and independent state
+before dependent multi-device UI and dispatch changes; qualify the Plus/MK.2 pair
+as a V1.5 release gate. Within Appearance, refresh polish precedes wallpaper. Within
 Media/Dials, specify interaction/rendering behavior before implementation, starting
 with Now Playing, then Action Wheel and Dial Stacks. Catalog and optional service
 integrations follow a qualified native host. Compatibility checks accompany each
@@ -168,8 +212,9 @@ packaged feature rather than waiting until the end.
 idle CPU and numeric visible-response qualification retain their post-V1 goals
 without becoming new V1.5 promises. Animated wallpaper, independent full-width
 touch-strip backgrounds, the full profile/workspace/state theme hierarchy and
-other hardware certification remain separately scoped. In particular, MK.2/XL
-and Neo support follow the hardware matrix, not an implied V1.5 certification.
+other hardware certification remain separately scoped. MK.2 integration and
+Plus/MK.2 simultaneous operation now belong to the V1.5 multi-device gate;
+XL, Neo and other model certifications continue to follow the hardware matrix.
 
 Review references:
 
@@ -900,7 +945,48 @@ Validate focus changes and fallback/manual navigation, plus sticky-action persis
 through automatic/manual page switches and exports. These are planned extensions
 of existing requirements, grouped with profiles/context and shared controls.
 
+### Key single-press, double-press and hold — V1.5 target, added October 9
+
+Provide separate **Single press**, **Double press** and **Hold** action assignments
+for each key within the integrated editor. Single press and push-to-talk work
+today; the core resolver already contains short/double/long-press and repeat
+recognition with tests. General gesture assignments still need saved-layout,
+editor and daemon integration; this is planned V1.5 work, not a published feature.
+
+Preserve existing layouts and their action-on-release behavior. Only defer a
+single press when a double-press assignment is configured; a recognized double
+press suppresses that sequence's single action. An assigned Hold action fires
+once after its threshold and suppresses single/double actions for that hold.
+Start from the architecture's 300 ms double-press window and 500 ms hold threshold,
+and explain the timing inline. Do not enable automatic repeat by default;
+general hold-repeat configuration is a separate follow-on decision.
+
+Keep push-to-talk as a distinct held action: activate on press and release safely
+when the last overlapping hold ends. Prevent incompatible gesture combinations
+from unintentionally opening a microphone or firing multiple actions. Cancel
+pending gestures and held state on lock, page/binding changes, disconnect,
+suspend and service stop; recovery must not replay stale inputs. Retain existing
+action confirmations, unavailable-target handling and plugin permissions.
+
+Store assignments without losing custom labels/artwork or existing action data.
+Support undo/redo, import/export and sticky-key inheritance. Reuse monotonic
+deadline handling with bounded work rather than adding busy polling. Coordinate
+the semantics with Dial Stacks and Action Wheels without changing existing dial
+press or touch behavior implicitly.
+
+Acceptance covers timing boundaries, quick/slow double presses, duplicate input
+reports, long-hold suppression, release/cancellation and push-to-talk overlap;
+saved-layout migration/round trips; inline editor accessibility; and physical
+Stream Deck + and MK.2 key tests as hardware becomes available. Qualify idle and
+loaded resource use before release.
+
 ### Simultaneous multiple-device support — clarified September 13
+
+**V1.5 release requirement — confirmed October 9:** deliver simultaneous device
+control, initially qualified with Stream Deck + and the user's incoming MK.2.
+This supersedes the earlier separately scoped multi-device milestone. Complete
+the MK.2 adapter/geometry and physical acceptance needed for that pair; broader
+model certification remains independently tracked in the hardware matrix.
 
 Implement the existing FR-DEVICE-007 end to end: stable identity for each unit
 (including identical models and ambiguous/missing serial handling), a named device
@@ -908,12 +994,22 @@ selector with connection status, per-device layout/profile assignments and
 preferences, and independent simultaneous input/rendering/navigation. Restore the
 correct assignments across hot-plug, reversed connection order and suspend/resume;
 isolate failures and stale session events to the affected device. Shared desktop
-audio/app targets remain shared resources.
+audio/app targets remain shared resources. Preserve the existing single-device
+layout during migration; bind configuration to stable device identity rather
+than USB enumeration order. Keep Choose Device and per-device editing inside the
+main interface, showing each model's actual controls. Never silently discard keys
+or bind nonexistent dials when importing a layout onto a different model.
 
-Validate at least two VirtualDecks and perform a two-device physical check before
-claiming simultaneous-device certification. This clarifies existing design intent;
-it is planned work, not a claim that the current single-device prototype supports
-it or an expansion of the V1 hardware-model certification promise. Details are in
+Validate at least two VirtualDecks, including identical and mixed models, and
+perform the Plus/MK.2 two-device physical check before V1.5 release. Exercise
+independent page changes, simultaneous inputs/rendering, reversed reconnect order,
+single-device failure, lock, suspend/resume, quit/stop blanking and saved assignment
+recovery. Test ambiguous identities explicitly; never silently attach another
+device's layout. Measure CPU/memory with both devices active, share common audio
+subscriptions where possible and bound per-device caches/queues. Physical
+identical-model certification remains a separately recorded hardware check.
+This is planned V1.5 work, not a claim that published V1 controls multiple devices.
+Details are in
 FR-DEVICE-007 and architecture sections 5, 6.1 and 10.2.
 
 ### Complete current physical model range

@@ -37,6 +37,15 @@ Deck remains a legacy compatibility candidate, not proof of current retail stock
 
 ## Phased delivery and acceptance
 
+**V1.5 scope update — October 9:** simultaneous multi-device support is a release
+requirement, initially qualified with Stream Deck + and the user's incoming
+15-key MK.2. Complete model-specific MK.2 integration and physical acceptance,
+then verify independent layouts/pages, simultaneous controls and recovery with
+both connected. Identical-model simulation is required; physical identical-model
+certification and the remaining model rows retain their own evidence gates. See
+the [multi-device roadmap](ROADMAP.md#simultaneous-multiple-device-support--clarified-september-13).
+This is a planned milestone, not a current support claim.
+
 1. **Foundations:** capability-driven geometry, image formats/resolutions, control
    addressing and per-device session/configuration scopes. Remove prototype
    eight-key/four-dial/800×100 assumptions from generic code without regressing +.

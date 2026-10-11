@@ -1,0 +1,63 @@
+# Decksmith research toolbox
+
+Added October 11, 2026. These are optional development tools, separate from
+Decksmith's application, daemon, installer and release dependencies.
+
+## Choose the simplest source of evidence
+
+Start with official Elgato HID/SDK documentation, saved test profiles and observed
+behavior in the Windows review VM. Validate device behavior on actual hardware.
+Use reverse-engineering tools only for a specific question these sources leave
+unanswered; static findings do not establish complete runtime behavior.
+
+## REA
+
+Use REA to locate readable plugin handlers, configuration fields and native
+references. The October 9 trial identified Dial Stack configuration and Wave Link
+display/rotation patterns, but its JavaScript graph was partial and its native
+analysis did not decompile the relevant functions. Review the private trial report
+and evidence before reusing findings. Existing REA setup remains on the workstation.
+
+## Ghidra
+
+Use Ghidra for focused inspection of compiled native executables or libraries:
+function references, disassembly and decompilation where needed. It complements
+REA, which already used Ghidra during the earlier native trial.
+
+The AI server has a separate user-owned Ghidra 12.1.4 installation and isolated
+Temurin JDK 21.0.12.1+1, selected for that release's Java requirement. Official
+package checksums are recorded and verified before extraction. Development-branch
+requirements may differ; verify a release's requirements before updating tools.
+
+The private `decksmith-ghidra` launcher creates a distinct run/project, copies and
+hashes its input, and keeps logs and outcomes. It imports the binary for analysis
+without executing it. It does not overwrite existing analysis projects. An
+analysis timeout and an outer process timeout prevent forgotten analysis jobs;
+only that run's process group is terminated on timeout or interruption. Analysis
+completion alone is not proof of a hypothesis: inspect the evidence and confirm
+behavior through reference-app or device tests. Run only reviewed analysis scripts.
+
+Research runs are manual and do not join scheduled compatibility tests. Keep
+reference binaries, recovered implementation/assets, profiles and generated
+decompilation in private research storage, outside Decksmith's Git/public history.
+Implement Decksmith behavior and artwork independently; record the evidence and
+uncertainties needed to reproduce a finding.
+
+Useful initial questions are ambiguous Dial Stack touch/press/hold rules and
+undocumented native behavior. For MK.2 and multi-device work, documented HID
+commands and model-specific hardware tests remain the first choice.
+
+## Verification and location
+
+An original tiny C fixture verifies import, function discovery and decompilation
+without executing the fixture or inspecting proprietary binaries. The private
+server setup report records the installed paths, package digests and smoke result.
+No background Ghidra service, network listener or system-wide Java change is needed.
+
+## Primary references
+
+- [Ghidra repository](https://github.com/NationalSecurityAgency/ghidra)
+- [Ghidra 12.1.4 release](https://github.com/NationalSecurityAgency/ghidra/releases/tag/Ghidra_12.1.4_build)
+- [REA](https://github.com/morluto/rea)
+- [Elgato HID documentation](https://docs.elgato.com/streamdeck/hid/intro/)
+- [Elgato Stream Deck SDK](https://docs.elgato.com/streamdeck/sdk/)
