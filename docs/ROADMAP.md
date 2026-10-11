@@ -5,6 +5,46 @@ and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
 
+## Next work priorities — Monday, October 12
+
+These are the first two tasks when development resumes, ahead of new V1.5
+features. Review the existing signed installation paths before implementation.
+
+1. **Simplify installation, including dependencies.** Provide one recommended
+   entry point that identifies the distribution, version and architecture,
+   explains support status, selects the correct stable or experimental package,
+   and offers installation of missing runtime dependencies. The existing URL
+   bootstrap defaults to `v0.1.0-preview.3`; changing its default alone is not a
+   verified V1 installation. Preserve signed provenance, accepted source/workflow
+   identity, complete checksum coverage and archive validation before installing.
+   Stop clearly for unsupported platforms or failed verification. Consolidate
+   package requirements used by the installer, runtime doctor and documentation;
+   distinguish required runtime packages from optional desktop integrations and
+   source-build tools. Keep the application installation under the normal user,
+   with elevation only for necessary system packages or USB permissions. Preserve
+   layouts, artwork, startup preferences and the existing build/configuration
+   recovery path. Test fresh installation, missing dependencies, upgrade,
+   verification failure and recovery in the appropriate AI-server guests.
+2. **Reorganize the README around a new user's needs.** Lead with a short product
+   explanation, one current interface image and the video, followed by available
+   features, a compact support/download table, verified installation and first
+   use. Clearly separate Fedora 44 support, experimental Debian/Ubuntu/COSMIC
+   downloads, test-only environments and unreleased development features. Move
+   detailed qualification evidence, architecture and developer setup to linked
+   guides. Keep concise dependency and troubleshooting links, the explanation of
+   application-stream volume versus in-app sliders, and System sounds versus
+   output volume. Preserve accessibility guidance, AI-assistance disclosure,
+   license/trademark notices and the support button at the bottom. Check all
+   links, image availability and release labels against the actual downloads.
+
+**Optional supporting trial: RepoWise.** Evaluate it on a clean copy of Decksmith
+for installer dependency tracing, documentation drift and later multi-device
+change impact. Start with local deterministic analysis, without model calls,
+transcript capture, hooks or automatic agent configuration changes. Measure
+accuracy, indexing time and resource use before adding it to the regular
+workflow. This evaluation is planned, not installed or qualified, and is not a
+prerequisite for the two tasks above. See the [research toolbox](research-toolbox.md).
+
 ## OS testing host policy — October 10
 
 Use the AI server as the primary host for OS compatibility and VM-based tests.

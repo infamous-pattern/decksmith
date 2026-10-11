@@ -47,6 +47,37 @@ Useful initial questions are ambiguous Dial Stack touch/press/hold rules and
 undocumented native behavior. For MK.2 and multi-device work, documented HID
 commands and model-specific hardware tests remain the first choice.
 
+## RepoWise — evaluation planned
+
+RepoWise is a candidate for understanding Decksmith's own source and keeping its
+documentation aligned with implementation. Its repository advertises code and
+dependency graphs, Git change analysis, documentation drift detection and a local
+CLI/dashboard/MCP interface. Rust and Python have full language-analysis support
+in its published matrix. These capabilities are not yet verified against
+Decksmith's GTK callbacks, dynamic Python/GI behavior or D-Bus interactions.
+
+The reviewed source reports version 0.55.0, Python 3.11 or newer and alpha
+development status. It uses AGPL-3.0-or-later licensing and has a substantial
+analysis dependency set. Keep it in an isolated development environment on the
+AI server; do not embed it in Decksmith or add it to application, installer or
+release dependencies. Recheck the selected release and requirements before use.
+
+For the first trial, use a clean tracked-source copy, excluding private settings,
+research inputs, build caches and generated outputs. Use deterministic local
+analysis without model calls or prose generation. Do not enable transcript
+capture, hooks or automatic agent/MCP configuration changes. Review initialization
+behavior before running it; repository setup instructions do not themselves
+authorize configuration changes.
+
+Compare its file citations and answers with direct source inspection for three
+questions: which installer/runtime-doctor paths define dependencies; how a key
+action travels from editor configuration to daemon dispatch; and which page/dial
+state dependencies matter for independent devices. Record false positives,
+missed dynamic connections, indexing time, peak memory and refresh behavior.
+Retain it only if it provides accurate, useful results. Static graph findings
+complement tests and physical acceptance; they do not replace them. No trial,
+installation or integration has been completed yet.
+
 ## Verification and location
 
 An original tiny C fixture verifies import, function discovery and decompilation
@@ -59,5 +90,8 @@ No background Ghidra service, network listener or system-wide Java change is nee
 - [Ghidra repository](https://github.com/NationalSecurityAgency/ghidra)
 - [Ghidra 12.1.4 release](https://github.com/NationalSecurityAgency/ghidra/releases/tag/Ghidra_12.1.4_build)
 - [REA](https://github.com/morluto/rea)
+- [RepoWise repository](https://github.com/repowise-dev/repowise)
+- [RepoWise language support](https://github.com/repowise-dev/repowise/blob/main/docs/layers/LANGUAGE_SUPPORT.md)
+- [RepoWise package requirements](https://github.com/repowise-dev/repowise/blob/main/pyproject.toml)
 - [Elgato HID documentation](https://docs.elgato.com/streamdeck/hid/intro/)
 - [Elgato Stream Deck SDK](https://docs.elgato.com/streamdeck/sdk/)
