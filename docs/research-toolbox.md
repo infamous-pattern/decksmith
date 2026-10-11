@@ -78,6 +78,45 @@ Retain it only if it provides accurate, useful results. Static graph findings
 complement tests and physical acceptance; they do not replace them. No trial,
 installation or integration has been completed yet.
 
+## Awesome LLM Apps — development skills to evaluate
+
+Use this collection as a source of optional development-review skills. Initial
+candidates are Dependency Doctor for direct Python/JavaScript manifest issues,
+Scope Creep Detector for comparing a change with its stated intent, and Commit
+Archaeologist for tracing the history of a source region. Start with an isolated,
+read-only trial against a clean Decksmith source copy; compare findings with
+direct inspection before adopting a skill. No skills have been installed or
+qualified for Decksmith yet.
+
+Dependency Doctor does not cover Rust manifests, Fedora/Debian OS packages,
+GTK/PipeWire runtime readiness or full vulnerability audits. Scope classification
+is a heuristic, not proof that a necessary cross-cutting change is unrelated.
+These tools complement the existing checks and fresh-VM installer acceptance;
+they are not application dependencies or replacements for those tests.
+
+## Awesome MCP Servers — discovery reference
+
+Use this catalog to find candidates for development, monitoring, desktop and
+home-automation research when a specific task warrants another tool. A catalog
+entry does not establish security, maintenance quality, Linux compatibility or
+Decksmith plugin compatibility. Review each candidate's own implementation,
+license, permissions and resource use, then test it in isolation. No server,
+automatic MCP configuration or Decksmith integration is enabled by listing it
+here. Keep the catalog outside runtime and installer requirements.
+
+## Agents Towards Production — educational reference
+
+Consult the tracing, evaluation, secure tool-calling and failure-recovery tutorials
+for ideas that may improve AI-server development jobs. The material targets GenAI
+agents, so applicability to Decksmith's native UI, device transport and daemon
+must be demonstrated for a specific question. Do not add its frameworks or cloud
+services to Decksmith merely to follow an example.
+
+The repository currently declares a custom non-commercial license. Treat it as
+educational reference material; do not copy code into Decksmith's Apache-2.0
+distribution without a separate license review. No tutorial installation or
+integration has been completed. Recheck upstream licensing before any reuse.
+
 ## Verification and location
 
 An original tiny C fixture verifies import, function discovery and decompilation
@@ -93,5 +132,11 @@ No background Ghidra service, network listener or system-wide Java change is nee
 - [RepoWise repository](https://github.com/repowise-dev/repowise)
 - [RepoWise language support](https://github.com/repowise-dev/repowise/blob/main/docs/layers/LANGUAGE_SUPPORT.md)
 - [RepoWise package requirements](https://github.com/repowise-dev/repowise/blob/main/pyproject.toml)
+- [Awesome LLM Apps](https://github.com/Shubhamsaboo/awesome-llm-apps)
+- [Dependency Doctor scope](https://github.com/Shubhamsaboo/awesome-llm-apps/blob/main/agent_skills/dependency-doctor/SKILL.md)
+- [Scope Creep Detector](https://github.com/Shubhamsaboo/awesome-llm-apps/blob/main/agent_skills/scope-creep-detector/SKILL.md)
+- [Awesome MCP Servers](https://github.com/punkpeye/awesome-mcp-servers)
+- [Agents Towards Production](https://github.com/NirDiamant/agents-towards-production)
+- [Agents Towards Production license](https://github.com/NirDiamant/agents-towards-production/blob/main/LICENSE)
 - [Elgato HID documentation](https://docs.elgato.com/streamdeck/hid/intro/)
 - [Elgato Stream Deck SDK](https://docs.elgato.com/streamdeck/sdk/)

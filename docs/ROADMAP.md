@@ -47,6 +47,17 @@ with the gallery and detailed dependencies in linked guides. Bare-desktop depend
 release assets and production controls are unchanged. See the
 [installer qualification](checkpoints/2026-10-11-simplified-installer.md).
 
+**Fresh dependency acceptance — scheduled, not yet passed:** a separate one-time
+AI-server job is scheduled for October 11 at 9 PM Eastern. It creates a new Fedora
+44 Workstation GNOME guest from the OS repositories, retains an independent
+pristine disk before Decksmith installation, and exercises the published helper's
+normal-user dependency confirmation and signed-install path. Check missing
+packages before/after, runtime readiness, desktop integration, startup remaining
+off, and native Wayland editor/VirtualDeck operation. Keep existing test guests
+and production controls unchanged; shut down the new guest afterward. This does
+not qualify physical USB/audio or the other distributions' fresh dependency
+paths. Review results on October 12 before closing the acceptance item.
+
 **Optional supporting trial: RepoWise.** Evaluate it on a clean copy of Decksmith
 for installer dependency tracing, documentation drift and later multi-device
 change impact. Start with local deterministic analysis, without model calls,
@@ -110,6 +121,12 @@ Keep reference binaries and recovered implementation/assets outside public sourc
 and verify findings through physical/reference-app acceptance. These tools are not
 Decksmith runtime dependencies or automatic release gates. See the
 [research toolbox](research-toolbox.md) for scope and workflow.
+
+Awesome LLM Apps development skills, Awesome MCP Servers and Agents Towards
+Production are also listed as optional references. Evaluate narrowly for change
+review, tool discovery and development-job observability; no installation or
+runtime integration is approved merely by adding a reference. Keep the installer
+acceptance work ahead of these trials and review each candidate's licensing.
 
 ## Today's short list — October 9
 
