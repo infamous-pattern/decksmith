@@ -7,7 +7,9 @@ import tempfile
 import unittest
 
 SCRIPT=Path(__file__).with_name('install.sh').read_text()
-VERIFY=SCRIPT.split("<<'PYVERIFY'\n",1)[1].split('\nPYVERIFY',1)[0]
+VERIFY=SCRIPT.split("<<'DECKSMITH_SOURCE_1'\n",1)[1].split('\nDECKSMITH_SOURCE_1',1)[0]
+# Exercise the checksum routine in the exact embedded verifier, without its CLI.
+VERIFY=VERIFY.replace("if __name__ == '__main__':", "if False:") + '\nchecksums(Path("."))\n'
 
 class BootstrapIntegrity(unittest.TestCase):
     def test_complete_manifest_is_required_before_execution(self):

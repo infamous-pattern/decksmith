@@ -10,6 +10,15 @@ This guide is supplemental release guidance. It is not the signed archive's
 historical one-command preview shortcut remains pinned to preview.3 and checks
 integrity only. Do not use it as the authenticated V1 installation path.
 
+For the new source helper that combines dependencies, download, verification and
+installation, see [Install Decksmith](install-decksmith.md). The manual procedure
+below remains valid for the unchanged signed V1 archive.
+
+**Manual verification prerequisite:** use GitHub CLI **2.102.0 or newer**, which
+fixes workflow/ref identity matching. The [Simplified Installer](install-decksmith.md)
+offers a pinned temporary copy if the distribution's CLI is too old; manual
+installation keeps dependency setup and verification as separate steps.
+
 ## Dependencies and trusted verifier
 
 The supported destination is Fedora Workstation 44 x86_64 in a GNOME/Wayland

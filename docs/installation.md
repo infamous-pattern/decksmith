@@ -1,7 +1,10 @@
 # Install, update and recover Decksmith
 
-**V1 is available:** follow the [verified V1 installation guide](v1-verified-installation.md)
-for the published `v1.0.0` downloads and provenance checks. This page also covers
+**Recommended: [Simplified Installer](install-decksmith.md)** — dependency setup,
+signed downloads and installation in one helper.
+
+**Alternative: [Manual Installation](v1-verified-installation.md)** — individual
+steps for the published Fedora `v1.0.0` downloads and provenance checks. This page also covers
 dependencies, USB access, recovery and the retained preview installer. Its
 preview shortcut installs preview.3, not V1.
 
@@ -66,7 +69,10 @@ whether uncommitted changes were present.
 They also identify the native build distribution and C-library environment;
 incompatible copied binaries are rejected before packaging.
 
-## One-command installation
+## Historical preview.3 shortcut
+
+For the new signed-release helper, see [Install Decksmith](install-decksmith.md).
+The following historical shortcut is retained for recovery and comparison only.
 
 On Fedora 44 or 45 x86_64, run as your normal desktop user:
 
@@ -74,7 +80,7 @@ On Fedora 44 or 45 x86_64, run as your normal desktop user:
 curl -fsSL https://raw.githubusercontent.com/infamous-pattern/decksmith/v0.1.0-preview.3/scripts/install.sh | sh
 ```
 
-[Review the script](../scripts/install.sh) before running it if preferred. It asks
+[Review the historical script](https://github.com/infamous-pattern/decksmith/blob/v0.1.0-preview.3/scripts/install.sh) before running it if preferred. It asks
 DNF to install missing dependencies, downloads the pinned preview over HTTPS,
 verifies the release checksums, and runs the per-user installer. It does not use
 root for Decksmith installation, start controls, or enable login startup. Fedora

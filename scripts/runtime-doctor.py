@@ -4,20 +4,17 @@ import argparse,ctypes,json,os,platform,shutil,subprocess,sys
 from pathlib import Path
 sys.dont_write_bytecode=True
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from runtime_dependencies import package_hints as distribution_package_hints
 def package_hints():
     try:release=platform.freedesktop_os_release()
     except OSError:release={}
-    distribution=release.get('ID','')
-    if {distribution,*release.get('ID_LIKE','').split()} & {'debian','ubuntu'}:
-        return {'gdbus':'libglib2.0-bin','artwork':'gir1.2-gtk-4.0, gir1.2-adw-1, gir1.2-rsvg-2.0, python3-gi, python3-gi-cairo, python3-pil, python3-cairo',
-                'libpulse.so.0':'libpulse0','libudev.so.1':'libudev1'}
-    return {'gdbus':'glib2','artwork':'gtk4, libadwaita, python3-gobject, python3-pillow, python3-cairo, librsvg2',
-            'libpulse.so.0':'pulseaudio-libs','libudev.so.1':'systemd-libs'}
+    return distribution_package_hints(release)
 def check(root=ROOT,verify=True):
     root=Path(root);results=[];packages=package_hints()
     def result(name,ok,detail):results.append({'check':name,'ok':bool(ok),'detail':detail})
     result('Linux',sys.platform=='linux',platform.platform())
-    for executable,package in [('python3','python3'),('systemctl','systemd'),('gdbus',packages['gdbus']),('pactl','pulseaudio-utils'),('wpctl','wireplumber')]:result(executable,shutil.which(executable),package)
+    for executable,package in [(name,packages[name]) for name in ('python3','systemctl','gdbus','pactl','wpctl')]:result(executable,shutil.which(executable),package)
     try:
         import gi
         gi.require_foreign('cairo')

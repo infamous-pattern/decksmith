@@ -8,6 +8,11 @@ The Ubuntu 24.04-baseline COSMIC package is built and signed separately. Do not 
 archive or historical preview URL installer on COSMIC. The original Fedora V1
 release remains available and unchanged.
 
+**Manual verification prerequisite:** use GitHub CLI **2.102.0 or newer**, which
+fixes workflow/ref identity matching. The [Simplified Installer](install-decksmith.md)
+offers a pinned temporary copy if the distribution's CLI is too old; manual
+installation keeps dependency setup and verification as separate steps.
+
 ## Runtime dependencies and initial trust
 
 Install these packages from Pop!_OS's trusted repositories:

@@ -113,7 +113,7 @@ def verified_metadata(directory, source, target='fedora44'):
             'manifest_files': len(manifest['files'])}
 
 
-def verify_install(directory, source, *, bundle=None, install=False, stage_root=None, target='fedora44'):
+def verify_install(directory, source, *, bundle=None, install=False, stage_root=None, target='fedora44', gh_command='gh'):
     _, workflow, downloads, subjects, limits = target_config(target)
     if not re.fullmatch(r'[0-9a-f]{40}', source):
         raise ValueError('Supply the full accepted public source commit, not a branch/tag')
@@ -130,7 +130,7 @@ def verify_install(directory, source, *, bundle=None, install=False, stage_root=
             signing_bundle = snapshot / 'attestation.json'
             snapshot_file(Path(bundle), signing_bundle, 8 * 1024 * 1024)
         for name in subjects:
-            command = ['gh', 'attestation', 'verify', str(snapshot / name),
+            command = [gh_command, 'attestation', 'verify', str(snapshot / name),
                        '--repo', REPOSITORY, '--signer-workflow', workflow,
                        '--source-ref', 'refs/heads/main', '--source-digest', source,
                        '--deny-self-hosted-runners']

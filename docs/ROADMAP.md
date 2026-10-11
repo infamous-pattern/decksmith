@@ -7,8 +7,8 @@ change system routing.
 
 ## Next work priorities — Monday, October 12
 
-These are the first two tasks when development resumes, ahead of new V1.5
-features. Review the existing signed installation paths before implementation.
+These are the first two tasks, ahead of new V1.5 features. Work started early
+on October 11 at the user's request; verify the installer before publishing it.
 
 1. **Simplify installation, including dependencies.** Provide one recommended
    entry point that identifies the distribution, version and architecture,
@@ -36,6 +36,16 @@ features. Review the existing signed installation paths before implementation.
    output volume. Preserve accessibility guidance, AI-assistance disclosure,
    license/trademark notices and the support button at the bottom. Check all
    links, image availability and release labels against the actual downloads.
+
+**October 11 implementation checkpoint:** the simplified signed helper and
+README reorganization are implemented and approved for source publication. The helper passes 108 script
+tests and real signed isolated installation in all four download-platform VMs;
+all test guests are shut off afterward. It offers runtime package setup and an
+optional pinned temporary GitHub CLI when OS packages are too old for secure
+verification. The README separates Simplified Installer from Manual Installation,
+with the gallery and detailed dependencies in linked guides. Bare-desktop dependency acceptance remains a separate check; existing
+release assets and production controls are unchanged. See the
+[installer qualification](checkpoints/2026-10-11-simplified-installer.md).
 
 **Optional supporting trial: RepoWise.** Evaluate it on a clean copy of Decksmith
 for installer dependency tracing, documentation drift and later multi-device

@@ -1,460 +1,187 @@
 # Decksmith
 
-> **Open Control, Forged for Linux.**
+**Open Control, Forged for Linux.**
 
-> A polished, Linux-native control application for Elgato Stream Deck hardware, with the Stream Deck + as the reference device.
+Decksmith is a native Linux app for your Elgato Stream Deck +. Build pages of
+shortcuts, control application and device audio, and customize keys, dials and the
+touch strip through a GTK4/libadwaita editor. Background controls can start at
+login while the editor stays closed.
 
-**Status:** `v1.0.0` — Fedora Workstation 44, x86_64, GNOME/Wayland, one Stream Deck +.
+**V1 is supported on Fedora Workstation 44, x86_64, GNOME/Wayland, with one
+Stream Deck +.** Debian, Ubuntu and COSMIC have separate experimental previews.
 
-[Download V1](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) · [Verified V1 installation](docs/v1-verified-installation.md) · [Release notes and known limits](docs/v1-release-notes.md) · [Qualification evidence](docs/v1-release-review.md) · [Report an issue](https://github.com/infamous-pattern/decksmith/issues)
-
-**Reference platform:** Fedora Workstation 44, GNOME, Wayland  
-**Reference hardware:** Elgato Stream Deck +  
-**Languages:** Currently English-only. Support for English, German, French, Spanish and Italian is planned for a future release.<br>
-**License:** Apache-2.0 for original project code; see [LICENSE](LICENSE).
-
-**V1 testing includes:** Fedora Workstation 44, Fedora Workstation 45 Beta,
-Ubuntu 26.04 and Debian 13. All four systems are part of the V1 test matrix;
-Fedora Workstation 44 remains the supported V1 platform, while Ubuntu and Debian
-results are diagnostic and do not certify supported installations. Broad
-supported GNOME/Wayland distribution compatibility is a **V1.5 goal**, alongside
-general plugin support. See the [V1 release plan](docs/v1-release-scope.md).
-
-**Additional initial testing:** Pop!_OS 24.04 with COSMIC has a separate
-experimental preview. Its Ubuntu 24.04 build baseline and desktop-specific limits
-are documented in the [COSMIC qualification record](docs/checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
-
-**Additional development testing:** openSUSE Tumbleweed with GNOME/Wayland is
-now included in the on-demand AI-server VM test environment. Initial installation,
-native editor and VirtualDeck checks passed on snapshot 20261009 using the current
-development build. This is a test environment; no openSUSE preview download or
-supported installation is published. Physical USB/audio, accessibility and
-lifecycle qualification remain pending. See the [OS testing plan](docs/ROADMAP.md#os-testing-host-policy--october-10).
-
-## New touch-strip dial gauges
-
-The dual-arc design keeps volume and audio activity easy to tell apart: the
-**inner blue arc and pointer** show your volume setting, while the **outer arc**
-responds to the target's live audio signal. Device brightness uses the blue
-setting arc without an audio meter.
-
-![Decksmith touch strip with blue volume gauges, independent signal meters, green microphone Live status and device brightness](docs/images/decksmith-dial-gauges.png?v=0b74777f09e5)
-
-Muted inputs keep the red crossed-out device icon and **Muted** text, without a
-red border. Unmuted microphone controls show **Live** in green.
-
-![The same Decksmith touch strip with the microphone muted, showing a red crossed-out microphone and red Muted text](docs/images/decksmith-dial-gauges-muted.png?v=d8684d20ec65)
-
-Choose **Keys & Dials → select a dial → Appearance → Touch-strip style** to use
-**Dual-arc gauge** or **Classic bar**, with shared defaults or page overrides.
-These images use demonstration values from the same renderer as the physical
-Stream Deck; they are static examples of a live display.
-
-**Availability:** included in the current development build and the
-[experimental COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1).
-The original Fedora V1, Debian and Ubuntu downloads retain their earlier display.
-[Meter behavior and limitations](docs/audio-meters.md).
-
-**Also in development: Single-arc meter.** One wider arc displays audio activity
-with the configured volume percentage on its right and no volume arc or pointer; assigned turn/press actions stay
-unchanged. Choose it from the same Touch-strip style selector. It is newer than
-the published COSMIC preview.
-
-![Decksmith mixed touch-strip styles: dual-arc speakers, single-arc browser and microphone Live meters, and brightness](docs/images/decksmith-single-arc-meter.png?v=50e23c1281bb)
-
-## Watch the desktop tour and new gauges
-
-[![Watch the Decksmith Linux desktop tour and new dial gauges on YouTube](docs/images/decksmith-desktop-tour-thumbnail.png?v=9a8e3926581d)](https://www.youtube.com/watch?v=wQgieOBo1VM)
-
-**[Watch the 3-minute 17-second desktop tour](https://www.youtube.com/watch?v=wQgieOBo1VM)** · [English subtitles](docs/images/decksmith-desktop-tour.srt)
-
-See Decksmith in the foreground of actual 1920 × 1200 test desktops: Fedora
-Workstation 44, Fedora Workstation 45 Beta, Debian 13, Ubuntu 26.04 and
-Pop!_OS 24.04 COSMIC, with their default wallpapers. Close-ups show the new
-dual-arc gauges, mute/Live states and the single-arc development option.
-
-**Fedora Workstation 44 remains the supported V1 platform.** Debian, Ubuntu
-and COSMIC are experimental previews. Dual-arc gauges are available in the
-COSMIC preview and current development build; single-arc is development only.
-The original Fedora V1 and Debian/Ubuntu downloads retain their earlier display.
-COSMIC does not inherit GNOME-only integrations.
-
-The editor captures use a private VirtualDeck and sample layouts; gauge
-close-ups use illustrative activity values from the shared device renderer.
-These are interface demonstrations, not physical USB/audio or latency tests.
-Experimental plugins are not shown. The video includes English captions,
-music credits and disclosure of ChatGPT/Codex assistance.
-
-The [original V1 interface tour](https://www.youtube.com/watch?v=ZJG1n_8rGNY)
-and its [English subtitles](docs/images/decksmith-v1-tour.srt) remain available.
-
-## Install V1 (Fedora Workstation 44 x86_64)
-
-Follow the [verified V1 installation guide](docs/v1-verified-installation.md).
-It checks build provenance, the accepted source/workflow identity, complete
-checksums and archive contents before running the per-user installer. The
-initial verifier comes from reviewed project source; download checksums alone
-do not prove authenticity.
-
-Saved layouts and the existing login preference are preserved. Background
-controls are activated deliberately after installation. Close other Stream Deck
-controllers before starting them. See [dependencies, recovery and USB access](docs/installation.md)
-and the [V1 qualification scope and limits](docs/v1-release-review.md).
-
-The [retained preview.3](https://github.com/infamous-pattern/decksmith/releases/tag/v0.1.0-preview.3)
-and its checksum-only URL installer remain available for recovery and comparison;
-they are separate from the verified V1 installation path.
-
-## Experimental Debian 13 preview
-
-The [signed Debian 13 x86_64 preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-debian-preview.1)
-corrects the Fedora archive's newer-glibc requirement using a separate native
-build. Follow the [verified Debian installation guide](docs/debian-preview-installation.md);
-the Fedora URL installer does not install this package. A Rust compiler is not
-needed to run it.
-
-Installation, saved-data recovery, native GNOME/Wayland rendering and VirtualDeck
-checks passed in the Debian VM. Editor layout, keyboard focus and the artwork
-picker were accepted interactively on the preceding native test build.
-Physical USB/audio, lifecycle recovery and Debian screen-reader testing remain
-unqualified. Debian is **experimental**; Fedora Workstation 44 remains the supported
-V1 platform. See the [qualification record and limits](docs/checkpoints/2026-10-08-debian-signed-preview.md).
-
-## Experimental Ubuntu 26.04 preview
-
-The [signed Ubuntu 26.04 x86_64 preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1)
-is built separately for GNOME/Wayland. Follow the
-[verified Ubuntu installation guide](docs/ubuntu-preview-installation.md);
-the historical Fedora URL installer does not install this package. A Rust
-compiler is not needed to run it.
-
-The exact signed package passed Ubuntu VM installation, saved-data recovery,
-native rendering and VirtualDeck checks. The user also accepted editor layout,
-keyboard focus, the artwork picker and a limited Orca listen-through on that
-package. Physical USB/audio, system actions, lifecycle recovery and GNOME
-extension compatibility remain unqualified. Ubuntu is **experimental**; Fedora
-Workstation 44 remains the supported V1 platform. See the
-[qualification record and limits](docs/checkpoints/2026-10-08-ubuntu-signed-preview.md).
-
-## Experimental Pop!_OS 24.04 COSMIC preview
-
-The [signed Pop!_OS 24.04 COSMIC x86_64 preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1)
-uses a separate Ubuntu 24.04 library baseline and includes the optional dual-arc
-touch-strip gauges. Follow the [verified COSMIC installation guide](docs/popos-preview-installation.md);
-the Fedora URL installer and Ubuntu 26.04 archive are not COSMIC installers.
-A Rust compiler is not needed to run it.
-
-The exact signed package passed VM installation, saved-data recovery, native
-editor/VirtualDeck tests and normal service start/stop. The user accepted editor
-layout, stable key/dial sizing, keyboard navigation/focus and the artwork picker
-on COSMIC at 1920×1200. Small 1280×800 launches can clip controls; enlarge the
-window. Physical USB/audio, system actions, lifecycle recovery, Orca speech and
-resource qualification remain untested. GNOME extensions and desktop-specific
-actions are not COSMIC integrations; keep Auto-Lock off until real COSMIC
-lock/unlock acceptance. COSMIC is **experimental**; Fedora Workstation 44 remains
-the supported V1 platform. See the [qualification record and limits](docs/checkpoints/2026-10-09-popos-cosmic-signed-preview.md).
-
-## Interface preview
-
-The current native GTK4/libadwaita interface follows your GNOME light or dark
-appearance. These screenshots show the development build with a demonstration
-layout; device artwork and control assignments are customizable. Every tab keeps
-its controls on the left and the device preview on the right.
-
-The editor includes 14 bundled font choices: Sans, Serif, Monospace, Roboto,
-Open Sans, Lato, Montserrat, Oswald, Raleway, Poppins, Nunito, Merriweather,
-Source Sans 3, and Viking Runes (decorative). The rune option converts letters
-for display while preserving the original label text. Fonts work offline and
-use the same renderer for the preview and physical device.
-[Font sources and licenses](assets/fonts/README.md).
-
-The offline icon library includes **Rune Outline** and **Tabler** artwork. New
-media and system assignments prefer Rune where available; existing saved artwork
-is preserved. Outline icons follow the key's text color and page theme.
-[Icon library and asset licenses](docs/appearance-and-icons.md).
-
-When launched with background controls stopped, Decksmith offers to start them
-or continue without them. **Quit Decksmith**, **Stop Background controls**, and
-normal system shutdown clear all keys and the touch strip. Closing only the
-editor leaves background controls running.
-
-**Home — device status, background controls, login startup and device settings.**
+[Install](#install) · [User guide](docs/USER_GUIDE.md) ·
+[Release notes](docs/v1-release-notes.md) ·
+[Report an issue](https://github.com/infamous-pattern/decksmith/issues) ·
+[Roadmap](docs/ROADMAP.md)
 
 ![Decksmith Home with device preview and background-control settings](docs/images/decksmith-home.png?v=914df36b4fe4)
 
-**Pages — organize pages, assign automatic switching and edit shared appearance.**
+## See it in action
 
-![Decksmith Pages with page selection and theme settings](docs/images/decksmith-pages.png?v=3699dfce7f8b)
+[![Watch the Decksmith desktop tour and dial gauges on YouTube](docs/images/decksmith-desktop-tour-thumbnail.png?v=9a8e3926581d)](https://www.youtube.com/watch?v=wQgieOBo1VM)
 
-**Keys — assign actions, edit labels and customize artwork in the same window.**
+**[Watch the 3-minute desktop tour](https://www.youtube.com/watch?v=wQgieOBo1VM)** ·
+[English subtitles](docs/images/decksmith-desktop-tour.srt) ·
+[Interface gallery](docs/interface-tour.md)
 
-![Decksmith key editor showing a Lock Desktop system action](docs/images/decksmith-keys.png?v=398cb45aebf1)
+The tour shows actual Fedora, Debian, Ubuntu and COSMIC test desktops, with
+VirtualDeck sample layouts. Gauge close-ups use illustrative signal values from
+the shared renderer; they demonstrate appearance rather than hardware testing.
+The [original V1 tour](https://www.youtube.com/watch?v=ZJG1n_8rGNY) is also available.
 
-**Dials — choose audio targets, rotation and press behavior, and touch-strip styling (classic bar shown).**
+## What you can do
 
-![Decksmith dial editor with audio assignment and touch-strip preview](docs/images/decksmith-dials.png?v=e5c77595d635)
+- Create and organize pages; navigate using keys or touch-strip swipes.
+- Launch applications and websites, use media controls, and assign system actions
+  such as Lock, Suspend, Do Not Disturb and Night Light. Reboot and Shutdown ask
+  for confirmation on the desktop.
+- Adjust application, speaker/headphone, microphone and system-sound levels;
+  use mute, push-to-talk and live audio activity feedback.
+- Customize labels, artwork, colors, themes and bundled fonts, including
+  decorative Viking Runes. The editor follows the desktop's light/dark appearance.
+- Set device brightness, background-only login startup and optional Auto-Lock.
+  Closing the editor leaves controls running; Quit Decksmith stops them and
+  blanks the entire device.
 
-[View the About page](docs/images/decksmith-about.png?v=9f9747314fbe). The **Plugins** tab is a
-roadmap page when the experimental integration is not installed; general plugin
-support targets **V1.5**. With the managed
-[OpenHomeB companion](docs/openhomeb-runtime.md), it provides inline Homebridge
-connection settings and follows Decksmith startup and shutdown. The screenshot
-uses demonstration connection data. Capability-based accessory assignment is available in Keys & Dials; general
-plugin installation and marketplace browsing remain planned.
-[View the Plugins page](docs/images/decksmith-plugins.png?v=aa258fd1616f).
+Optional actions depend on the desktop's services. The Homebridge integration is
+**experimental**; general plugin support, independent multiple devices and the
+15-key Stream Deck MK.2 are planned for V1.5. See the [roadmap](docs/ROADMAP.md).
 
-The experimental Homebridge integration supports inline server/account setup in
-**Plugins → Connection setup**. Password storage requires GNOME Keyring (Secret
-Service) and `secret-tool`, supplied by Fedora’s `libsecret` package. Two-factor
-codes are not saved; a new code may be needed after restart or session expiry.
-See [Homebridge setup and recovery](docs/openhomeb-runtime.md).
+## Downloads and compatibility
 
-## Requirements and dependencies
+All current downloads require **Linux x86_64**. They are per-user runtime bundles,
+not RPM or DEB packages. No Rust compiler, OpenDeck or Elgato Windows software is
+needed to run them.
 
-The signed V1 bundle targets **Fedora Workstation 44, x86_64, GNOME on
-Wayland**, with **Stream Deck +** as the validated physical device. It uses a
-per-user archive installer; RPM packaging is not yet available. Other
-distributions, desktops, architectures and Stream Deck models need their own
-validation. Independent control of multiple devices is still planned.
+| System | Status | Download and installation details |
+|---|---|---|
+| Fedora Workstation 44, GNOME/Wayland | **Supported V1** | [v1.0.0](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) · [Verified guide](docs/v1-verified-installation.md) |
+| Debian 13, GNOME/Wayland | Experimental native preview | [Debian preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-debian-preview.1) · [Guide and limits](docs/debian-preview-installation.md) |
+| Ubuntu 26.04, GNOME/Wayland | Experimental native preview | [Ubuntu preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1) · [Guide and limits](docs/ubuntu-preview-installation.md) |
+| Pop!_OS 24.04, COSMIC | Experimental preview; Ubuntu 24.04 library baseline | [COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1) · [Guide and limits](docs/popos-preview-installation.md) |
+| Fedora Workstation 45 Beta | Test environment | [Testing scope](docs/v1-release-scope.md); no separately supported release |
+| openSUSE Tumbleweed, GNOME/Wayland | Development test environment | [OS testing plan](docs/ROADMAP.md#os-testing-host-policy--october-10); no public package |
 
-### Running a prebuilt bundle
+Preview VM checks do not establish physical USB/audio or lifecycle support on
+those platforms. COSMIC does not inherit GNOME-only integrations. Review the
+linked limits before installing. Broader GNOME/Wayland compatibility is a V1.5 goal.
 
-A Rust compiler is **not required** to run a prebuilt bundle. The bundle includes
-Decksmith's binaries, Python source, bundled icons, fonts and documentation; the
-following system libraries and tools must already be installed:
+### New dial gauges
 
-| Fedora packages | Used for |
-|---|---|
-| `python3`, `python3-gobject` | Native editor and integration helpers; Python access to GTK and D-Bus through GObject introspection. |
-| `gtk4`, `libadwaita` | GNOME interface widgets. The runtime check verifies the required `Gtk.FileDialog` and `Adw.Dialog` APIs. |
-| `python3-pillow`, `python3-cairo`, `librsvg2` | Artwork decoding, resizing and SVG icon rendering. |
-| `glib2` | GIO/D-Bus integration and the `gdbus` utility. |
-| `systemd`, `systemd-libs` | Per-user background service, login-session integration and `libudev` device discovery. |
-| `pulseaudio-libs`, `pulseaudio-utils` | `libpulse` live audio meters and `pactl` application/device audio controls. |
-| `wireplumber` | PipeWire session management and `wpctl` volume controls. |
+![Dual-arc gauges with configured volume, independent audio activity and green microphone Live status](docs/images/decksmith-dial-gauges.png?v=0b74777f09e5)
 
-Install these on Fedora with:
+The **inner blue arc** shows configured volume; the **outer arc** shows audio
+activity. Muted controls retain a red crossed-out icon and red **Muted** text;
+unmuted microphones show **Live** in green. Classic bars remain available.
 
-```sh
-sudo dnf install python3 python3-gobject python3-pillow python3-cairo gtk4 libadwaita librsvg2 glib2 systemd systemd-libs pulseaudio-libs pulseaudio-utils wireplumber
-```
+**Availability:** dual-arc gauges are in the development build and published
+COSMIC preview. The single-arc meter, with volume percentage on its right and
+unchanged assigned actions, is development-only. The original Fedora V1,
+Debian and Ubuntu downloads retain their earlier displays.
+[All gauge styles and limitations](docs/audio-meters.md).
 
-Decksmith also needs a normal graphical user session with its session D-Bus and
-working audio services. On Fedora Workstation, these normally include PipeWire,
-`pipewire-pulseaudio` and WirePlumber. The PulseAudio client packages above work
-with PipeWire's compatibility service; they do not require replacing PipeWire
-with the PulseAudio server. Do not run Decksmith as root.
+## Install
 
-Physical device access requires a suitable **udev access rule**. Existing rules
-from another controller may already provide access. The bundle includes
-`packaging/udev/70-decksmith-plus.rules`; the per-user installer does not install
-system-wide rules automatically. Close other Stream Deck controllers before
-starting Decksmith's background controls. A connected device is not required to
-install or run the VirtualDeck checks.
+### Simplified Installer — recommended
 
-### Optional features and desktop services
+**One setup helper handles dependencies, signed downloads and installation.**
+It detects your OS, selects the correct package and offers to install missing
+runtime packages. No Rust compiler is needed.
 
-| Feature | Additional requirement or limitation |
-|---|---|
-| GNOME panel menu and GNOME automatic page switching | The bundled Decksmith GNOME Shell extension, installed and enabled separately. See [desktop integration](docs/desktop-integration.md). Login startup itself does not require the extension. |
-| Media playback actions | An application exposing MPRIS on the session D-Bus. Available actions depend on the player. |
-| Lock, Do Not Disturb, Night Light and Bluetooth | The corresponding GNOME settings/services. Bluetooth also needs an available adapter; a hardware radio block cannot be overridden. |
-| Power Mode | A service providing `net.hadess.PowerProfiles`, and profiles supported by the system. Unsupported profiles are shown as unavailable. |
-| Suspend, Reboot and Shutdown | systemd-logind authorization and system support. Desktop inhibitors are respected; Reboot and Shutdown require confirmation. |
-| Auto-Lock | Lock-state reporting from GNOME or systemd-logind. See [Auto-Lock](docs/auto-lock.md) for fallback behavior and desktop limitations. |
-| Website artwork and URL actions | Network access for downloading website icons or opening remote sites. Core local controls need no cloud account or internet connection. |
-
-No Elgato Windows/macOS software or OpenDeck installation is required. Missing
-optional services can make individual actions unavailable even when installation
-checks pass.
-
-### Building from source
-
-In addition to the runtime packages, install **Rust/Cargo, GCC, binutils,
-`pkgconf-pkg-config` and `systemd-devel`** (libudev development headers):
+Download and run as your normal desktop user:
 
 ```sh
-sudo dnf install rust cargo gcc binutils pkgconf-pkg-config systemd-devel
-python3 scripts/build-bundle.py
+curl --fail --location --proto '=https' --proto-redir '=https' \
+  https://raw.githubusercontent.com/infamous-pattern/decksmith/main/scripts/install.sh \
+  --output decksmith-install.sh && sh decksmith-install.sh
 ```
 
-The workspace uses Rust edition 2024. Use a current toolchain compatible with the
-locked dependencies. Cargo may need network access on the first build to fetch
-those dependencies; no Rust toolchain is needed on machines receiving the bundle.
-
-For installation, USB access, updates and rollback, follow the
-[installation guide](docs/installation.md). After installation, check dependencies
-and bundle integrity with:
+On Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, opt into the experimental package:
 
 ```sh
-python3 ~/.local/share/decksmith/app/current/scripts/runtime-doctor.py
+sh decksmith-install.sh --experimental
 ```
 
-Use your configured XDG data path if it differs. The checker reports missing
-dependencies; it does not install packages or change device permissions.
+**[Simplified Installer: downloadable shortcut, options and first start](docs/install-decksmith.md)**
 
-## Product intent
+Review the linked helper before running it. Do not run it with sudo. Your saved
+layouts and login preference are preserved. The helper
+never starts or restarts background controls and never enables login startup.
 
-Decksmith is intended to be a first-class Linux desktop application, not a cross-platform application that merely happens to run on Linux. The product should provide a professional configuration experience, a reliable background daemon, deep Linux integrations, and optional compatibility with the open/unprotected portion of the Stream Deck plugin ecosystem.
+### Manual Installation
 
-The following principles describe the product direction; some remain roadmap work.
-See the [user guide](docs/USER_GUIDE.md) for current functionality.
+Prefer to install dependencies and download/verify the files yourself? Follow the
+matching step-by-step guide:
 
-Core principles:
+- **[Fedora Workstation 44 — supported V1](docs/v1-verified-installation.md)**
+- [Debian 13 — experimental](docs/debian-preview-installation.md)
+- [Ubuntu 26.04 — experimental](docs/ubuntu-preview-installation.md)
+- [Pop!_OS 24.04 COSMIC — experimental](docs/popos-preview-installation.md)
 
-- Linux first; Fedora is the reference distribution.
-- GNOME/Wayland is a first-class target.
-- Native GTK4/libadwaita UI.
-- Rust for the daemon, device layer, Capability Engine, Context Engine, renderer, and most system integrations.
-- SQLite for local configuration and state.
-- Capability Engine for commands, adjustments, stateful controls, navigation, and dynamic providers.
-- Profile -> Workspace -> Page hierarchy with Global/Profile/Workspace/Page binding scopes and temporary Context Layers.
-- Customization-first renderer with panoramic key backgrounds, independent touch-strip backgrounds, themes, and per-control/state overrides.
-- Behavior and appearance are independently portable/shareable.
-- No cloud account, telemetry, or always-online dependency.
-- Stream Deck + dials and touch strip are first-class capabilities.
-- Deterministic Trigger Resolver supports short press, double press, long press, hold/repeat, raw press/release, dial-push gestures, and hardware touch gestures.
-- VirtualDeck and hardware-in-loop testing are first-class engineering requirements.
-- Session lock/idle behavior is explicit so programmable controls can be disabled, dimmed, or show an idle appearance safely.
-- `decksmithd` can start with the graphical user session when **Start Decksmith at login** is enabled; Decksmith Studio remains closed until requested. Installation leaves startup off unless previously enabled.
-- Quick access is always available while Decksmith is running: a native Decksmith GNOME panel indicator on the reference desktop and StatusNotifierItem integration on supporting desktops.
-- Plugins are optional; core functionality must remain useful without them.
-- Security boundaries and crash isolation are part of the product, not post-1.0 cleanup.
+Both methods verify signatures, checksums and archive contents before executing
+release installer code. **Checksums alone do not prove authenticity.** Never skip
+signature verification if it fails.
 
-## Product naming
+### After installing
 
-- **Decksmith** — project and product
-- **Decksmith Studio** — GTK4/libadwaita configuration application
-- **decksmithd** — background daemon
-- **decksmithctl** — command-line interface
-- **The Forge** — profile/theme/workflow creation area inside Decksmith Studio
-- **Blueprints** — reusable profile/template packages
-- **Decksmith Foundry** — future community catalog for plugins, themes, Blueprints, and related content
-- **Tagline:** **Open Control, Forged for Linux.**
+1. Close other Stream Deck controllers and open Decksmith from your app menu.
+2. Choose **Start** under Background controls. An update to a running service
+   takes effect when you stop and start those controls deliberately.
+3. Optionally enable **Start Decksmith at login**. New installations leave it off;
+   updates preserve your saved preference.
 
-## Documentation
+Use a normal graphical session with D-Bus and working PipeWire audio services.
+USB access may need a separate administrator-installed udev rule. The optional
+GNOME panel extension is installed separately.
+[Dependencies and optional services](docs/dependencies.md) ·
+[USB access, update, backup and recovery](docs/installation.md).
 
-- [User guide](docs/USER_GUIDE.md)
-- [Install, update, backup and rollback](docs/installation.md)
-- [Latest project checkpoint — September 14, 2026](docs/checkpoints/2026-09-14.md)
-- [Appearance presets and local icon library](docs/appearance-and-icons.md)
-- [Remaining roadmap](docs/ROADMAP.md)
-- [Localization foundation and V2 language plan](docs/localization.md)
-- [Everyday control feedback](docs/control-feedback.md)
-- [Audio controls](docs/audio-controls-foundation.md)
-- [Media controls](docs/media-controls.md)
+## Understanding audio controls
 
-- [Product Requirements](docs/PRODUCT_REQUIREMENTS.md)
-- [Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)
-- [Repository and Release Strategy](docs/REPOSITORY_STRATEGY.md)
-- [Architecture Decision Records](docs/adr/)
+Application volume changes an app's **Linux playback streams**, not sliders
+inside the app or website. For example, adjusting Brave in Decksmith leaves
+YouTube's volume slider unchanged and affects matching Brave streams together.
 
-## Understanding audio volume controls
+**YouTube volume → Brave app volume → speaker/headphone output volume**
 
-Decksmith's app-volume controls adjust an application's playback streams through
-Fedora. They do **not** move volume sliders inside the application or website.
-For example, adjusting **Brave** in Decksmith changes Brave's audio output, while
-YouTube's volume slider stays where you set it.
+**System sounds** controls desktop event sounds independently of application
+and output-device levels. Choose a named output device to adjust overall listening
+volume. Ordinary Volume Up/Down/Mute key actions control the default output.
+The percentage shows configured volume; the live meter shows signal activity.
+[Audio setup and behavior](docs/audio-controls-foundation.md) ·
+[Live meters](docs/audio-meters.md) · [Media player selection](docs/media-controls.md).
 
-For YouTube playing through Brave to a Schiit Magni, the audio passes through:
+## Help, testing and development
 
-**YouTube volume → Brave app volume → Magni output volume**
+- [User guide](docs/USER_GUIDE.md) and [interface gallery](docs/interface-tour.md).
+- [Installation and recovery](docs/installation.md), [desktop integration](docs/desktop-integration.md)
+  and [Auto-Lock](docs/auto-lock.md).
+- [V1 known limits](docs/v1-release-notes.md) and [qualification evidence](docs/v1-release-review.md).
+- [Source-build prerequisites](docs/dependencies.md#building-from-source),
+  [contributing](CONTRIBUTING.md) and [security reporting](SECURITY.md).
+- [V1.5 feature plan](docs/ROADMAP.md#v15-feature-plan--organized-october-8),
+  [product design](docs/PRODUCT_REQUIREMENTS.md) and [architecture](docs/TECHNICAL_ARCHITECTURE.md).
 
-Each stage affects the final listening volume. Decksmith's Brave target controls
-matching Brave playback streams together, including other tabs; it does not
-provide a separate YouTube-tab volume control. The touch-strip percentage shows
-the selected audio target's level, not YouTube's slider position.
+When reporting an issue, include your distribution/version, desktop session,
+Decksmith build and device model, plus steps to reproduce. Remove credentials and
+private information from logs. Do not include Homebridge passwords or two-factor codes.
 
-**System sounds** controls the saved volume and mute state for desktop event
-sounds (such as GNOME alerts), independently of your named output devices and
-application streams. It replaces the former System output target. Select your
-named output, such as **Output · Schiit Magni**, to adjust overall listening volume.
-System sounds remains adjustable while no alert is playing. It does not enable
-notifications disabled by Do Not Disturb or GNOME sound settings, and apps that
-play notifications through their own media streams need their own app control.
-The ordinary Volume Up/Down/Mute key actions still control the default output.
-This is event-sound control, not an additional master mixer stage.
+The interface is currently English-only. English, German, French, Spanish and
+Italian localization is planned for **V2**; see the [localization plan](docs/localization.md).
 
-For an explicitly assigned audio device, a small centered marker below its
-touch-strip volume bar shows whether it is the current Linux default output or
-input: **green** means current default, **gray** means not default, and **amber**
-means the status is unknown. This is a default-device status marker, not an audio
-activity meter.
+Decksmith is developed with **ChatGPT/Codex assistance**, alongside human design,
+review and testing. Core controls do not require a cloud account.
 
-The rounded fill shows live audio signal activity; the numerical percentage shows
-configured volume. Activity is blue below 80, yellow from 80, orange from 90, and
-red from 95 on the normalized signal scale—not the configured volume percentage.
-See [Live audio meters](docs/audio-meters.md) for supported targets and limitations.
+## License and trademarks
 
-Microphone controls also support **push-to-talk** on keys and dial presses, with
-Muted/Live feedback on the matching touch-strip section. Hold to unmute and release
-to mute; a touch-strip tap remains a mute toggle.
+Original project code is [Apache-2.0](LICENSE). Bundled fonts and icons have their
+own notices: [font licenses](assets/fonts/README.md) and
+[icon sources and licenses](docs/appearance-and-icons.md).
 
-Media keys and dial presses also offer a **Media player** selector: choose a
-specific running app or keep Automatic. See the [media controls guide](docs/media-controls.md).
-
-See the [audio controls guide](docs/audio-controls-foundation.md) for setup,
-app discovery, mute controls, and device status indicators.
-
-## Proposed repository layout
-
-```text
-.
-├── apps/
-│   ├── decksmith-studio/     # GTK4/libadwaita desktop app
-│   ├── decksmith-daemon/           # systemd --user daemon
-│   └── decksmith-cli/              # CLI for diagnostics and automation
-├── crates/
-│   ├── decksmith-core/                    # domain model, contexts, capability contracts
-│   ├── decksmith-device/                  # Stream Deck device abstraction
-│   ├── decksmith-render/                  # layered key/touch/customization rendering
-│   ├── decksmith-store/                   # SQLite persistence and migrations
-│   ├── decksmith-linux/                   # Linux-native integrations
-│   ├── decksmith-ipc/                     # D-Bus interfaces and types
-│   ├── decksmith-plugin-host/             # plugin lifecycle and compatibility host
-│   └── decksmith-testkit/                 # mocks, fixtures, simulator helpers
-├── extensions/
-│   └── decksmith-gnome/             # Smart Profiles + GNOME panel indicator
-├── packaging/
-│   ├── fedora/                       # RPM spec and desktop integration
-│   └── udev/                         # Stream Deck device access rules
-├── plugins/
-│   └── examples/                     # native/open plugin examples
-├── tests/
-│   ├── integration/
-│   └── hardware-in-loop/
-├── docs/
-│   ├── adr/
-│   ├── PRODUCT_REQUIREMENTS.md
-│   ├── TECHNICAL_ARCHITECTURE.md
-│   └── REPOSITORY_STRATEGY.md
-├── scripts/
-├── .github/                          # added when GitHub becomes canonical
-├── Cargo.toml
-├── deny.toml
-├── rustfmt.toml
-├── justfile
-├── CONTRIBUTING.md
-├── SECURITY.md
-├── CODE_OF_CONDUCT.md
-└── README.md
-```
-
-## External references
-
-- Elgato Stream Deck +: https://www.elgato.com/us/en/p/stream-deck-plus
-- Elgato Stream Deck downloads/software: https://www.elgato.com/us/en/s/downloads
-- Elgato HID protocol: https://docs.elgato.com/streamdeck/hid/stream-deck-plus/
-- Elgato Stream Deck SDK: https://docs.elgato.com/streamdeck/sdk/
-- OpenDeck: https://github.com/nekename/OpenDeck
-- Logitech MX Creative Console: https://www.logitech.com/en-us/shop/p/buy-mx-creative-console
-- Loupedeck software: https://loupedeck.com/us/downloads/
-- StreamController: https://github.com/StreamController/StreamController
-- `elgato-streamdeck` Rust crate: https://docs.rs/elgato-streamdeck/latest/elgato_streamdeck/
-
-## Trademarks
-
-Elgato and Stream Deck are trademarks of Corsair Memory, Inc. Decksmith is an independent project and is not affiliated with, endorsed by, or sponsored by Elgato or Corsair.
+Elgato and Stream Deck are trademarks of Corsair Memory, Inc. Decksmith is an
+independent project and is not affiliated with, endorsed by, or sponsored by
+Elgato or Corsair.
 
 ## Support Decksmith
 
