@@ -61,6 +61,20 @@ Physical USB/audio and the other distributions' fresh dependency paths retain
 separate acceptance gates. See the
 [fresh installer qualification](checkpoints/2026-10-12-fresh-installer-acceptance.md).
 
+**Fresh Debian dependency acceptance — October 12 passed:** a separate Debian 13
+cloud-image-plus-GNOME guest passed the unchanged public helper with experimental
+opt-in. It detected and installed three missing packages through real APT/terminal
+consent, verified the existing signed preview, preserved saved labels/artwork,
+brightness and startup preference through same-build reinstall, and passed
+backup/restore and original-integration recovery. Tampered installer and wrong
+source identity were rejected before installation. Native Wayland panel/editor
+and isolated VirtualDeck checks passed. The pristine baseline and two corrected
+harness-failure records are retained; all eight server guests are off and VM
+autostart remains disabled. This does not qualify older-engine/schema upgrades,
+physical USB/audio, lifecycle, portal/file-picker or accessibility acceptance.
+Ubuntu and COSMIC fresh dependency paths remain next. See the
+[Debian qualification](checkpoints/2026-10-12-debian-fresh-installer.md).
+
 **Optional supporting trial: RepoWise.** Evaluate it on a clean copy of Decksmith
 for installer dependency tracing, documentation drift and later multi-device
 change impact. Start with local deterministic analysis, without model calls,
