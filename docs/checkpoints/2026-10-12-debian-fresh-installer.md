@@ -87,6 +87,23 @@ unqualified. Physical USB, real audio, lock/suspend/hotplug recovery, performanc
 file-picker and screen-reader checks retain separate gates. Debian remains an
 experimental preview; Fedora V1 support is unchanged.
 
+## Normal-session reboot follow-up
+
+The subsequent run `20261012T192421Z-fresh-installer-reboot-6yf7t1a1` passed
+normal-session service start/stop before and after a confirmed reboot of this
+fresh guest. Its boot ID changed, the installed build stayed the same, startup
+remained disabled and controls stayed stopped at login. Starting controls
+exposed the control API with no USB device connected and zero service restarts;
+stopping them released the bus name. Layout/artwork hashes and brightness/layout
+preference values were preserved. The guest was shut down afterward.
+
+Two earlier follow-up attempts stopped on an overly strict preferences-file
+hash comparison. The JSON formatting changed, but its values were unchanged.
+The corrected follow-up checks those preference values exactly and continues to
+require exact layout/artwork hashes. Earlier outcomes and the observed diff are
+retained. This does not add physical hardware/lifecycle qualification or an
+enabled-at-login acceptance test.
+
 ## References
 
 - [Simplified Installer](../install-decksmith.md)

@@ -13,10 +13,11 @@ on October 11 at the user's request; verify the installer before publishing it.
 1. **Simplify installation, including dependencies.** Provide one recommended
    entry point that identifies the distribution, version and architecture,
    explains support status, selects the correct stable or experimental package,
-   and offers installation of missing runtime dependencies. The existing URL
-   bootstrap defaults to `v0.1.0-preview.3`; changing its default alone is not a
-   verified V1 installation. Preserve signed provenance, accepted source/workflow
-   identity, complete checksum coverage and archive validation before installing.
+   and offers installation of missing runtime dependencies. The historical URL
+   bootstrap defaulted to `v0.1.0-preview.3`; the implemented helper now selects
+   the existing signed stable/experimental releases. Preserve signed provenance,
+   accepted source/workflow identity, complete checksum coverage and archive
+   validation before installing.
    Stop clearly for unsupported platforms or failed verification. Consolidate
    package requirements used by the installer, runtime doctor and documentation;
    distinguish required runtime packages from optional desktop integrations and
@@ -72,8 +73,44 @@ and isolated VirtualDeck checks passed. The pristine baseline and two corrected
 harness-failure records are retained; all eight server guests are off and VM
 autostart remains disabled. This does not qualify older-engine/schema upgrades,
 physical USB/audio, lifecycle, portal/file-picker or accessibility acceptance.
-Ubuntu and COSMIC fresh dependency paths remain next. See the
+Ubuntu and COSMIC fresh dependency paths were the next checks. See the
 [Debian qualification](checkpoints/2026-10-12-debian-fresh-installer.md).
+
+**Fresh Ubuntu dependency acceptance — October 12 passed:** a new official,
+signature-verified Ubuntu 26.04 cloud base with a repository-installed GNOME
+desktop passed the unchanged public helper. It filled two missing runtime
+packages, passed signed admission and negative checks, preserved saved data and
+startup preference through repair/reinstall, and passed backup/integration
+recovery and native Wayland editor/VirtualDeck checks. Its first fixture stopped
+before removing a package that would also remove printer support; the safer
+single-package fixture passed from the pristine baseline. The guest is off.
+COSMIC fresh dependency acceptance was next; older-engine/schema upgrades
+and physical acceptance retain separate gates. See the
+[Ubuntu qualification](checkpoints/2026-10-12-ubuntu-fresh-installer.md).
+
+**Fresh COSMIC dependency acceptance — October 12 passed:** an independent
+official-ISO Pop!_OS 24.04 guest passed the unchanged public helper after OS
+updates, a clean package audit and confirmed updated-kernel boot. The helper
+installed five missing runtime packages with real terminal consent. Signed
+admission/rejection, same-build repair/reinstall and saved-data recovery passed,
+alongside native COSMIC Wayland editor/VirtualDeck checks at 1920 × 1200.
+The test OS setup required an EFI mount correction and preservation of an
+existing firmware-service configuration; those logs are retained. The guest is
+off and its pristine disk is preserved. Fedora, Debian, Ubuntu and COSMIC now
+have fresh installer evidence for their tested environments. Older-engine/schema
+upgrades and physical/interactive acceptance remain separate gates. See the
+[COSMIC qualification](checkpoints/2026-10-12-cosmic-fresh-installer.md).
+
+**Fresh-guest reboot follow-up — October 12 passed:** Debian, Ubuntu and COSMIC
+retained their installed build, saved layout/artwork and brightness through a
+confirmed reboot with a changed boot ID. Login startup stayed disabled and
+controls stayed stopped at login. Explicit normal-session start/stop exposed the
+control API, waited for the absent USB device without service restarts and
+released its bus name on stop. Layout/artwork hashes were unchanged; preference
+values were checked semantically because startup can normalize JSON formatting.
+All ten server guests are off with autostart disabled. This adds VM reboot and
+service evidence, not physical lock/suspend/hotplug or older-engine/schema
+upgrade acceptance. No application code or release files were changed.
 
 **Optional supporting trial: RepoWise.** Evaluate it on a clean copy of Decksmith
 for installer dependency tracing, documentation drift and later multi-device
