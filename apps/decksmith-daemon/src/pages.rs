@@ -1,5 +1,5 @@
 //! Validated saved pages with local navigation actions only.
-use decksmith_core::{RawEvent, TouchGesture};
+use decksmith_core::{RawEvent, TouchGesture, device_model::DeviceModel};
 use decksmith_device::{DeckDevice, DeviceError};
 use serde::{Deserialize, Serialize};
 
@@ -43,6 +43,12 @@ fn valid_label(s: &str) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct Config {
     version: u8,
+    #[serde(
+        default,
+        deserialize_with = "explicit_model",
+        skip_serializing_if = "Option::is_none"
+    )]
+    model: Option<DeviceModel>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     theme: Option<crate::theme::Theme>,
     #[serde(default)]
@@ -50,6 +56,12 @@ pub struct Config {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     dials: Option<[Dial; 4]>,
     pages: Vec<Page>,
+}
+fn explicit_model<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<DeviceModel>, D::Error> {
+    // Absent is legacy Plus; explicit null is not a model declaration.
+    DeviceModel::deserialize(deserializer).map(Some)
 }
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -106,7 +118,7 @@ struct Page {
     dial_overrides: Option<[Option<Dial>; 4]>,
     name: String,
     background: [u8; 3],
-    keys: [Key; 8],
+    keys: Vec<Key>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -307,36 +319,88 @@ impl Default for Pages {
             .expect("bundled configuration is valid")
     }
 }
-impl Pages {
-    pub fn default_page(&self) -> u8 {
-        self.config
-            .pages
-            .iter()
-            .position(|p| p.default)
-            .unwrap_or(0) as u8
+impl Config {
+    pub(crate) fn version(&self) -> u8 {
+        self.version
     }
-    pub fn application_page(&self, id: &str) -> Option<u8> {
-        if id == crate::foreground::STUDIO {
-            return None;
+    pub(crate) fn model(&self) -> DeviceModel {
+        self.model.unwrap_or(DeviceModel::Plus)
+    }
+    pub(crate) fn bindings(&self) -> Result<Vec<crate::plugin_binding::Binding>, &'static str> {
+        let mut bindings = Vec::new();
+        for page in &self.pages {
+            for key in &page.keys {
+                bindings.push(match &key.plugin {
+                    Some(binding) => binding.clone(),
+                    None => {
+                        crate::action_contract::builtin(&key.action, key.media_player.as_deref())?
+                    }
+                });
+            }
         }
-        self.config
-            .pages
-            .iter()
-            .position(|p| p.application.as_deref() == Some(id))
-            .map(|i| i as u8)
-            .or(Some(self.default_page()))
+        let dials = self.dials.iter().flatten().chain(
+            self.pages
+                .iter()
+                .filter_map(|page| page.dial_overrides.as_ref())
+                .flatten()
+                .filter_map(|dial| dial.as_ref()),
+        );
+        for dial in dials {
+            bindings.push(match &dial.plugin_press {
+                Some(binding) => binding.clone(),
+                None => crate::action_contract::builtin(&dial.press, dial.media_player.as_deref())?,
+            });
+            if let Some(binding) = &dial.plugin_rotation {
+                bindings.push(binding.clone());
+            } else {
+                let action = match dial.rotation {
+                    Rotation::None => Action::None,
+                    Rotation::Brightness => Action::BrightnessAdjust {
+                        percent: dial.step.into(),
+                    },
+                    Rotation::Volume => match &dial.audio_target {
+                        Some(target) => Action::AudioAdjust {
+                            target: target.clone(),
+                            percent: dial.step.into(),
+                        },
+                        None => Action::VolumeAdjust {
+                            percent: dial.step.into(),
+                        },
+                    },
+                };
+                bindings.push(crate::action_contract::builtin(&action, None)?);
+            }
+        }
+        Ok(bindings)
     }
-
-    pub fn json(&self) -> String {
-        serde_json::to_string(&self.config).expect("validated configuration serializes")
-    }
-    pub fn parse(bytes: &[u8]) -> Result<Self, &'static str> {
+    pub(crate) fn parse(bytes: &[u8]) -> Result<Self, &'static str> {
         if bytes.len() > 1048576 {
             return Err("config_too_large");
         }
         let mut config: Config = serde_json::from_slice(bytes).map_err(|_| "invalid_config")?;
-        if config.version != 1 || config.pages.is_empty() || config.pages.len() > 16 {
+        let model = match (config.version, config.model) {
+            (1, None) => DeviceModel::Plus,
+            (2, Some(model)) => model,
+            _ => return Err("unsupported_layout_version"),
+        };
+        if config.pages.is_empty() || config.pages.len() > 16 {
             return Err("invalid_config");
+        }
+        let count = usize::from(
+            decksmith_core::device_model::DeviceDescriptor::for_model(model).key_count(),
+        );
+        if config.pages.iter().any(|page| page.keys.len() != count) {
+            return Err("invalid_key_count");
+        }
+        if model == DeviceModel::Mk2
+            && (config.audio_dial
+                || config.dials.is_some()
+                || config
+                    .pages
+                    .iter()
+                    .any(|page| page.dial_overrides.is_some()))
+        {
+            return Err("unsupported_dial_settings");
         }
         let defaults = config.pages.iter().filter(|p| p.default).count();
         if defaults > 1 {
@@ -345,7 +409,6 @@ impl Pages {
         if defaults == 0 {
             config.pages[0].default = true;
         }
-        let default_page = config.pages.iter().position(|p| p.default).unwrap() as u8;
         {
             let dials = config.dials.iter_mut().flatten().chain(
                 config
@@ -545,6 +608,41 @@ impl Pages {
                 }
             }
         }
+        Ok(config)
+    }
+}
+
+impl Pages {
+    pub fn default_page(&self) -> u8 {
+        self.config
+            .pages
+            .iter()
+            .position(|p| p.default)
+            .unwrap_or(0) as u8
+    }
+    pub fn application_page(&self, id: &str) -> Option<u8> {
+        if id == crate::foreground::STUDIO {
+            return None;
+        }
+        self.config
+            .pages
+            .iter()
+            .position(|p| p.application.as_deref() == Some(id))
+            .map(|i| i as u8)
+            .or(Some(self.default_page()))
+    }
+
+    pub fn json(&self) -> String {
+        serde_json::to_string(&self.config).expect("validated configuration serializes")
+    }
+    pub fn parse(bytes: &[u8]) -> Result<Self, &'static str> {
+        let config = Config::parse(bytes)?;
+        // Control1 and the current renderer are Plus/V1-only. A validated V2
+        // document must use the future device-addressed API, never this path.
+        if config.version != 1 {
+            return Err("layout_requires_device_api");
+        }
+        let default_page = config.pages.iter().position(|p| p.default).unwrap() as u8;
         let logo = if config
             .pages
             .iter()

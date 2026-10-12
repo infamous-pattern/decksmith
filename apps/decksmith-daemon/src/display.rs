@@ -1,5 +1,8 @@
 //! Nine latest-wins slots; one USB image write per scheduler turn.
-use decksmith_core::{Geometry, InputEvent};
+use decksmith_core::{
+    InputEvent,
+    device_model::{DeviceDescriptor, DeviceModel},
+};
 use decksmith_device::{DeckDevice, DeviceError};
 #[derive(Default)]
 pub struct Display {
@@ -38,8 +41,8 @@ impl Display {
     }
 }
 impl DeckDevice for Display {
-    fn geometry(&self) -> Geometry {
-        Geometry::plus()
+    fn descriptor(&self) -> DeviceDescriptor {
+        DeviceDescriptor::for_model(DeviceModel::Plus)
     }
     fn set_key_image(&mut self, index: u8, rgb: &[u8]) -> Result<(), DeviceError> {
         if index >= 8 {
@@ -74,8 +77,8 @@ mod tests {
         fail: bool,
     }
     impl DeckDevice for Device {
-        fn geometry(&self) -> Geometry {
-            Geometry::plus()
+        fn descriptor(&self) -> DeviceDescriptor {
+            DeviceDescriptor::for_model(DeviceModel::Plus)
         }
         fn set_key_image(&mut self, i: u8, rgb: &[u8]) -> Result<(), DeviceError> {
             if self.fail {

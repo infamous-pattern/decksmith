@@ -1011,8 +1011,10 @@ mod tests {
             cleared: Arc<AtomicBool>,
         }
         impl DeckDevice for Probe {
-            fn geometry(&self) -> decksmith_core::Geometry {
-                decksmith_core::Geometry::plus()
+            fn descriptor(&self) -> decksmith_core::device_model::DeviceDescriptor {
+                decksmith_core::device_model::DeviceDescriptor::for_model(
+                    decksmith_core::device_model::DeviceModel::Plus,
+                )
             }
             fn set_key_image(&mut self, _: u8, _: &[u8]) -> Result<(), DeviceError> {
                 Ok(())
@@ -1054,7 +1056,10 @@ mod tests {
     use decksmith_device::VirtualDeck;
     #[test]
     fn pending_repaint_checks_input_between_writes_and_restores_idle_wait() {
-        use decksmith_core::{Geometry, RawEvent};
+        use decksmith_core::{
+            RawEvent,
+            device_model::{DeviceDescriptor, DeviceModel},
+        };
         use std::collections::VecDeque;
         #[derive(Default)]
         struct Probe {
@@ -1064,8 +1069,8 @@ mod tests {
             events: VecDeque<InputEvent>,
         }
         impl DeckDevice for Probe {
-            fn geometry(&self) -> Geometry {
-                Geometry::plus()
+            fn descriptor(&self) -> DeviceDescriptor {
+                DeviceDescriptor::for_model(DeviceModel::Plus)
             }
             fn set_key_image(&mut self, _: u8, _: &[u8]) -> Result<(), DeviceError> {
                 self.writes += 1;

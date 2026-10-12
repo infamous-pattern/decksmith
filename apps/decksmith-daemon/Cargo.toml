@@ -9,6 +9,7 @@ license.workspace = true
 libc = "0.2"
 decksmith-core.workspace = true
 serde_json.workspace = true
+sha2 = "=0.10.9"
 decksmith-device.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

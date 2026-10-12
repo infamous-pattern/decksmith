@@ -1,7 +1,10 @@
 //! Synchronous Plus adapter. Own on a dedicated device worker, never a UI thread.
 //! Construction opens a device but performs no reset, brightness, or image write.
 use crate::{DeckDevice, DeviceError, InputCounts};
-use decksmith_core::{Geometry, InputEvent, RawEvent, TouchGesture};
+use decksmith_core::{
+    InputEvent, RawEvent, TouchGesture,
+    device_model::{DeviceDescriptor, DeviceModel},
+};
 use elgato_streamdeck::{StreamDeck, StreamDeckInput, images::ImageRect, info::Kind};
 use image::{DynamicImage, RgbImage};
 use serde::Serialize;
@@ -173,8 +176,8 @@ impl PhysicalDeck {
     }
 }
 impl DeckDevice for PhysicalDeck {
-    fn geometry(&self) -> Geometry {
-        Geometry::plus()
+    fn descriptor(&self) -> DeviceDescriptor {
+        DeviceDescriptor::for_model(DeviceModel::Plus)
     }
     fn set_key_image(&mut self, index: u8, rgb: &[u8]) -> Result<(), DeviceError> {
         if index >= 8 {

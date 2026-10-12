@@ -331,12 +331,28 @@ passes accessibility, security, lock/cancellation, recovery, preview parity and
 idle/loaded resource checks. Cache static work and use bounded asynchronous/event
 updates rather than adding unnecessary polling.
 
-Resume tomorrow by reviewing the native plugin foundation checkpoint and selecting
-its first unfinished production gate. The existing architecture priority remains:
-settle action identity/settings and shared lifecycle rules before dependent control
-or plugin changes. Establish per-device identity, geometry and independent state
-before dependent multi-device UI and dispatch changes; qualify the Plus/MK.2 pair
-as a V1.5 release gate. Within Appearance, refresh polish precedes wallpaper. Within
+**October 12 architecture review:** [ADR-0017](adr/0017-device-scoped-actions-and-settings.md)
+maps the current single-Plus implementation and proposes the device/action,
+settings-migration and cancellation boundaries needed for V1.5. The review and
+first descriptor/VirtualDeck and model-document/migration slices are complete;
+live device assignment, the device manager, editor and physical integration
+remain planned. See the
+[model-foundation checkpoint](checkpoints/2026-10-12-device-model-foundation.md).
+The [layout/migration checkpoint](checkpoints/2026-10-12-model-layout-migration.md)
+records V1 preservation, V2 model validation, independent MK.2 defaults, action
+identity and offline recovery tests. No migration bundle is activated by normal
+startup; per-device preferences and deployed rollback still need integration.
+The user confirmed that MK.2
+starts with its own default pages, independent of the existing Plus layout.
+
+Proceed in small slices: (1) model descriptors and Plus/MK.2 VirtualDeck fixtures;
+(2) model-aware layouts, stable action identities and migration/rollback;
+(3) device manager, device-addressed dispatch/API and shared audio/PTT services;
+(4) integrated device selection and MK.2 physical acceptance; (5) simulated pairs,
+then physical Plus/MK.2 simultaneous recovery and resource qualification. The
+first slice leaves the running desktop unchanged. General plugin-host
+protocol/permissions and verified OpenAction mapping remain separate gates;
+the experimental bridge does not close them. Within Appearance, refresh polish precedes wallpaper. Within
 Media/Dials, specify interaction/rendering behavior before implementation, starting
 with Now Playing, then Action Wheel and Dial Stacks. Catalog and optional service
 integrations follow a qualified native host. Compatibility checks accompany each

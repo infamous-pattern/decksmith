@@ -1,4 +1,5 @@
 //! Project-owned device contract, VirtualDeck, and Linux discovery.
+use decksmith_core::device_model::{ControlAddress, DeviceDescriptor, DeviceModel};
 use decksmith_core::{Geometry, InputEvent, RawEvent};
 use std::collections::VecDeque;
 
@@ -30,13 +31,13 @@ impl std::fmt::Display for DeviceError {
             Self::ImageEncoding => "image encoding failed",
             Self::DeviceSelection => "expected exactly one connected Stream Deck Plus",
             Self::TimeReversed => "timestamps must be monotonic",
-            Self::InvalidKey => "key index must be 0..7",
-            Self::InvalidDial => "dial index must be 0..3",
+            Self::InvalidKey => "key index outside device geometry",
+            Self::InvalidDial => "dial index outside device geometry",
             Self::ZeroRotation => "rotation requires nonzero ticks",
             Self::InvalidTouch => "touch coordinates out of bounds",
             Self::QueueFull => "virtual input queue is full",
-            Self::InvalidKeyImage => "expected key 0..7 and 120x120 RGB888 image",
-            Self::InvalidTouchImage => "expected 800x100 RGB888 image",
+            Self::InvalidKeyImage => "invalid key index or RGB888 image dimensions for device",
+            Self::InvalidTouchImage => "touch surface unavailable or invalid RGB888 dimensions",
             Self::InvalidBrightness => "brightness must be 0..100",
         })
     }
@@ -61,7 +62,10 @@ pub struct InputCounts {
 }
 
 pub trait DeckDevice {
-    fn geometry(&self) -> Geometry;
+    fn descriptor(&self) -> DeviceDescriptor;
+    fn geometry(&self) -> Geometry {
+        self.descriptor().geometry()
+    }
     fn set_key_image(&mut self, index: u8, rgb: &[u8]) -> Result<(), DeviceError>;
     fn set_touch_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError>;
     fn set_brightness(&mut self, percent: u8) -> Result<(), DeviceError>;
@@ -92,17 +96,17 @@ pub trait DeckDevice {
 }
 
 fn blank_display(device: &mut (impl DeckDevice + ?Sized)) -> Result<(), DeviceError> {
-    let geometry = device.geometry();
-    let key = vec![0; usize::from(geometry.key_pixels.0) * usize::from(geometry.key_pixels.1) * 3];
-    let touch =
-        vec![0; usize::from(geometry.touch_pixels.0) * usize::from(geometry.touch_pixels.1) * 3];
+    let descriptor = device.descriptor();
+    let key = vec![0; descriptor.key_rgb_bytes()];
     let mut result = Ok(());
-    for index in 0..geometry.columns.saturating_mul(geometry.rows) {
+    for index in 0..descriptor.key_count() {
         if let Err(error) = device.set_key_image(index, &key) {
             result = Err(error);
         }
     }
-    if let Err(error) = device.set_touch_image(&touch) {
+    if let Some(surface) = descriptor.capabilities().touch
+        && let Err(error) = device.set_touch_image(&vec![0; surface.rgb_bytes()])
+    {
         result = Err(error);
     }
     result
@@ -111,26 +115,34 @@ fn blank_display(device: &mut (impl DeckDevice + ?Sized)) -> Result<(), DeviceEr
 /// Deterministic in-memory reference device; image buffers use RGB888.
 #[derive(Debug)]
 pub struct VirtualDeck {
+    descriptor: DeviceDescriptor,
     pub brightness: u8,
     connected: bool,
-    keys: [Vec<u8>; 8],
+    keys: Vec<Vec<u8>>,
     touch: Vec<u8>,
     events: VecDeque<InputEvent>,
     last_timestamp: Option<u64>,
 }
 impl Default for VirtualDeck {
     fn default() -> Self {
+        Self::new(DeviceModel::Plus)
+    }
+}
+impl VirtualDeck {
+    /// Frame storage is allocated lazily; model descriptors have fixed bounds.
+    pub fn new(model: DeviceModel) -> Self {
+        let descriptor = DeviceDescriptor::for_model(model);
+        let keys = vec![Vec::new(); usize::from(descriptor.key_count())];
         Self {
+            descriptor,
             brightness: 50,
             connected: true,
-            keys: std::array::from_fn(|_| vec![]),
+            keys,
             touch: vec![],
             events: VecDeque::new(),
             last_timestamp: None,
         }
     }
-}
-impl VirtualDeck {
     pub fn receive_event(&mut self) -> Option<InputEvent> {
         self.events.pop_front()
     }
@@ -166,18 +178,28 @@ impl VirtualDeck {
         if self.last_timestamp.is_some_and(|t| input.timestamp_ms < t) {
             return Err(DeviceError::TimeReversed);
         }
-        match input.event {
-            RawEvent::Key { index, .. } if index >= 8 => {
-                return Err(DeviceError::InvalidKey);
-            }
-            RawEvent::DialPush { index, .. } | RawEvent::DialRotate { index, .. } if index >= 4 => {
-                return Err(DeviceError::InvalidDial);
-            }
+        if !self.descriptor.supports(input.event.control()) {
+            return Err(match input.event.control() {
+                ControlAddress::Key(_) => DeviceError::InvalidKey,
+                ControlAddress::DialPush(_) | ControlAddress::DialRotation(_) => {
+                    DeviceError::InvalidDial
+                }
+                ControlAddress::Touch => DeviceError::InvalidTouch,
+            });
+        }
+        match &input.event {
             RawEvent::DialRotate { ticks: 0, .. } => {
                 return Err(DeviceError::ZeroRotation);
             }
-            RawEvent::Touch { x, y, .. } if x >= 800 || y >= 100 => {
-                return Err(DeviceError::InvalidTouch);
+            RawEvent::Touch { x, y, gesture } => {
+                let surface = self
+                    .descriptor
+                    .capabilities()
+                    .touch
+                    .ok_or(DeviceError::InvalidTouch)?;
+                if *x >= surface.pixels.0 || *y >= surface.pixels.1 || !surface.supports(gesture) {
+                    return Err(DeviceError::InvalidTouch);
+                }
             }
             _ => {}
         }
@@ -190,23 +212,31 @@ impl VirtualDeck {
     }
 }
 impl DeckDevice for VirtualDeck {
-    fn geometry(&self) -> Geometry {
-        Geometry::plus()
+    fn descriptor(&self) -> DeviceDescriptor {
+        self.descriptor.clone()
     }
     fn set_key_image(&mut self, index: u8, rgb: &[u8]) -> Result<(), DeviceError> {
         self.require_connected()?;
-        if index >= 8 || rgb.len() != 120 * 120 * 3 {
+        if index >= self.descriptor.key_count() || rgb.len() != self.descriptor.key_rgb_bytes() {
             return Err(DeviceError::InvalidKeyImage);
         }
-        self.keys[index as usize] = rgb.to_vec();
+        let frame = &mut self.keys[index as usize];
+        frame.clear();
+        frame.extend_from_slice(rgb);
         Ok(())
     }
     fn set_touch_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError> {
         self.require_connected()?;
-        if rgb.len() != 800 * 100 * 3 {
+        let surface = self
+            .descriptor
+            .capabilities()
+            .touch
+            .ok_or(DeviceError::InvalidTouchImage)?;
+        if rgb.len() != surface.rgb_bytes() {
             return Err(DeviceError::InvalidTouchImage);
         }
-        self.touch = rgb.to_vec();
+        self.touch.clear();
+        self.touch.extend_from_slice(rgb);
         Ok(())
     }
     fn set_brightness(&mut self, percent: u8) -> Result<(), DeviceError> {
@@ -248,8 +278,8 @@ mod tests {
             touch: bool,
         }
         impl DeckDevice for Faulty {
-            fn geometry(&self) -> Geometry {
-                Geometry::plus()
+            fn descriptor(&self) -> DeviceDescriptor {
+                DeviceDescriptor::for_model(DeviceModel::Plus)
             }
             fn set_key_image(&mut self, i: u8, _: &[u8]) -> Result<(), DeviceError> {
                 self.keys.push(i);

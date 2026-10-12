@@ -1,4 +1,6 @@
 #[cfg(any(feature = "hardware", test))]
+mod action_contract;
+#[cfg(any(feature = "hardware", test))]
 mod audio;
 #[cfg(any(feature = "hardware", test))]
 mod audio_icon;
@@ -16,6 +18,10 @@ mod feedback;
 mod foreground;
 mod key_text;
 mod launch;
+#[cfg(any(feature = "hardware", test))]
+mod layout_document;
+#[cfg(any(feature = "hardware", test))]
+mod layout_store;
 mod level_bar;
 #[cfg(any(feature = "hardware", test))]
 mod pages;
@@ -58,6 +64,17 @@ fn main() {
         .with_ansi(false)
         .init();
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    #[cfg(feature = "hardware")]
+    if let Some(result) = layout_store::request(&args) {
+        match result {
+            Ok(report) => println!("{report}"),
+            Err(code) => {
+                eprintln!("{code}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if args == ["--self-check"] {
         match runtime_paths::check() {
             Ok(report) => {

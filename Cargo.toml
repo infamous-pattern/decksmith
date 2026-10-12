@@ -10,7 +10,7 @@ license = "Apache-2.0"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["raw_value"] }
 decksmith-core = { path = "crates/decksmith-core" }
 decksmith-device = { path = "crates/decksmith-device" }
 tracing = { version = "0.1", default-features = false, features = ["std"] }

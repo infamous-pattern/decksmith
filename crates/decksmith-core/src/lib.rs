@@ -19,6 +19,16 @@ impl Geometry {
             touch_pixels: (800, 100),
         }
     }
+    pub fn mk2() -> Self {
+        Self {
+            columns: 5,
+            rows: 3,
+            dials: 0,
+            key_pixels: (72, 72),
+            // Compatibility representation; descriptors express absence as None.
+            touch_pixels: (0, 0),
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -56,4 +66,5 @@ pub struct InputEvent {
     pub event: RawEvent,
 }
 
+pub mod device_model;
 pub mod trigger;

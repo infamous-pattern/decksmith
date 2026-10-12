@@ -1,5 +1,5 @@
 //! Pace the live VirtualDeck service without changing deterministic device tests.
-use decksmith_core::{Geometry, InputEvent};
+use decksmith_core::{InputEvent, device_model::DeviceDescriptor};
 use decksmith_device::{DeckDevice, DeviceError, VirtualDeck};
 use std::time::Duration;
 
@@ -16,8 +16,8 @@ impl Default for ServiceDeck {
     }
 }
 impl DeckDevice for ServiceDeck {
-    fn geometry(&self) -> Geometry {
-        self.deck.geometry()
+    fn descriptor(&self) -> DeviceDescriptor {
+        self.deck.descriptor()
     }
     fn set_key_image(&mut self, index: u8, rgb: &[u8]) -> Result<(), DeviceError> {
         self.deck.set_key_image(index, rgb)
