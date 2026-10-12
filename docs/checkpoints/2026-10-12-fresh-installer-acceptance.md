@@ -9,8 +9,9 @@ desktop user. The corrected helper was supplied as a reviewed local candidate.
 After publication to GitHub, a fresh download of the public `main` shortcut
 matched that tested helper byte for byte and matched the digest recorded below.
 No release archive, signing identity, source pin or production desktop build was
-changed. Gitea synchronization remains pending because its pinned SSH endpoint
-was unavailable during publication; the public GitHub installer is updated.
+changed. Gitea's pinned SSH endpoint was initially unavailable during publication.
+After its server update on October 12, synchronization completed and both remote
+source trees were verified identical; the public GitHub installer is updated.
 
 ## What the fresh test found
 

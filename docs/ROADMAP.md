@@ -55,8 +55,8 @@ installation, a controlled missing-dependency case, runtime readiness, desktop
 integration with startup remaining off, and native Wayland editor/VirtualDeck
 checks. All seven server guests are off afterward. The fix is published to
 GitHub, and a fresh public-shortcut download matches the tested helper byte for
-byte. Gitea synchronization remains pending while its pinned SSH endpoint is
-unavailable.
+byte. Gitea synchronization completed after its server update on October 12;
+both repositories were verified to contain identical source trees.
 Physical USB/audio and the other distributions' fresh dependency paths retain
 separate acceptance gates. See the
 [fresh installer qualification](checkpoints/2026-10-12-fresh-installer-acceptance.md).
