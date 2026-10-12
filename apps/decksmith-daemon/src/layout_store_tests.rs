@@ -195,7 +195,7 @@ fn store_lock_excludes_other_writer_and_unknown_manifest_version_preserves_state
         .write(true)
         .open(store.root.join("store.lock"))
         .unwrap();
-    lock.try_lock().unwrap();
+    let lock = WriterLock::acquire(lock).unwrap();
     assert_eq!(
         store.commit(&snapshot, Some(1), None),
         Err("layout_store_busy")
@@ -211,6 +211,32 @@ fn store_lock_excludes_other_writer_and_unknown_manifest_version_preserves_state
         Err("invalid_manifest")
     );
     assert_eq!(store.pointer().unwrap(), Some(1));
+}
+
+#[test]
+fn writer_scope_unlocks_even_when_a_duplicate_descriptor_remains_open() {
+    let temp = Temp::new();
+    let path = temp.0.join("lock");
+    write(&path, b"").unwrap();
+    let a = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&path)
+        .unwrap();
+    let duplicate = a.try_clone().unwrap();
+    let b = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&path)
+        .unwrap();
+    let guard = WriterLock::acquire(a).unwrap();
+    assert!(b.try_lock().is_err());
+    drop(guard);
+    // Closing only a would leave duplicate holding the same file-description
+    // lock. Explicit unlock must allow another writer while duplicate lives.
+    b.try_lock().unwrap();
+    b.unlock().unwrap();
+    drop(duplicate);
 }
 
 #[test]

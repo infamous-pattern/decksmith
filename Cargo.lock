@@ -297,6 +297,7 @@ dependencies = [
  "elgato-streamdeck",
  "image",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

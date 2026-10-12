@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 serde.workspace = true
+serde_json.workspace = true
 decksmith-core.workspace = true
 elgato-streamdeck = { version = "=0.13.1", optional = true }
 image = { version = "0.25", default-features = false, features = ["jpeg", "bmp"], optional = true }

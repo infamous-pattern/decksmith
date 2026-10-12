@@ -3,6 +3,9 @@ use decksmith_core::device_model::{ControlAddress, DeviceDescriptor, DeviceModel
 use decksmith_core::{Geometry, InputEvent, RawEvent};
 use std::collections::VecDeque;
 
+pub mod manager;
+pub mod registry;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeviceError {
     Disconnected,

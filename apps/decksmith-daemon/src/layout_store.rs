@@ -168,6 +168,25 @@ struct Pointer {
 struct Store {
     root: PathBuf,
 }
+/// Explicit unlock prevents an unrelated fork/duplicated descriptor from
+/// retaining this file-description lock after the writer's own fd is dropped.
+struct WriterLock(File);
+impl WriterLock {
+    fn acquire(file: File) -> Result<Self> {
+        file.try_lock().map_err(|_| "layout_store_busy")?;
+        Ok(Self(file))
+    }
+}
+impl Drop for WriterLock {
+    fn drop(&mut self) {
+        if self.0.unlock().is_err() {
+            tracing::warn!(
+                error_code = "layout_unlock_failed",
+                "Configuration writer lock release failed"
+            );
+        }
+    }
+}
 impl Store {
     fn open(root: &Path) -> Result<Self> {
         directory(root)?;
@@ -238,7 +257,7 @@ impl Store {
         if !meta.is_file() || !own(&meta) || meta.nlink() != 1 {
             return Err("unsafe_layout_file");
         }
-        lock.try_lock().map_err(|_| "layout_store_busy")?;
+        let _lock = WriterLock::acquire(lock)?;
         if self.pointer()? != expected {
             return Err("stale_layout_generation");
         }

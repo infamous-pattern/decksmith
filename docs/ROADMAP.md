@@ -334,14 +334,18 @@ updates rather than adding unnecessary polling.
 **October 12 architecture review:** [ADR-0017](adr/0017-device-scoped-actions-and-settings.md)
 maps the current single-Plus implementation and proposes the device/action,
 settings-migration and cancellation boundaries needed for V1.5. The review and
-first descriptor/VirtualDeck and model-document/migration slices are complete;
-live device assignment, the device manager, editor and physical integration
-remain planned. See the
+first descriptor/VirtualDeck and model-document/migration slices are complete.
+A bounded private inventory codec and supplied-adapter session supervisor now
+pass simulated independent-device checks; production assignment, shared backends,
+device-addressed IPC, editor and physical integration remain planned. See the
 [model-foundation checkpoint](checkpoints/2026-10-12-device-model-foundation.md).
 The [layout/migration checkpoint](checkpoints/2026-10-12-model-layout-migration.md)
 records V1 preservation, V2 model validation, independent MK.2 defaults, action
 identity and offline recovery tests. No migration bundle is activated by normal
 startup; per-device preferences and deployed rollback still need integration.
+The [session-foundation checkpoint](checkpoints/2026-10-12-device-session-foundation.md)
+records stable-ID/ambiguity rules, fair polling, independent reconnect/page state
+and stale-input/feedback fences. It is not wired to the production daemon.
 The user confirmed that MK.2
 starts with its own default pages, independent of the existing Plus layout.
 

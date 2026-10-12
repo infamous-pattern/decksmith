@@ -14,6 +14,11 @@ Live registry/preference assignment, runtime/API, renderer/editor and physical
 integration remain staged proposals. The findings table describes the reviewed
 revision before these slices.
 
+The [session-foundation checkpoint](../checkpoints/2026-10-12-device-session-foundation.md)
+adds a bounded private registry codec and supplied-adapter manager seam with
+independent context/fault/page state and fair polling. It passes simulation only;
+the production single-Plus worker and shared services are not replaced.
+
 This review defines the next implementation slices. It does not change the
 installed daemon, saved layouts or hardware support claims. The user confirmed
 that a newly added MK.2 should start with **its own default pages**, rather than
