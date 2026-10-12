@@ -315,14 +315,16 @@ def verification_cli(directory, *, allow_portable=False):
                'Use its official package source, or allow a pinned temporary upstream copy.')
     if not allow_portable:
         try:
-            terminal = open('/dev/tty', 'r+')
+            # A controlling terminal is not seekable: buffered r+ creates a
+            # BufferedRandom stream and fails before the consent prompt appears.
+            with open('/dev/tty', 'r', encoding='utf-8') as terminal, \
+                 open('/dev/tty', 'w', encoding='utf-8') as display:
+                display.write(message + '\nDownload GitHub CLI ' + GH_VERSION +
+                              ' temporarily for this installation? [y/N] ')
+                display.flush()
+                allow_portable = terminal.readline().strip().lower() in ('y', 'yes')
         except OSError as error:
             raise ValueError(message + ' Retry with --allow-portable-gh to opt in.') from error
-        with terminal:
-            terminal.write(message + '\nDownload GitHub CLI ' + GH_VERSION +
-                           ' temporarily for this installation? [y/N] ')
-            terminal.flush()
-            allow_portable = terminal.readline().strip().lower() in ('y', 'yes')
     if not allow_portable:
         raise ValueError(message + ' Installation stopped; no signatures were bypassed.')
     archive = directory / GH_ARCHIVE
@@ -390,7 +392,7 @@ def install_dependencies(packages, selected, *, no_deps=False):
     if not shutil.which('sudo'):
         raise ValueError('sudo is unavailable. Ask an administrator to install: ' + ', '.join(missing))
     try:
-        terminal = open('/dev/tty', 'r+')
+        terminal = open('/dev/tty', 'r', encoding='utf-8')
     except OSError as error:
         raise ValueError('Dependency installation needs a terminal. Run: ' + ' '.join(command)) from error
     # Trusted OS package sources, normal package-manager confirmation; never -y.

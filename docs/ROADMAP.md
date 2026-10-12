@@ -1,6 +1,6 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 11, 2026. The v0.4 product
+This is the implementation roadmap, updated October 12, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
@@ -47,16 +47,17 @@ with the gallery and detailed dependencies in linked guides. Bare-desktop depend
 release assets and production controls are unchanged. See the
 [installer qualification](checkpoints/2026-10-11-simplified-installer.md).
 
-**Fresh dependency acceptance — scheduled, not yet passed:** a separate one-time
-AI-server job is scheduled for October 11 at 9 PM Eastern. It creates a new Fedora
-44 Workstation GNOME guest from the OS repositories, retains an independent
-pristine disk before Decksmith installation, and exercises the published helper's
-normal-user dependency confirmation and signed-install path. Check missing
-packages before/after, runtime readiness, desktop integration, startup remaining
-off, and native Wayland editor/VirtualDeck operation. Keep existing test guests
-and production controls unchanged; shut down the new guest afterward. This does
-not qualify physical USB/audio or the other distributions' fresh dependency
-paths. Review results on October 12 before closing the acceptance item.
+**Fresh dependency acceptance — October 12 candidate passed:** the scheduled run
+first failed during VM firmware selection. The new Fedora 44 Workstation guest
+now boots correctly and retains an independent pristine disk. Real terminal
+testing exposed a prompt bug in the public helper; the reviewed fix passes clean
+installation, a controlled missing-dependency case, runtime readiness, desktop
+integration with startup remaining off, and native Wayland editor/VirtualDeck
+checks. All seven server guests are off afterward. The tested helper is a local
+candidate; publishing it and checking the fresh public shortcut remain open.
+Physical USB/audio and the other distributions' fresh dependency paths retain
+separate acceptance gates. See the
+[fresh installer qualification](checkpoints/2026-10-12-fresh-installer-acceptance.md).
 
 **Optional supporting trial: RepoWise.** Evaluate it on a clean copy of Decksmith
 for installer dependency tracing, documentation drift and later multi-device

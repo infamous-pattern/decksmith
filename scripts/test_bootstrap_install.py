@@ -1,9 +1,14 @@
 """Guard distro selection, dependency handling and signed bootstrap execution."""
 import importlib.util
 import io
+import os
+import pty
+import select
+import signal
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -22,6 +27,79 @@ BUILD = load('bootstrap_build', 'build-bootstrap.py')
 
 
 class BootstrapTests(unittest.TestCase):
+    def terminal_child(self, program, marker, reply):
+        """Use a real controlling terminal: regular-file mocks miss r+ failures."""
+        import sys
+        pid, descriptor = pty.fork()
+        if pid == 0:
+            os.execv(sys.executable, [sys.executable, '-B', '-c', program])
+        output = b''; responded = False; ended = False
+        try:
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                if select.select([descriptor], [], [], .1)[0]:
+                    try:
+                        output += os.read(descriptor, 65536)
+                    except OSError:
+                        pass
+                if not responded and marker.encode() in output:
+                    os.write(descriptor, reply.encode()); responded = True
+                finished, status = os.waitpid(pid, os.WNOHANG)
+                if finished:
+                    ended = True
+                    self.assertEqual(os.waitstatus_to_exitcode(status), 0, output.decode(errors='replace'))
+                    self.assertTrue(responded, output.decode(errors='replace'))
+                    return output.decode(errors='replace')
+            self.fail('Controlling-terminal test timed out: ' + output.decode(errors='replace'))
+        finally:
+            if not ended:
+                os.killpg(pid, signal.SIGKILL); os.waitpid(pid, 0)
+            os.close(descriptor)
+
+    def terminal_loader(self):
+        return ('import sys; sys.path.insert(0, ' + repr(str(Path(__file__).parent.resolve())) + ')\n'
+                'import importlib.util\n'
+                's=importlib.util.spec_from_file_location("boot", ' + repr(str(Path(__file__).with_name('bootstrap-install.py').resolve())) + ')\n'
+                'b=importlib.util.module_from_spec(s);s.loader.exec_module(b)\n')
+
+    def test_real_tty_portable_consent_reaches_download(self):
+        program = self.terminal_loader() + '''
+from pathlib import Path
+b.supports_attestation=lambda command: False
+def download(*args):raise RuntimeError('CONSENT_ACCEPTED')
+b.download=download
+try:b.verification_cli(Path('/unused'))
+except RuntimeError as e:assert str(e)=='CONSENT_ACCEPTED';print('PASS accepted',flush=True)
+else:raise AssertionError('Expected intercepted download')
+'''
+        self.assertIn('PASS accepted', self.terminal_child(program, '[y/N] ', 'y\n'))
+
+    def test_real_tty_decline_never_downloads(self):
+        program = self.terminal_loader() + '''
+from pathlib import Path
+b.supports_attestation=lambda command: False
+def download(*args):raise AssertionError('Declined download executed')
+b.download=download
+try:b.verification_cli(Path('/unused'))
+except ValueError as e:assert 'no signatures were bypassed' in str(e);print('PASS declined',flush=True)
+else:raise AssertionError('Expected safe refusal')
+'''
+        self.assertIn('PASS declined', self.terminal_child(program, '[y/N] ', 'n\n'))
+
+    def test_real_tty_dependency_confirmation_input(self):
+        program = self.terminal_loader() + '''
+from unittest.mock import patch
+checks=iter([['fixture-package'],[]])
+def package_manager(command,stdin,check):
+ assert command==['sudo','dnf','install','fixture-package'] and check
+ print('DEPENDENCY_CONFIRMATION',flush=True)
+ assert stdin.readline().strip()=='y'
+with patch.object(b,'missing_packages',side_effect=lambda *args:next(checks)),patch.object(b.shutil,'which',return_value='/usr/bin/sudo'),patch.object(b.subprocess,'run',side_effect=package_manager):
+ b.install_dependencies(('fixture-package',), b.RELEASES['fedora','44'])
+print('PASS terminal input',flush=True)
+'''
+        self.assertIn('PASS terminal input', self.terminal_child(program, 'DEPENDENCY_CONFIRMATION', 'y\n'))
+
     def test_shell_contains_exact_reviewed_sources(self):
         self.assertEqual(Path(__file__).with_name('install.sh').read_text(), BUILD.render())
         for number, name in enumerate(BUILD.FILES):
