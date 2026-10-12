@@ -5,10 +5,12 @@
 The reviewed terminal fix passes a new Fedora Workstation 44 GNOME/Wayland guest
 installation and a controlled missing-dependency case. Both use the existing
 public, signed V1 release and install build `1.0.0-c5e4fea53afe` as the regular
-desktop user. The corrected helper was supplied as a reviewed local candidate;
-these results do not yet establish that the public shortcut contains the fix.
+desktop user. The corrected helper was supplied as a reviewed local candidate.
+After publication to GitHub, a fresh download of the public `main` shortcut
+matched that tested helper byte for byte and matched the digest recorded below.
 No release archive, signing identity, source pin or production desktop build was
-changed. Publication and a fresh public-helper check remain separate steps.
+changed. Gitea synchronization remains pending because its pinned SSH endpoint
+was unavailable during publication; the public GitHub installer is updated.
 
 ## What the fresh test found
 

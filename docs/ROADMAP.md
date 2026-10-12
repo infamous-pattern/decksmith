@@ -53,8 +53,10 @@ now boots correctly and retains an independent pristine disk. Real terminal
 testing exposed a prompt bug in the public helper; the reviewed fix passes clean
 installation, a controlled missing-dependency case, runtime readiness, desktop
 integration with startup remaining off, and native Wayland editor/VirtualDeck
-checks. All seven server guests are off afterward. The tested helper is a local
-candidate; publishing it and checking the fresh public shortcut remain open.
+checks. All seven server guests are off afterward. The fix is published to
+GitHub, and a fresh public-shortcut download matches the tested helper byte for
+byte. Gitea synchronization remains pending while its pinned SSH endpoint is
+unavailable.
 Physical USB/audio and the other distributions' fresh dependency paths retain
 separate acceptance gates. See the
 [fresh installer qualification](checkpoints/2026-10-12-fresh-installer-acceptance.md).
