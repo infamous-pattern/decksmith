@@ -100,6 +100,19 @@ available. Keep logs and backup manifests; do not automatically restore disks or
 force off a failed guest. The AI server host and Windows reference VM are outside
 these guest-update jobs.
 
+**Weekly maintenance recovery — October 12:** the test runners now prefer a
+normal OS poweroff through the pinned, identity-checked guest connection, with
+explicit graceful guest-agent/ACPI fallback and confirmed powered-off state.
+They retain ownership locks, bounded waits and durable failure records; no
+forced power-off is attempted. A five-minute bounded retry handles the specific
+APT list-lock error exposed by COSMIC's background updater. Twenty-three
+failure-path checks pass locally and on the server. The final six-guest batch
+passed verified offline backup, OS updates, reboot verification, installed-build
+smoke tests and shutdown. All seven server guests are off, the recurring timers
+are unchanged and enabled, and the workstation build is untouched. COSMIC's
+final smoke check was headless VirtualDeck; it does not add native-editor or
+physical acceptance. See the [recovery qualification](checkpoints/2026-10-12-weekly-vm-recovery.md).
+
 **openSUSE Tumbleweed GNOME — added October 10:** the sixth Linux test guest is
 installed directly on the AI server, registered in its virt-manager User session,
 with desktop autologin, a 1920 × 1200 display and VM autostart disabled. Initial
