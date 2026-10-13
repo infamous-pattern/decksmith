@@ -55,7 +55,7 @@ class Editor(Adw.ApplicationWindow):
         self.close_after_save=False
         super().__init__(application=owner, transient_for=owner.window, modal=not integrated, title='Decksmith' if integrated else 'Edit layout')
         self.owner, self.call = owner, call
-        self.key_count=8;self.key_pixels=120;self.device_model="plus"
+        self.device_model=getattr(call,"device_model","plus");self.key_count=15 if self.device_model=="mk2" else 8;self.key_pixels=72 if self.device_model=="mk2" else 120
         self.draft = None
         self.page = self.key = 0
         self.control_kind="key"
@@ -179,7 +179,7 @@ class Editor(Adw.ApplicationWindow):
         self.keys = []
         self.key_sources = []
         self.key_targets = []
-        for index in range(15 if getattr(call,"device_model",None)=="mk2" else 8):
+        for index in range(15 if getattr(call,"device_scoped",False) else 8):
             button = KeyPreviewButton()
             button.add_css_class('deck-key')
             button.add_css_class(f'key-slot-{index}')
@@ -195,7 +195,9 @@ class Editor(Adw.ApplicationWindow):
             self.key_sources.append(source)
             self.key_targets.append(target)
             button.set_tooltip_text('In Edit keys mode, drag onto another key to swap positions.')
-            self.grid.attach(button,index%4,index//4,1,1)
+            columns=5 if self.device_model=='mk2' else 4
+            button.set_visible(index<self.key_count)
+            if index<self.key_count:self.grid.attach(button,index%columns,index//columns,1,1)
             self.keys.append(button)
         self.device_preview.append(self.grid)
         from key_preview import KeyPreview
@@ -431,15 +433,18 @@ class Editor(Adw.ApplicationWindow):
         count,columns,pixels=(15,5,72) if model=='mk2' else (8,4,120)
         # Lab selection constructs an editor for the destination model and
         # retains independent drafts; geometry can never silently truncate keys.
-        if count!=len(self.keys):raise ValueError('Editor geometry does not match the selected device.')
+        if count>len(self.keys) or (count!=len(self.keys) and not getattr(self.call,'device_scoped',False)):raise ValueError('Editor geometry does not match the selected device.')
         self.key_count=count;self.key_pixels=pixels;self.device_model=model
         for index,button in enumerate(self.keys):
-            self.grid.remove(button);self.grid.attach(button,index%columns,index//columns,1,1)
+            if button.get_parent() is self.grid:self.grid.remove(button)
+            button.set_visible(index<count)
+            if index<count:self.grid.attach(button,index%columns,index//columns,1,1)
             button.preview_size=84 if model=='mk2' else 102
         self.device_brand.set_text('DECKSMITH  MK.2' if model=='mk2' else 'DECKSMITH  +')
         self.grid.set_column_spacing(16 if model=='mk2' else 28)
         for widget in (self.touch_preview,self.dial_row,self.touch_preview.note):widget.set_visible(model=='plus')
         self.key_preview.configure(count,pixels)
+        if hasattr(self,'shell'):self.shell.arrange(getattr(self.shell,'compact',False))
 
     def loaded(self, data):
         layout, status = data
@@ -602,6 +607,7 @@ class Editor(Adw.ApplicationWindow):
         self.select_key(index)
 
     def select_key(self, index):
+        if self.draft is None or not 0<=index<self.key_count:return
         self.control_kind='key'
         self.properties.set_visible_child_name('key')
         self.key = index
@@ -1158,12 +1164,12 @@ class Editor(Adw.ApplicationWindow):
         if self.pending or self.draft is None:return
         self.draft.validate()
         payload=json.dumps(self.draft.data)
-        self.status.set_text('Saving and applying…')
+        self.status.set_text('Saving profile…' if getattr(self.call,'workspace_only',False) else 'Saving and applying…')
         def done(_result):
             self.draft.saved_now()
             self.device_layout = "custom"
             self.render()
-            self.status.set_text('Saved as My layout and applied to Decksmith.')
+            self.status.set_text('Device profile saved. Physical controls remain with your current service.' if getattr(self.call,'workspace_only',False) else 'Saved as My layout and applied to Decksmith.')
             self.owner.refresh()
             if self.close_after_save:self.close_after_save=False;self.close()
         page = self.page

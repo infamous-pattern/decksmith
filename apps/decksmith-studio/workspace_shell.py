@@ -136,15 +136,17 @@ class WorkspaceShell:
         ed.status.add_css_class('ds-footer');ed.status.set_margin_start(18);ed.status.set_margin_end(18);ed.status.set_margin_top(10);ed.status.set_margin_bottom(10);right.append(ed.status)
         owner.toasts.set_child(self.root);ed.set_content(owner.toasts)
         # Main-window responsive rule replaces the former editor-only breakpoint.
+        if hasattr(owner,'install_device_picker'):owner.install_device_picker(self)
         self.navigate('home')
 
     def arrange(self,compact):
         # Scale only on window-width changes, never on tab or control selection.
+        self.compact=compact
         self.preview_scroll.set_min_content_width(470 if compact else 598)
-        self.ed.grid.set_column_spacing(16 if compact else 28)
+        self.ed.grid.set_column_spacing(16 if compact or self.ed.device_model=='mk2' else 28)
         self.ed.grid.set_row_spacing(14 if compact else 18)
         for key in self.ed.keys:
-            key.preview_size=68 if compact else 102
+            key.preview_size=68 if compact else 84 if self.ed.device_model=='mk2' else 102
             key.get_layout_manager().layout_changed()
 
     def colors(self):
@@ -251,9 +253,16 @@ class WorkspaceShell:
         self.status=status
         text='Locked' if status.get('auto_lock',{}).get('locked') else 'Connected' if status.get('connected') else 'Disconnected'
         self.connection.set_text(text+' · '+('Controls running' if status.get('running') else 'Controls stopped'))
-        self.device_info.set_text('Stream Deck + · '+text)
+        ed=self.ed;name=getattr(ed.call,'name','Stream Deck +')
+        if hasattr(self.owner,'caption'):self.owner.caption.set_text(name)
+        else:self.device_menu.set_label(name)
+        self.device_info.set_text(name+' · '+text)
         self.banner.set_title('Device locked · layout editing remains available' if text=='Locked' else 'Device disconnected · your layout remains available' if text=='Disconnected' else '')
         self.banner.set_revealed(text!='Connected')
+        if status.get('workspace_only'):
+            text='Detected' if status.get('detected') else 'Not detected'
+            self.connection.set_text(text+' · Saved profile workspace');self.device_info.set_text(name+' · '+text)
+            self.banner.set_title('Saved profiles only · physical controls stay with your current Decksmith service');self.banner.set_revealed(True)
         ed=self.ed
         # A preset changed outside the editor: refresh only a clean draft, once.
         if ed.draft is not None and not ed.draft.dirty and not ed.pending and status.get('layout') and status['layout']!=ed.device_layout and not self.loading_layout:
@@ -288,20 +297,21 @@ class WorkspaceShell:
         caption=control if label==control else f'{control} · {label}'
         self.context_heading.set_text(f'{names[ed.page]} › {caption}')
         ed.form.set_title(f"Key {ed.key+1} · "+ed.draft.data['pages'][ed.page]['keys'][ed.key]['label'])
-        blocked=not self.can_control() or ed.pending or ed.draft.dirty
+        blocked=not self.can_control() or ed.pending or ed.draft.dirty or not getattr(ed.call,'actions_available',True)
         self.test.set_sensitive(not blocked)
         self.test_note.set_text('Save and Apply before testing edited controls.' if ed.draft.dirty else 'Testing unavailable while the device is locked, disconnected or starting.' if not self.can_control() else 'Runs the selected saved key action or dial press.')
+        if not getattr(ed.call,'actions_available',True):self.test_note.set_text('Physical actions are not applied from this saved-profile workspace.' if getattr(ed.call,'workspace_only',False) else 'Live actions are unavailable in this virtual test. Page navigation and device settings are simulated.')
         reason=save_reason(ed.draft.dirty,getattr(ed,'layout_valid',False),ed.pending,
                            self.status,getattr(ed,'validation_error',None))
         enabled=reason is None
         ed.save_button.set_sensitive(enabled)
-        text=reason or 'Ready to save and apply · Ctrl+S'
+        text=reason or ('Ready to save profile · Ctrl+S' if getattr(ed.call,'workspace_only',False) else 'Ready to save and apply · Ctrl+S')
         self.save_reason.set_text(text);self.save_reason.set_tooltip_text(text)
         ed.save_button.set_tooltip_text(text)
         self.validation_speech.update(text if ed.draft.dirty and not ed.pending and not getattr(ed,'layout_valid',False) else None)
         from dial_model import effective
         key_names=tuple(key['label'] for key in ed.draft.data['pages'][ed.page]['keys'])
-        dial_names=tuple(dial['label'] for dial in effective(ed.draft.data,ed.page))
+        dial_names=tuple(dial['label'] for dial in effective(ed.draft.data,ed.page)) if ed.device_model=='plus' else ()
         names=(key_names,dial_names)
         if getattr(self,'accessible_names',None)!=names:
             self.accessible_names=names
@@ -336,6 +346,7 @@ def save_reason(dirty,valid,pending,status,error=None):
     if not valid:return 'Cannot save: '+(error or 'Check the highlighted fields.')
     if not dirty:return 'No changes to save.'
     if status.get('auto_lock',{}).get('locked'):return 'Unlock your desktop to save and apply. Your draft is kept.'
+    if status.get('workspace_only'):return None
     if not status.get('running',True):return 'Start Background controls on Home to save and apply. Your draft is kept.'
     if status.get('unavailable'):return 'Background controls are unavailable. Your draft is kept; retry after they reconnect.'
     return None

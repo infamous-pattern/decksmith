@@ -210,6 +210,82 @@ impl DeviceManager {
             })
             .collect()
     }
+    /// Add exactly one explicitly saved profile without recreating the supervisor
+    /// or fencing unrelated live sessions. Old identities may not be reassigned.
+    pub fn enroll_saved(
+        &mut self,
+        registry: Registry,
+        id: DeviceId,
+        layout: SessionLayout,
+        page: u8,
+    ) -> Result<()> {
+        if self.locked || self.suspended {
+            return Err("devices_blocked");
+        }
+        let r = registry.get(id).ok_or("unknown_device")?;
+        if self.registry.get(id).is_some()
+            || registry.records().len() != self.registry.records().len() + 1
+            || registry.revision() <= self.registry.revision()
+            || self.registry.records().iter().any(|old| {
+                !registry
+                    .get(old.id())
+                    .is_some_and(|new| old.same_identity(new))
+            })
+        {
+            return Err("invalid_registry_extension");
+        }
+        if layout.model != r.model() || page >= layout.pages {
+            return Err("invalid_session_layout");
+        }
+        let discovery_revision = self
+            .discovery_revision
+            .checked_add(1)
+            .ok_or("discovery_revision_exhausted")?;
+        self.sessions.push(Session {
+            id,
+            model: r.model(),
+            brightness: r.brightness(),
+            layout: Some(layout),
+            page: Some(page),
+            connection: 0,
+            binding: 1,
+            device: None,
+            draining: true,
+            held: BTreeSet::new(),
+            armed: BTreeSet::new(),
+            last_timestamp: None,
+            error: None,
+        });
+        self.registry = registry;
+        self.discovery_revision = discovery_revision;
+        Ok(())
+    }
+    /// Validate private snapshot identity, not merely model/slot, before an opener
+    /// can acquire a handle. No HID call or display write occurs here.
+    pub fn attachment_target(
+        &self,
+        revision: u64,
+        discovery: &Discovery,
+        slot: u8,
+    ) -> Result<DeviceId> {
+        if revision != self.discovery_revision
+            || discovery.candidates() != self.discovery.candidates()
+        {
+            return Err("stale_discovery_revision");
+        }
+        let candidate = discovery
+            .candidates()
+            .iter()
+            .find(|c| c.slot() == slot)
+            .ok_or("unknown_candidate")?;
+        let Association::Assigned(id) = self.registry.resolve(discovery, candidate) else {
+            return Err("device_unassigned");
+        };
+        if self.session(id)?.device.is_some() {
+            return Err("device_already_owned");
+        }
+        Ok(id)
+    }
     /// Disconnected records persist. A reversed enumeration never swaps them.
     /// Ambiguous/disappearing identity closes only its existing session.
     pub fn reconcile(&mut self, discovery: Discovery) -> Result<u64> {

@@ -78,6 +78,18 @@ impl Catalog {
     pub fn summaries(&self) -> Vec<decksmith_device::registry::Summary<'_>> {
         self.registry.summaries()
     }
+    /// Redacted discovery associations: new/ambiguous/missing identities remain
+    /// unassigned. No raw serials or USB paths enter this result.
+    pub fn associations(
+        &self,
+        discovery: &Discovery,
+    ) -> Vec<(u8, decksmith_device::registry::Association)> {
+        discovery
+            .candidates()
+            .iter()
+            .map(|c| (c.slot(), self.registry.resolve(discovery, c)))
+            .collect()
+    }
     /// Private raw preferences retained without interpreting global service/login
     /// settings. Never print/export these with public status or layout packages.
     pub fn preferences_private(&self) -> &[u8] {
@@ -148,6 +160,20 @@ struct Pointer {
     version: u8,
     generation: u64,
 }
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Retention {
+    version: u8,
+    generation: u64,
+    source: PathBuf,
+    archive: PathBuf,
+    retired: Vec<u64>,
+}
+#[derive(Serialize, Debug)]
+pub struct ArchiveReport {
+    pub archived: usize,
+    pub retained: usize,
+}
 pub struct Store {
     root: PathBuf,
 }
@@ -167,6 +193,277 @@ impl Store {
         }
         disk::directory(&root.join("generations"))?;
         Ok(Self { root: root.into() })
+    }
+    pub fn history_status(&self) -> Result<(usize, bool)> {
+        Ok((
+            self.inventory()?.len(),
+            fs::symlink_metadata(self.root.join("retention.json")).is_ok(),
+        ))
+    }
+    pub fn archive_sibling(&self, expected: u64, keep: usize) -> Result<ArchiveReport> {
+        match fs::symlink_metadata(self.root.join("retention.json")) {
+            Ok(_) => {
+                let journal: Retention = serde_json::from_slice(&read(
+                    &self.root.join("retention.json"),
+                    REGISTRY_BYTES,
+                )?)
+                .map_err(|_| "invalid_profile_retention")?;
+                self.resume_archive(expected, &journal.archive)
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let destination = self
+                    .root
+                    .parent()
+                    .ok_or("invalid_profile_path")?
+                    .join(format!("profile-history-{}", random_device_id()?));
+                self.archive_history(expected, keep, &destination)
+            }
+            Err(_) => Err("profile_store_io"),
+        }
+    }
+    fn no_retention(&self) -> Result<()> {
+        match fs::symlink_metadata(self.root.join("retention.json")) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            _ => Err("profile_retention_pending"),
+        }
+    }
+    fn entries(&self, generation: u64) -> Result<Vec<(String, usize)>> {
+        let dir = self.dir(generation);
+        let manifest: Manifest =
+            serde_json::from_slice(&read(&dir.join("manifest.json"), REGISTRY_BYTES)?)
+                .map_err(|_| "invalid_profile_manifest")?;
+        let mut entries = vec![
+            ("manifest.json".into(), REGISTRY_BYTES),
+            ("registry.json".into(), REGISTRY_BYTES),
+            ("preferences.json".into(), PREFS_BYTES),
+        ];
+        for row in manifest.profiles {
+            entries.push((format!("{}.json", row.id), LIMIT));
+            if row.legacy.is_some() {
+                entries.push((format!("{}-legacy.json", row.id), LIMIT));
+            }
+        }
+        Ok(entries)
+    }
+    fn inventory(&self) -> Result<Vec<u64>> {
+        let mut generations = Vec::new();
+        for entry in fs::read_dir(self.root.join("generations")).map_err(|_| "profile_store_io")? {
+            if generations.len() >= GENERATIONS {
+                return Err("profile_generation_limit");
+            }
+            let entry = entry.map_err(|_| "profile_store_io")?;
+            let name = entry.file_name();
+            let name = name.to_str().ok_or("invalid_profile_generation")?;
+            if name.len() != 17
+                || !name.starts_with('g')
+                || !name[1..]
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err("invalid_profile_generation");
+            }
+            disk::directory(&entry.path())?;
+            generations.push(
+                u64::from_str_radix(&name[1..], 16).map_err(|_| "invalid_profile_generation")?,
+            );
+        }
+        generations.sort_unstable();
+        Ok(generations)
+    }
+    /// Explicit archive-and-prune only. Never deletes an unverified backup or
+    /// adopts interrupted generations. A durable journal blocks saves during
+    /// interrupted pruning; explicit resume verifies its exact destination.
+    pub fn archive_history(
+        &self,
+        expected: u64,
+        keep: usize,
+        destination: &Path,
+    ) -> Result<ArchiveReport> {
+        self.archive_history_at(expected, keep, destination, None)
+    }
+    fn archive_history_at(
+        &self,
+        expected: u64,
+        keep: usize,
+        destination: &Path,
+        stop: Option<u8>,
+    ) -> Result<ArchiveReport> {
+        let _lock = self.lock()?;
+        self.no_retention()?;
+        if !(2..=8).contains(&keep) {
+            return Err("invalid_profile_retention");
+        }
+        let catalog = self.load()?;
+        if catalog.generation != expected {
+            return Err("stale_profile_generation");
+        }
+        let generations = self.inventory()?;
+        if generations.len() <= keep {
+            return Err("profile_archive_not_needed");
+        }
+        if generations.last() != Some(&expected) {
+            return Err("profile_unpublished_generation");
+        }
+        let source = self.root.canonicalize().map_err(|_| "profile_store_io")?;
+        let parent = destination
+            .parent()
+            .ok_or("invalid_profile_path")?
+            .canonicalize()
+            .map_err(|_| "profile_store_io")?;
+        if parent.starts_with(&source) {
+            return Err("archive_inside_profile_store");
+        }
+        // Validate ALL source generations and reject extra files before creating
+        // the archive. An incomplete/corrupt generation needs explicit recovery.
+        for g in &generations {
+            self.load_generation(*g)?;
+            let names = self.entries(*g)?;
+            for entry in fs::read_dir(self.dir(*g)).map_err(|_| "profile_store_io")? {
+                let entry = entry.map_err(|_| "profile_store_io")?;
+                if !names
+                    .iter()
+                    .any(|(name, _)| entry.file_name() == std::ffi::OsStr::new(name))
+                {
+                    return Err("unexpected_profile_file");
+                }
+            }
+        }
+        let retired = generations[..generations.len() - keep].to_vec();
+        let archived = Self::create(destination)?;
+        for g in &retired {
+            let dir = archived.dir(*g);
+            disk::mkdir(&dir)?;
+            for (name, limit) in self.entries(*g)? {
+                disk::write(&dir.join(&name), &read(&self.dir(*g).join(name), limit)?)?;
+            }
+            disk::sync(&dir)?;
+            archived.load_generation(*g)?;
+        }
+        disk::sync(&archived.root.join("generations"))?;
+        disk::write(
+            &archived.root.join("current.json"),
+            &serde_json::to_vec(&Pointer {
+                version: 1,
+                generation: *retired.last().ok_or("profile_archive_not_needed")?,
+            })
+            .map_err(|_| "invalid_profile_pointer")?,
+        )?;
+        let journal = Retention {
+            version: 1,
+            generation: expected,
+            source,
+            archive: archived
+                .root
+                .canonicalize()
+                .map_err(|_| "profile_store_io")?,
+            retired,
+        };
+        let bytes = serde_json::to_vec(&journal).map_err(|_| "invalid_profile_retention")?;
+        disk::write(&archived.root.join("retention-source.json"), &bytes)?;
+        disk::sync(&archived.root)?;
+        archived.load()?;
+        // Archive is complete and durable before the first source unlink.
+        if stop == Some(1) {
+            return Err("profile_archive_prepared_not_pruned");
+        }
+        disk::write(&self.root.join("retention.json"), &bytes)?;
+        disk::sync(&self.root).map_err(|_| "profile_retention_prepare_uncertain")?;
+        self.finish_retention(&archived, &journal, stop)
+    }
+    pub fn resume_archive(&self, expected: u64, destination: &Path) -> Result<ArchiveReport> {
+        let _lock = self.lock()?;
+        let journal: Retention =
+            serde_json::from_slice(&read(&self.root.join("retention.json"), REGISTRY_BYTES)?)
+                .map_err(|_| "invalid_profile_retention")?;
+        if journal.generation != expected {
+            return Err("stale_profile_generation");
+        }
+        let archived = Self::open(destination)?;
+        self.finish_retention(&archived, &journal, None)
+    }
+    fn finish_retention(
+        &self,
+        archived: &Self,
+        journal: &Retention,
+        stop: Option<u8>,
+    ) -> Result<ArchiveReport> {
+        if journal.version != 1
+            || journal.retired.is_empty()
+            || journal.retired.len() >= GENERATIONS
+            || journal.source != self.root.canonicalize().map_err(|_| "profile_store_io")?
+            || journal.archive
+                != archived
+                    .root
+                    .canonicalize()
+                    .map_err(|_| "profile_store_io")?
+            || journal.archive.starts_with(&journal.source)
+            || journal.retired.windows(2).any(|w| w[0] >= w[1])
+            || journal
+                .retired
+                .iter()
+                .any(|g| *g == 0 || *g >= journal.generation)
+            || self.pointer()? != journal.generation
+        {
+            return Err("invalid_profile_retention");
+        }
+        let expected = serde_json::to_vec(journal).map_err(|_| "invalid_profile_retention")?;
+        if read(&self.root.join("retention.json"), REGISTRY_BYTES)? != expected
+            || read(&archived.root.join("retention-source.json"), REGISTRY_BYTES)? != expected
+        {
+            return Err("profile_archive_mismatch");
+        }
+        self.load()?;
+        archived.load()?;
+        if archived.pointer()? != *journal.retired.last().ok_or("invalid_profile_retention")? {
+            return Err("profile_archive_mismatch");
+        }
+        // Validate the complete archive and every remaining source file first.
+        // Missing files are allowed only here, to resume our journaled unlink.
+        for g in &journal.retired {
+            archived.load_generation(*g)?;
+            let names = archived.entries(*g)?;
+            match fs::symlink_metadata(self.dir(*g)) {
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(_) => return Err("profile_store_io"),
+                Ok(_) => disk::directory(&self.dir(*g))?,
+            }
+            for entry in fs::read_dir(self.dir(*g)).map_err(|_| "profile_store_io")? {
+                let entry = entry.map_err(|_| "profile_store_io")?;
+                let (name, limit) = names
+                    .iter()
+                    .find(|(name, _)| entry.file_name() == std::ffi::OsStr::new(name))
+                    .ok_or("unexpected_profile_file")?;
+                if read(&entry.path(), *limit)? != read(&archived.dir(*g).join(name), *limit)? {
+                    return Err("profile_archive_mismatch");
+                }
+            }
+        }
+        let mut unlinked = 0;
+        for g in &journal.retired {
+            if !self.dir(*g).try_exists().map_err(|_| "profile_store_io")? {
+                continue;
+            }
+            for (name, _) in archived.entries(*g)? {
+                match fs::remove_file(self.dir(*g).join(name)) {
+                    Ok(()) => unlinked += 1,
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(_) => return Err("profile_archive_complete_prune_incomplete"),
+                }
+                if stop == Some(2) && unlinked == 1 {
+                    return Err("profile_retention_interrupted");
+                }
+            }
+            fs::remove_dir(self.dir(*g))
+                .map_err(|_| "profile_archive_complete_prune_incomplete")?;
+            disk::sync(&self.root.join("generations"))?;
+        }
+        fs::remove_file(self.root.join("retention.json"))
+            .map_err(|_| "profile_retention_completion_uncertain")?;
+        disk::sync(&self.root).map_err(|_| "profile_retention_completion_uncertain")?;
+        Ok(ArchiveReport {
+            archived: journal.retired.len(),
+            retained: self.inventory()?.len(),
+        })
     }
     fn pointer(&self) -> Result<u64> {
         let path = self.root.join("current.json");
@@ -323,6 +620,7 @@ impl Store {
         disk::WriterLock::acquire(f)
     }
     fn commit(&self, catalog: &Catalog, stop: Option<u8>) -> Result<u64> {
+        self.no_retention()?;
         let generation = self.next()?;
         let dir = self.dir(generation);
         disk::mkdir(&dir)?;
@@ -496,6 +794,9 @@ impl Store {
             return Err("stale_profile_generation");
         }
         catalog.profile(id)?;
+        if catalog.selected == Some(id) {
+            return Ok(catalog.generation);
+        }
         catalog.selected = Some(id);
         self.commit(&catalog, None)
     }
@@ -567,6 +868,48 @@ impl Controls {
         }
         Ok(Self { manager, tables })
     }
+    /// Explicit enrollment sync, called after a verified private store commit.
+    /// Only the new device's settings are compiled; other input/render contexts
+    /// and adapters remain valid.
+    pub fn enroll_saved_profile(&mut self, catalog: &Catalog, id: DeviceId) -> Result<()> {
+        let p = catalog.profile(id)?;
+        let table = Config::parse(p.document.bytes())?.model_controls();
+        let (count, default) = table.topology();
+        let registry = Registry::decode(&catalog.registry.encode_private()?)?;
+        self.manager.enroll_saved(
+            registry,
+            id,
+            SessionLayout::new(p.document.model(), count, default)?,
+            p.saved_page,
+        )?;
+        self.tables.insert(id, table);
+        Ok(())
+    }
+    #[cfg(feature = "hardware")]
+    pub fn discover_hardware(
+        &mut self,
+        inventory: &decksmith_device::hardware::Inventory,
+    ) -> Result<u64> {
+        self.discover(inventory.snapshot())
+    }
+    /// Sole physical opener path for the new supervisor. Prove saved association
+    /// and exact snapshot before touching HID; attach still owns its brightness
+    /// write and fences only this connection. Production does not call this yet.
+    #[cfg(feature = "hardware")]
+    pub fn attach_physical(
+        &mut self,
+        revision: u64,
+        inventory: &decksmith_device::hardware::Inventory,
+        slot: u8,
+        owner: &mut decksmith_device::hardware::HardwareOwner,
+    ) -> Result<DeviceId> {
+        self.manager
+            .attachment_target(revision, inventory.discovery(), slot)?;
+        let device = owner
+            .open(inventory, slot)
+            .map_err(|_| "physical_device_unavailable")?;
+        self.attach(revision, slot, Box::new(device))
+    }
     pub fn manager(&self) -> &DeviceManager {
         &self.manager
     }
@@ -596,6 +939,9 @@ impl Controls {
         }
         self.manager
             .brightness(context.device, context.binding, percent)
+    }
+    pub fn paint_key(&mut self, context: DeviceContext, frame: &[u8]) -> Result<()> {
+        self.manager.write_key(&context, frame)
     }
     pub fn paint(
         &mut self,
@@ -644,6 +990,18 @@ impl Controls {
             .brightness();
         self.manager.brightness(id, revision, percent)?;
         Ok(revision)
+    }
+    /// Offline workspace browsing must never reroute a connected device.
+    pub fn browse_saved_page(&mut self, id: DeviceId, expected: u64, page: u8) -> Result<u64> {
+        if self
+            .manager
+            .statuses()
+            .iter()
+            .any(|s| s.id == id && s.connected)
+        {
+            return Err("workspace_device_is_live");
+        }
+        self.manager.page(id, expected, page)
     }
     pub fn navigate(&mut self, context: DeviceContext, page: u8) -> Result<u64> {
         if !self.manager.current(&context) {
@@ -724,6 +1082,101 @@ mod tests {
             )
             .unwrap();
         (temp, store)
+    }
+    #[test]
+    fn live_enrollment_keeps_existing_held_input_context_frame_and_page() {
+        let temp = Temp::new();
+        let store = Store::create(&temp.0.join("store")).unwrap();
+        let g = store
+            .enroll(
+                0,
+                &discovery(false),
+                0,
+                Enrollment::new(
+                    id(1),
+                    "Desk",
+                    39,
+                    Some(include_bytes!("../../../config/audio.json")),
+                ),
+            )
+            .unwrap();
+        let c = store.load().unwrap();
+        let mut controls = Controls::from_catalog(&c).unwrap();
+        let old_revision = controls.discover(discovery(false)).unwrap();
+        let plus = Rc::new(RefCell::new(VirtualDeck::default()));
+        controls
+            .attach(old_revision, 0, Box::new(Probe(plus.clone())))
+            .unwrap();
+        controls.poll_round();
+        let held = edge(&mut controls, &plus, 0, true, 1);
+        let before = controls.manager.statuses();
+        let frame = vec![21; 120 * 120 * 3 * 8];
+        let strip = vec![22; 800 * 100 * 3];
+        controls.paint(held.context, &frame, Some(&strip)).unwrap();
+        store
+            .enroll(
+                g,
+                &discovery(false),
+                1,
+                Enrollment::new(id(2), "MK.2", 68, None),
+            )
+            .unwrap();
+        let c = store.load().unwrap();
+        controls.enroll_saved_profile(&c, id(2)).unwrap();
+        let after = controls.manager.statuses();
+        assert!(controls.manager.current(&held.context));
+        assert_eq!(
+            (before[0].binding, before[0].connection, before[0].page),
+            (after[0].binding, after[0].connection, after[0].page)
+        );
+        assert_eq!(
+            plus.borrow().key_image(0).unwrap(),
+            &vec![21; 120 * 120 * 3]
+        );
+        let released = edge(&mut controls, &plus, 0, false, 2);
+        assert!(controls.resolve(&released).is_ok());
+        assert!(controls.enroll_saved_profile(&c, id(2)).is_err());
+        assert!(
+            controls
+                .manager
+                .attachment_target(old_revision, &discovery(false), 1)
+                .is_err()
+        );
+        let revision = controls.discover(discovery(false)).unwrap();
+        assert_eq!(
+            controls
+                .manager
+                .attachment_target(revision, &discovery(false), 1)
+                .unwrap(),
+            id(2)
+        );
+        let mk2 = Rc::new(RefCell::new(VirtualDeck::new(DeviceModel::Mk2)));
+        controls
+            .attach(revision, 1, Box::new(Probe(mk2.clone())))
+            .unwrap();
+        controls.poll_round();
+        let e = edge(&mut controls, &mk2, 14, true, 3);
+        assert_eq!(e.context.device, id(2));
+        assert_eq!(mk2.borrow().brightness, 68);
+        assert_eq!(plus.borrow().brightness, 39);
+        assert_eq!(
+            c.associations(&discovery(true)),
+            vec![
+                (0, decksmith_device::registry::Association::Assigned(id(2))),
+                (1, decksmith_device::registry::Association::Assigned(id(1)))
+            ]
+        );
+        let impostor = Discovery::new(vec![
+            Candidate::new(0, DeviceModel::Plus, Some("plus-private")),
+            Candidate::new(1, DeviceModel::Mk2, Some("different-private")),
+        ])
+        .unwrap();
+        assert!(
+            controls
+                .manager
+                .attachment_target(revision, &impostor, 1)
+                .is_err()
+        );
     }
     #[test]
     fn enrollment_preserves_legacy_bytes_independent_defaults_identity_and_preferences() {
@@ -912,7 +1365,15 @@ mod tests {
         let (_t, s) = pair();
         for _ in 2..GENERATIONS {
             let c = s.load().unwrap();
-            s.select(c.generation, id(1)).unwrap();
+            s.select(
+                c.generation,
+                if c.selected == Some(id(1)) {
+                    id(2)
+                } else {
+                    id(1)
+                },
+            )
+            .unwrap();
         }
         let c = s.load().unwrap();
         assert_eq!(
@@ -1181,5 +1642,138 @@ mod tests {
                 )
                 .is_none()
         );
+    }
+    fn fill(s: &Store) {
+        while s.load().unwrap().generation < 16 {
+            let c = s.load().unwrap();
+            s.save_preferences_private(
+                c.generation,
+                format!("{{\"snapshot\":{}}}", c.generation + 1).as_bytes(),
+            )
+            .unwrap();
+        }
+    }
+    #[test]
+    fn verified_archive_reclaims_budget_and_recovers_old_identity_and_original_bytes() {
+        let (temp, s) = pair();
+        fill(&s);
+        let before = s.load().unwrap();
+        let path = temp.0.join("history");
+        let report = s.archive_history(16, 8, &path).unwrap();
+        assert_eq!((report.archived, report.retained), (8, 8));
+        let after = s.load().unwrap();
+        assert_eq!(after.generation, 16);
+        assert_eq!(
+            after.profile(id(1)).unwrap().document.bytes(),
+            before.profile(id(1)).unwrap().document.bytes()
+        );
+        let archive = Store::open(&path).unwrap();
+        assert_eq!(archive.inventory().unwrap(), (1..=8).collect::<Vec<_>>());
+        archive
+            .restore_generation(2, &temp.0.join("restored"))
+            .unwrap();
+        let restored = Store::open(&temp.0.join("restored"))
+            .unwrap()
+            .load()
+            .unwrap();
+        assert_eq!(
+            restored.profile(id(2)).unwrap().document.model(),
+            DeviceModel::Mk2
+        );
+        assert_eq!(
+            &**restored.profile(id(1)).unwrap().legacy.as_ref().unwrap(),
+            include_bytes!("../../../config/audio.json")
+        );
+        assert_eq!(
+            s.save_preferences_private(16, br#"{"after":true}"#)
+                .unwrap(),
+            17
+        );
+        assert_eq!(s.history_status().unwrap(), (9, false));
+        assert!(!path.join("retention.json").exists());
+    }
+    #[test]
+    fn prepared_archive_failure_leaves_source_untouched_and_no_backup_is_deleted() {
+        let (temp, s) = pair();
+        fill(&s);
+        let path = temp.0.join("history");
+        assert!(s.archive_history_at(16, 8, &path, Some(1)).is_err());
+        assert_eq!(s.history_status().unwrap(), (16, false));
+        assert_eq!(s.load().unwrap().generation, 16);
+        assert_eq!(Store::open(&path).unwrap().load().unwrap().generation, 8);
+        assert!(s.dir(1).join("manifest.json").exists());
+    }
+    #[test]
+    fn interrupted_prune_blocks_writes_and_resumes_only_verified_archive() {
+        let (temp, s) = pair();
+        fill(&s);
+        let path = temp.0.join("history");
+        assert!(s.archive_history_at(16, 8, &path, Some(2)).is_err());
+        assert_eq!(s.load().unwrap().generation, 16);
+        assert_eq!(
+            s.save_preferences_private(16, b"{}"),
+            Err("profile_retention_pending")
+        );
+        let other = Store::create(&temp.0.join("wrong")).unwrap();
+        assert!(s.resume_archive(16, &other.root).is_err());
+        assert!(s.root.join("retention.json").exists());
+        let report = s.resume_archive(16, &path).unwrap();
+        assert_eq!((report.archived, report.retained), (8, 8));
+        assert_eq!(s.history_status().unwrap(), (8, false));
+        assert!(s.save_preferences_private(16, b"{}").is_ok());
+    }
+    #[test]
+    fn corrupt_archive_cannot_resume_pruning_or_release_write_guard() {
+        let (temp, s) = pair();
+        fill(&s);
+        let path = temp.0.join("history");
+        assert!(s.archive_history_at(16, 8, &path, Some(2)).is_err());
+        let archived = Store::open(&path).unwrap();
+        let file = archived.dir(1).join("preferences.json");
+        let original = read(&file, PREFS_BYTES).unwrap();
+        fs::write(&file, b"{\"tampered\":true}").unwrap();
+        assert!(s.resume_archive(16, &path).is_err());
+        assert!(s.root.join("retention.json").exists());
+        assert!(s.dir(2).exists());
+        assert_eq!(
+            s.save_preferences_private(16, b"{}"),
+            Err("profile_retention_pending")
+        );
+        fs::write(&file, original).unwrap();
+        s.resume_archive(16, &path).unwrap();
+    }
+    #[test]
+    fn stale_nested_incomplete_and_unexpected_history_fail_before_archiving() {
+        let (temp, s) = pair();
+        fill(&s);
+        let path = temp.0.join("history");
+        assert!(s.archive_history(15, 8, &path).is_err());
+        assert!(!path.exists());
+        assert!(s.archive_history(16, 1, &path).is_err());
+        assert!(!path.exists());
+        assert!(s.archive_history(16, 8, &s.root.join("nested")).is_err());
+        assert!(!s.root.join("nested").exists());
+        fs::write(s.dir(1).join("unknown"), b"preserve me").unwrap();
+        assert!(s.archive_history(16, 8, &path).is_err());
+        assert!(!path.exists());
+        assert!(s.dir(1).join("unknown").exists());
+        fs::remove_file(s.dir(1).join("unknown")).unwrap();
+        fs::remove_file(s.dir(1).join("manifest.json")).unwrap();
+        assert!(s.archive_history(16, 8, &path).is_err());
+        assert!(!path.exists());
+        assert_eq!(s.load().unwrap().generation, 16);
+    }
+    #[test]
+    fn selection_noop_never_consumes_generation_and_archive_respects_writer_lock() {
+        let (temp, s) = pair();
+        let c = s.load().unwrap();
+        assert_eq!(
+            s.select(c.generation, c.selected.unwrap()).unwrap(),
+            c.generation
+        );
+        fill(&s);
+        let _lock = s.lock().unwrap();
+        assert!(s.archive_history(16, 8, &temp.0.join("history")).is_err());
+        assert!(!temp.0.join("history").exists());
     }
 }

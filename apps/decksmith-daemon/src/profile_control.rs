@@ -1,5 +1,5 @@
-//! Isolated device-addressed editor/render integration. No production migration,
-//! HID opener or audio dispatch. The lab endpoint is never Control1.
+//! Device-addressed profile APIs. The virtual lab and saved-device workspace
+//! have separate endpoints; neither replaces Control1 or dispatches live actions.
 use crate::{
     device_profiles::{Catalog, Controls, Enrollment, Store, random_device_id},
     pages::{Pages, TouchState},
@@ -26,16 +26,16 @@ use std::{
 type Result<T> = std::result::Result<T, &'static str>;
 const LIMIT: usize = 1_048_576;
 
-struct Renderer {
+pub(crate) struct Renderer {
     pages: Pages,
     descriptor: DeviceDescriptor,
 }
-struct Frame {
-    keys: Vec<u8>,
-    touch: Option<Vec<u8>>,
+pub(crate) struct Frame {
+    pub(crate) keys: Vec<u8>,
+    pub(crate) touch: Option<Vec<u8>>,
 }
 impl Renderer {
-    fn new(bytes: &[u8], model: DeviceModel) -> Result<Self> {
+    pub(crate) fn new(bytes: &[u8], model: DeviceModel) -> Result<Self> {
         Ok(Self {
             pages: Pages::model_renderer(bytes, model)?,
             descriptor: DeviceDescriptor::for_model(model),
@@ -67,7 +67,7 @@ impl Renderer {
         };
         Ok(keys)
     }
-    fn frame(&mut self, page: u8, brightness: u8) -> Result<Frame> {
+    pub(crate) fn frame(&mut self, page: u8, brightness: u8) -> Result<Frame> {
         let state = TouchState {
             brightness: Some(brightness),
             ..Default::default()
@@ -89,7 +89,25 @@ struct Token {
     connection: u64,
     binding: u64,
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    VirtualLab,
+    SavedWorkspace,
+}
+impl Mode {
+    fn name(self) -> &'static str {
+        match self {
+            Self::VirtualLab => "virtual-lab",
+            Self::SavedWorkspace => "saved-workspace",
+        }
+    }
+}
 struct Host {
+    mode: Mode,
+    discovery: Discovery,
+    discovery_revision: u64,
+    discovery_available: bool,
+    import_plus: Option<Vec<u8>>,
     store: Store,
     catalog: Catalog,
     controls: Controls,
@@ -109,6 +127,11 @@ impl Host {
             );
         }
         Ok(Self {
+            mode: Mode::VirtualLab,
+            discovery: Discovery::new(Vec::new())?,
+            discovery_revision: 0,
+            discovery_available: false,
+            import_plus: None,
             store,
             catalog,
             controls,
@@ -136,7 +159,7 @@ impl Host {
             binding: status.binding,
         })
     }
-    fn check(&self, id: DeviceId, token: &Token) -> Result<DeviceContext> {
+    fn check_token(&self, id: DeviceId, token: &Token) -> Result<()> {
         let now = self.token(id)?;
         if now.runtime != token.runtime
             || now.revision != token.revision
@@ -145,10 +168,27 @@ impl Host {
         {
             return Err("stale_profile_request");
         }
+        Ok(())
+    }
+    fn check(&self, id: DeviceId, token: &Token) -> Result<DeviceContext> {
+        self.check_token(id, token)?;
         self.context(id)
     }
     fn devices(&self) -> Result<String> {
-        Ok(serde_json::json!({"api_version":2,"mode":"virtual-lab","runtime":self.runtime,"generation":self.catalog.generation,"selected":self.catalog.selected,"devices":self.catalog.summaries(),"sessions":self.controls.manager().statuses()}).to_string())
+        let associations = self.catalog.associations(&self.discovery);
+        let candidates: Vec<_> = self
+            .discovery
+            .candidates()
+            .iter()
+            .map(|c| {
+                let association = associations
+                    .iter()
+                    .find(|(slot, _)| *slot == c.slot())
+                    .map(|(_, a)| a);
+                serde_json::json!({"slot":c.slot(),"model":c.model(),"association":association})
+            })
+            .collect();
+        Ok(serde_json::json!({"api_version":2,"mode":self.mode.name(),"runtime":self.runtime,"generation":self.catalog.generation,"selected":self.catalog.selected,"devices":self.catalog.summaries(),"sessions":self.controls.manager().statuses(),"history":self.store.history_status()?,"discovery":{"available":self.discovery_available,"revision":self.discovery_revision,"candidates":candidates},"actions_available":false,"legacy_import_prepared":self.import_plus.is_some()}).to_string())
     }
     fn profile(&self, id: DeviceId) -> Result<String> {
         let p = self.catalog.profile(id)?;
@@ -161,12 +201,22 @@ impl Host {
             token: Token,
             saved_page: u8,
             layout: Box<serde_json::value::RawValue>,
+            name: String,
+            brightness: u8,
         }
+        let summary = self
+            .catalog
+            .summaries()
+            .into_iter()
+            .find(|s| s.id == id)
+            .ok_or("unknown_device")?;
         serde_json::to_string(&ProfileReply {
             id,
             token: self.token(id)?,
             saved_page: p.saved_page,
             layout,
+            name: summary.name.into(),
+            brightness: summary.brightness,
         })
         .map_err(|_| "profile_reply_failed")
     }
@@ -189,6 +239,22 @@ impl Host {
         self.controls
             .paint(context, &frame.keys, frame.touch.as_deref())
     }
+    fn archive(&mut self, expected: u64) -> Result<String> {
+        serde_json::to_string(&self.store.archive_sibling(expected, 8)?)
+            .map_err(|_| "invalid_profile_retention")
+    }
+    fn metadata(
+        &mut self,
+        id: DeviceId,
+        token: Token,
+        name: &str,
+        brightness: u8,
+    ) -> Result<String> {
+        let raw = String::from_utf8(self.catalog.profile(id)?.document().bytes().to_vec())
+            .map_err(|_| "invalid_config")?;
+        let page = self.controls.manager().active_page(id)?;
+        self.save(id, token, &raw, page, name, brightness)
+    }
     fn select(&mut self, id: DeviceId, expected: u64) -> Result<String> {
         self.store.select(expected, id)?;
         self.catalog = self.store.load()?;
@@ -203,7 +269,21 @@ impl Host {
         name: &str,
         brightness: u8,
     ) -> Result<String> {
-        let context = self.check(id, &token)?;
+        self.check_token(id, &token)?;
+        if self.mode == Mode::SavedWorkspace
+            && self
+                .controls
+                .manager()
+                .statuses()
+                .iter()
+                .any(|s| s.connected)
+        {
+            return Err("workspace_device_is_live");
+        }
+        if self.mode == Mode::VirtualLab {
+            self.check(id, &token)?;
+        }
+        let binding = self.token(id)?.binding;
         let model = self.catalog.profile(id)?.document().model();
         let renderer = Renderer::new(bytes.as_bytes(), model)?;
         self.store
@@ -212,18 +292,94 @@ impl Host {
         // Publication can succeed even if subsequent application/rendering fails.
         // Return an explicit uncertain/apply error; callers retain drafts and must reload.
         self.controls
-            .apply_saved_profile(&self.catalog, id, context.binding)
+            .apply_saved_profile(&self.catalog, id, binding)
             .map_err(|_| "profile_saved_apply_failed")?;
         self.renderers.insert(id, renderer);
-        self.controls.poll_round();
-        self.render(id).map_err(|_| "profile_saved_render_failed")?;
+        if self.mode == Mode::VirtualLab {
+            self.controls.poll_round();
+            self.render(id).map_err(|_| "profile_saved_render_failed")?;
+        }
         self.profile(id)
     }
     fn page(&mut self, id: DeviceId, token: Token, page: u8) -> Result<String> {
-        let context = self.check(id, &token)?;
-        self.controls.navigate(context, page)?;
-        self.controls.poll_round();
-        self.render(id)?;
+        if self.mode == Mode::SavedWorkspace {
+            self.check_token(id, &token)?;
+            self.controls.browse_saved_page(id, token.binding, page)?;
+        } else {
+            let context = self.check(id, &token)?;
+            self.controls.navigate(context, page)?;
+            self.controls.poll_round();
+            self.render(id)?;
+        }
+        self.profile(id)
+    }
+    fn set_discovery(&mut self, discovery: Discovery, available: bool) -> Result<()> {
+        if self.discovery_available != available
+            || self.discovery.candidates() != discovery.candidates()
+        {
+            self.discovery_revision = self
+                .discovery_revision
+                .checked_add(1)
+                .ok_or("discovery_revision_exhausted")?;
+        }
+        self.discovery = discovery;
+        self.discovery_available = available;
+        Ok(())
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn enroll(
+        &mut self,
+        runtime: DeviceId,
+        revision: u64,
+        generation: u64,
+        slot: u8,
+        name: &str,
+        brightness: u8,
+        import: bool,
+    ) -> Result<String> {
+        if self.mode != Mode::SavedWorkspace
+            || !self.discovery_available
+            || runtime != self.runtime
+            || revision != self.discovery_revision
+        {
+            return Err("stale_device_discovery");
+        }
+        let candidate = self
+            .discovery
+            .candidates()
+            .iter()
+            .find(|c| c.slot() == slot)
+            .ok_or("unknown_candidate")?;
+        let legacy = if import {
+            if candidate.model() != DeviceModel::Plus {
+                return Err("mk2_requires_own_defaults");
+            }
+            Some(
+                self.import_plus
+                    .as_deref()
+                    .ok_or("legacy_import_not_prepared")?,
+            )
+        } else {
+            None
+        };
+        let id = random_device_id()?;
+        self.store.enroll(
+            generation,
+            &self.discovery,
+            slot,
+            Enrollment::new(id, name, brightness, legacy),
+        )?;
+        self.catalog = self.store.load()?;
+        self.controls
+            .enroll_saved_profile(&self.catalog, id)
+            .map_err(|_| "profile_enrolled_reload_required")?;
+        self.renderers.insert(
+            id,
+            Renderer::new(
+                self.catalog.profile(id)?.document().bytes(),
+                candidate.model(),
+            )?,
+        );
         self.profile(id)
     }
     fn preview(&mut self, id: DeviceId, bytes: &str, page: u8, touch: bool) -> Result<Vec<u8>> {
@@ -264,6 +420,9 @@ impl Host {
 }
 enum Operation {
     Devices,
+    Enroll(DeviceId, u64, u64, u8, String, u8, bool),
+    Archive(u64),
+    Metadata(DeviceId, Token, String, u8),
     Profile(DeviceId),
     Select(DeviceId, u64),
     Save(DeviceId, Token, String, u8, String, u8),
@@ -327,6 +486,28 @@ impl Api {
     fn get_profile(&self, device: &str) -> zbus::fdo::Result<String> {
         self.text(Operation::Profile(id(device)?))
     }
+    fn archive_history(&self, generation: u64) -> zbus::fdo::Result<String> {
+        self.text(Operation::Archive(generation))
+    }
+    fn save_metadata(
+        &self,
+        device: &str,
+        revision: &str,
+        name: &str,
+        brightness: u8,
+    ) -> zbus::fdo::Result<String> {
+        if name.len() > 256 {
+            return Err(zbus::fdo::Error::InvalidArgs(
+                "profile_request_too_large".into(),
+            ));
+        }
+        self.text(Operation::Metadata(
+            id(device)?,
+            token(revision)?,
+            name.into(),
+            brightness,
+        ))
+    }
     fn select_device(&self, device: &str, generation: u64) -> zbus::fdo::Result<String> {
         self.text(Operation::Select(id(device)?, generation))
     }
@@ -372,9 +553,89 @@ impl Api {
         }
     }
 }
+struct WorkspaceApi(Api);
+#[zbus::interface(name = "cc.senecal.Decksmith.DeviceWorkspace2")]
+impl WorkspaceApi {
+    fn list_devices(&self) -> zbus::fdo::Result<String> {
+        self.0.list_devices()
+    }
+    fn get_profile(&self, device: &str) -> zbus::fdo::Result<String> {
+        self.0.get_profile(device)
+    }
+    fn select_device(&self, device: &str, generation: u64) -> zbus::fdo::Result<String> {
+        self.0.select_device(device, generation)
+    }
+    fn save_metadata(
+        &self,
+        device: &str,
+        revision: &str,
+        name: &str,
+        brightness: u8,
+    ) -> zbus::fdo::Result<String> {
+        self.0.save_metadata(device, revision, name, brightness)
+    }
+    fn save_profile(
+        &self,
+        device: &str,
+        revision: &str,
+        layout: &str,
+        page: u8,
+        name: &str,
+        brightness: u8,
+    ) -> zbus::fdo::Result<String> {
+        self.0
+            .save_profile(device, revision, layout, page, name, brightness)
+    }
+    fn show_page(&self, device: &str, revision: &str, page: u8) -> zbus::fdo::Result<String> {
+        self.0.show_page(device, revision, page)
+    }
+    fn preview(
+        &self,
+        device: &str,
+        layout: &str,
+        page: u8,
+        touch: bool,
+    ) -> zbus::fdo::Result<Vec<u8>> {
+        self.0.preview(device, layout, page, touch)
+    }
+    fn archive_history(&self, generation: u64) -> zbus::fdo::Result<String> {
+        self.0.archive_history(generation)
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn enroll_device(
+        &self,
+        runtime: &str,
+        discovery: u64,
+        generation: u64,
+        slot: u8,
+        name: &str,
+        brightness: u8,
+        import_plus: bool,
+    ) -> zbus::fdo::Result<String> {
+        if name.len() > 256 {
+            return Err(zbus::fdo::Error::InvalidArgs(
+                "profile_request_too_large".into(),
+            ));
+        }
+        self.0.text(Operation::Enroll(
+            id(runtime)?,
+            discovery,
+            generation,
+            slot,
+            name.into(),
+            brightness,
+            import_plus,
+        ))
+    }
+}
 fn execute(host: &mut Host, op: Operation) -> Result<Reply> {
     match op {
         Operation::Devices => host.devices().map(Reply::Text),
+        Operation::Enroll(r, d, g, s, n, b, i) => {
+            host.enroll(r, d, g, s, &n, b, i).map(Reply::Text)
+        }
+        Operation::Archive(g) => host.archive(g).map(Reply::Text),
+        Operation::Metadata(id, t, n, b) => host.metadata(id, t, &n, b).map(Reply::Text),
         Operation::Profile(id) => host.profile(id).map(Reply::Text),
         Operation::Select(id, g) => host.select(id, g).map(Reply::Text),
         Operation::Save(id, t, raw, p, n, b) => host.save(id, t, &raw, p, &n, b).map(Reply::Text),
@@ -461,6 +722,188 @@ pub fn lab(args: &[String]) -> Result<()> {
         }
     }
     host.controls.stop();
+    drop(connection);
+    Ok(())
+}
+
+/// Opt-in persistent saved-profile service. Read-only HID discovery; no HID
+/// owner, handle, reports, Control1 calls or desktop/audio actions are allowed.
+#[cfg(feature = "hardware")]
+pub fn workspace(args: &[String]) -> Result<()> {
+    let (destination, import_path) = match args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        ["--device-workspace", destination, "--run"] => (destination.to_string(), None),
+        [
+            "--device-workspace",
+            destination,
+            "--import-plus",
+            import,
+            "--run",
+        ] => (destination.to_string(), Some(import.to_string())),
+        _ => return Err("device_workspace_arguments"),
+    };
+    let path = Path::new(&destination);
+    if !path.is_absolute() {
+        return Err("device_workspace_absolute_path_required");
+    }
+    // Reserve the endpoint before touching any destination. No second service
+    // can silently adopt another store behind an editor's outstanding tokens.
+    let (queue, incoming) = mpsc::sync_channel::<Request>(8);
+    let connection = zbus::blocking::connection::Builder::session()
+        .map_err(|_| "bus_unavailable")?
+        .name("cc.senecal.Decksmith.DeviceWorkspace")
+        .map_err(|_| "bus_name_failed")?
+        .serve_at(
+            "/cc/senecal/Decksmith/DeviceWorkspace",
+            WorkspaceApi(Api { queue }),
+        )
+        .map_err(|_| "bus_interface_failed")?
+        .build()
+        .map_err(|_| "bus_registration_failed")?;
+    let import = import_path
+        .map(|p| {
+            let path = Path::new(&p);
+            if !path.is_absolute() {
+                return Err("legacy_import_absolute_path_required");
+            }
+            let metadata =
+                std::fs::symlink_metadata(path).map_err(|_| "legacy_import_unavailable")?;
+            if !metadata.is_file() || metadata.len() > LIMIT as u64 {
+                return Err("legacy_import_invalid_file");
+            }
+            // Bounded even if the caller-selected file grows between stat and read.
+            use std::io::Read;
+            use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+            let mut bytes = Vec::new();
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+                .open(path)
+                .map_err(|_| "legacy_import_unavailable")?;
+            let opened = file.metadata().map_err(|_| "legacy_import_unavailable")?;
+            if !opened.is_file() || opened.dev() != metadata.dev() || opened.ino() != metadata.ino()
+            {
+                return Err("legacy_import_invalid_file");
+            }
+            file.take((LIMIT + 1) as u64)
+                .read_to_end(&mut bytes)
+                .map_err(|_| "legacy_import_unavailable")?;
+            if bytes.len() > LIMIT {
+                return Err("layout_too_large");
+            }
+            let document = crate::layout_document::Document::for_model(&bytes, DeviceModel::Plus)?;
+            if document.version() != 1 {
+                return Err("profile_import_requires_legacy_plus");
+            }
+            Ok(bytes)
+        })
+        .transpose()?;
+    let store = match std::fs::symlink_metadata(path) {
+        Ok(_) => Store::open(path)?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Store::create(path)?,
+        Err(_) => return Err("profile_store_io"),
+    };
+    let mut host = Host::new(store)?;
+    host.mode = Mode::SavedWorkspace;
+    host.import_plus = import;
+    let stopping = Arc::new(AtomicBool::new(false));
+    for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
+        signal_hook::flag::register(signal, stopping.clone())
+            .map_err(|_| "device_workspace_signal_failed")?;
+    }
+    let mut refresh_at = Instant::now();
+    while !stopping.load(Ordering::Acquire) {
+        if Instant::now() >= refresh_at {
+            refresh_discovery(&mut host)?;
+            refresh_at = Instant::now() + Duration::from_secs(5);
+        }
+        match incoming.recv_timeout(Duration::from_millis(250)) {
+            Ok(request) if !request.cancelled.load(Ordering::Acquire) => {
+                // Refresh against a new hardware enumeration at the enrollment
+                // boundary. Snapshot/order changes reject the old request.
+                if matches!(request.operation, Operation::Enroll(..)) {
+                    refresh_discovery(&mut host)?;
+                }
+                let _ = request
+                    .answer
+                    .try_send(execute(&mut host, request.operation));
+            }
+            Ok(_) | Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(_) => break,
+        }
+    }
+    drop(connection);
+    Ok(())
+}
+#[cfg(feature = "hardware")]
+fn refresh_discovery(host: &mut Host) -> Result<()> {
+    match decksmith_device::hardware::Inventory::discover() {
+        Ok(inventory) => host.set_discovery(inventory.snapshot(), true),
+        Err(_) => host.set_discovery(Discovery::new(Vec::new())?, false),
+    }
+}
+
+/// Fresh, isolated native acceptance endpoint. Uses fake identities only and
+/// never enumerates or opens hardware. Production workspace cannot enter this.
+#[cfg(feature = "hardware")]
+pub fn workspace_lab(args: &[String]) -> Result<()> {
+    let [_, destination, flag, seconds] = args else {
+        return Err("workspace_lab_arguments");
+    };
+    let seconds = seconds
+        .parse::<u64>()
+        .map_err(|_| "workspace_lab_arguments")?;
+    if flag != "--seconds"
+        || !(1..=3600).contains(&seconds)
+        || std::env::var("DECKSMITH_ISOLATED_TEST").as_deref() != Ok("1")
+    {
+        return Err("workspace_lab_isolated_only");
+    }
+    let path = Path::new(destination);
+    if !path.is_absolute() {
+        return Err("workspace_lab_absolute_path_required");
+    }
+    let mut host = Host::new(Store::create(path)?)?;
+    host.mode = Mode::SavedWorkspace;
+    host.import_plus = Some(include_bytes!("../../../config/audio.json").to_vec());
+    host.set_discovery(
+        Discovery::new(vec![
+            Candidate::new(0, DeviceModel::Plus, Some("workspace-fixture-plus")),
+            Candidate::new(1, DeviceModel::Mk2, Some("workspace-fixture-mk2")),
+        ])?,
+        true,
+    )?;
+    let (queue, incoming) = mpsc::sync_channel::<Request>(8);
+    let connection = zbus::blocking::connection::Builder::session()
+        .map_err(|_| "bus_unavailable")?
+        .name("cc.senecal.Decksmith.DeviceWorkspace")
+        .map_err(|_| "bus_name_failed")?
+        .serve_at(
+            "/cc/senecal/Decksmith/DeviceWorkspace",
+            WorkspaceApi(Api { queue }),
+        )
+        .map_err(|_| "bus_interface_failed")?
+        .build()
+        .map_err(|_| "bus_registration_failed")?;
+    let stopping = Arc::new(AtomicBool::new(false));
+    for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
+        signal_hook::flag::register(signal, stopping.clone())
+            .map_err(|_| "workspace_lab_signal_failed")?;
+    }
+    let end = Instant::now() + Duration::from_secs(seconds);
+    while Instant::now() < end && !stopping.load(Ordering::Acquire) {
+        match incoming.recv_timeout(Duration::from_millis(250)) {
+            Ok(r) if !r.cancelled.load(Ordering::Acquire) => {
+                let _ = r.answer.try_send(execute(&mut host, r.operation));
+            }
+            Ok(_) | Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(_) => break,
+        }
+    }
     drop(connection);
     Ok(())
 }
@@ -582,6 +1025,169 @@ mod tests {
             .map(|i| deck.key_image(i).unwrap().to_vec())
             .chain(std::iter::once(deck.touch_image().to_vec()))
             .collect()
+    }
+    fn saved_workspace() -> (std::path::PathBuf, Host) {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-workspace-{}",
+            random_device_id().unwrap()
+        ));
+        let mut host = Host::new(Store::create(&root).unwrap()).unwrap();
+        host.mode = Mode::SavedWorkspace;
+        host.set_discovery(
+            Discovery::new(vec![
+                Candidate::new(0, DeviceModel::Plus, Some("saved-plus")),
+                Candidate::new(1, DeviceModel::Mk2, Some("saved-mk2")),
+            ])
+            .unwrap(),
+            true,
+        )
+        .unwrap();
+        (root, host)
+    }
+    fn add(host: &mut Host, slot: u8, import: bool) -> Result<DeviceId> {
+        let reply = host.enroll(
+            host.runtime,
+            host.discovery_revision,
+            host.catalog.generation,
+            slot,
+            "Desk 🎵",
+            54,
+            import,
+        )?;
+        let value: serde_json::Value = serde_json::from_str(&reply).unwrap();
+        DeviceId::parse(value["id"].as_str().unwrap())
+    }
+    #[test]
+    fn saved_workspace_enroll_edit_restart_preserves_ids_selection_and_other_owner() {
+        let (root, mut h) = saved_workspace();
+        let plus = add(&mut h, 0, false).unwrap();
+        let mk2 = add(&mut h, 1, false).unwrap();
+        assert_eq!(h.controls.manager().statuses().len(), 2);
+        assert!(h.controls.manager().statuses().iter().all(|s| !s.connected));
+        let plus_before = h.catalog.profile(plus).unwrap().document().bytes().to_vec();
+        let token = h.token(mk2).unwrap();
+        let mut raw: serde_json::Value =
+            serde_json::from_slice(h.catalog.profile(mk2).unwrap().document().bytes()).unwrap();
+        raw["pages"][0]["keys"][14]["label"] = "Fifteen 🎵".into();
+        h.save(mk2, token.clone(), &raw.to_string(), 1, "MK.2 🎵", 61)
+            .unwrap();
+        assert_eq!(
+            h.catalog.profile(plus).unwrap().document().bytes(),
+            plus_before
+        );
+        assert_eq!(h.catalog.profile(plus).unwrap().revision, 1);
+        assert!(
+            h.save(mk2, token, &raw.to_string(), 0, "stale", 50)
+                .is_err()
+        );
+        h.select(mk2, h.catalog.generation).unwrap();
+        let before_restart = h.token(mk2).unwrap();
+        drop(h);
+        let mut reopened = Host::new(Store::open(&root).unwrap()).unwrap();
+        reopened.mode = Mode::SavedWorkspace;
+        assert_eq!(reopened.catalog.selected, Some(mk2));
+        assert_eq!(reopened.catalog.profile(mk2).unwrap().saved_page, 1);
+        assert_eq!(reopened.controls.manager().active_page(mk2).unwrap(), 1);
+        assert!(reopened.page(mk2, before_restart, 0).is_err());
+        reopened.page(mk2, reopened.token(mk2).unwrap(), 2).unwrap();
+        assert_eq!(reopened.controls.manager().active_page(plus).unwrap(), 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn discovery_generation_runtime_change_failure_and_ambiguous_identity_reject_enrollment() {
+        let (root, mut h) = saved_workspace();
+        let r = h.discovery_revision;
+        // Same snapshot leaves an editor's explicit choice usable.
+        h.set_discovery(
+            Discovery::new(h.discovery.candidates().to_vec()).unwrap(),
+            true,
+        )
+        .unwrap();
+        assert_eq!(h.discovery_revision, r);
+        let wrong = random_device_id().unwrap();
+        assert!(h.enroll(wrong, r, 0, 0, "Wrong", 50, false).is_err());
+        h.set_discovery(
+            Discovery::new(vec![
+                Candidate::new(0, DeviceModel::Mk2, Some("saved-mk2")),
+                Candidate::new(1, DeviceModel::Plus, Some("saved-plus")),
+            ])
+            .unwrap(),
+            true,
+        )
+        .unwrap();
+        assert!(h.enroll(h.runtime, r, 0, 0, "Old slot", 50, false).is_err());
+        h.set_discovery(Discovery::new(Vec::new()).unwrap(), false)
+            .unwrap();
+        assert!(add(&mut h, 0, false).is_err());
+        h.set_discovery(
+            Discovery::new(vec![
+                Candidate::new(0, DeviceModel::Mk2, Some("duplicate")),
+                Candidate::new(1, DeviceModel::Mk2, Some("duplicate")),
+            ])
+            .unwrap(),
+            true,
+        )
+        .unwrap();
+        assert!(add(&mut h, 0, false).is_err());
+        h.set_discovery(
+            Discovery::new(vec![Candidate::new(0, DeviceModel::Mk2, None)]).unwrap(),
+            true,
+        )
+        .unwrap();
+        assert!(add(&mut h, 0, false).is_err());
+        assert_eq!(h.store.load().unwrap().generation, 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn explicit_import_retains_exact_legacy_and_mk2_never_copies_plus() {
+        let (root, mut h) = saved_workspace();
+        assert!(add(&mut h, 0, true).is_err());
+        let bytes = include_bytes!("../../../config/audio.json");
+        h.import_plus = Some(bytes.to_vec());
+        let plus = add(&mut h, 0, true).unwrap();
+        assert!(add(&mut h, 1, true).is_err());
+        let mk2 = add(&mut h, 1, false).unwrap();
+        assert_eq!(
+            h.catalog.profile(mk2).unwrap().document().bytes(),
+            crate::layout_document::Document::mk2_defaults()
+                .unwrap()
+                .bytes()
+        );
+        // Original import retained byte-for-byte in its private generation.
+        let path = root.join("generations");
+        let files: Vec<_> = std::fs::read_dir(path)
+            .unwrap()
+            .flat_map(|d| std::fs::read_dir(d.unwrap().path()).unwrap())
+            .collect();
+        assert!(
+            files
+                .iter()
+                .any(|f| std::fs::read(f.as_ref().unwrap().path()).is_ok_and(|b| b == bytes))
+        );
+        assert_eq!(h.catalog.profile(plus).unwrap().document().version(), 2);
+        let status = h.devices().unwrap();
+        for private in ["saved-plus", "saved-mk2"] {
+            assert!(!status.contains(private));
+        }
+        assert!(status.contains("saved-workspace"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn workspace_cannot_save_through_accidentally_live_adapters() {
+        let mut p = pair();
+        p.host.mode = Mode::SavedWorkspace;
+        let before = snapshot(&p.a.borrow());
+        let token = p.host.token(p.plus).unwrap();
+        assert_eq!(
+            p.host.metadata(p.plus, token.clone(), "Wrong", 75),
+            Err("workspace_device_is_live")
+        );
+        assert_eq!(
+            p.host.page(p.plus, token, 1),
+            Err("workspace_device_is_live")
+        );
+        assert_eq!(snapshot(&p.a.borrow()), before);
+        assert_eq!(p.host.catalog.profile(p.plus).unwrap().revision, 1);
     }
     #[test]
     fn model_renderer_matches_legacy_plus_and_all_fifteen_mk2_surfaces() {
@@ -735,5 +1341,54 @@ mod tests {
         let status = p.host.devices().unwrap();
         assert!(!status.contains("fixture-plus"));
         assert!(!status.contains("fixture-mk2"));
+    }
+    #[test]
+    fn metadata_keeps_document_current_page_and_other_owner_untouched() {
+        let mut p = pair();
+        p.host
+            .page(p.plus, p.host.token(p.plus).unwrap(), 1)
+            .unwrap();
+        let doc = p
+            .host
+            .catalog
+            .profile(p.plus)
+            .unwrap()
+            .document()
+            .bytes()
+            .to_vec();
+        let other = p.host.context(p.mk2).unwrap();
+        let frame = snapshot(&p.b.borrow());
+        p.host
+            .metadata(p.plus, p.host.token(p.plus).unwrap(), "Desk 🎵", 61)
+            .unwrap();
+        assert_eq!(
+            p.host.catalog.profile(p.plus).unwrap().document().bytes(),
+            doc
+        );
+        assert_eq!(p.host.controls.manager().active_page(p.plus).unwrap(), 1);
+        assert_eq!(p.host.catalog.profile(p.plus).unwrap().saved_page, 1);
+        assert_eq!(p.a.borrow().brightness, 61);
+        assert_eq!(p.host.context(p.mk2).unwrap(), other);
+        assert_eq!(snapshot(&p.b.borrow()), frame);
+    }
+    #[test]
+    fn archive_does_not_change_live_frames_revisions_or_device_contexts() {
+        let mut p = pair();
+        while p.host.catalog.generation < 16 {
+            p.host
+                .store
+                .save_preferences_private(p.host.catalog.generation, b"{}")
+                .unwrap();
+            p.host.catalog = p.host.store.load().unwrap();
+        }
+        let one = p.host.context(p.plus).unwrap();
+        let two = p.host.context(p.mk2).unwrap();
+        let frame = snapshot(&p.a.borrow());
+        let report = p.host.archive(16).unwrap();
+        assert!(report.contains("8"));
+        assert_eq!(p.host.context(p.plus).unwrap(), one);
+        assert_eq!(p.host.context(p.mk2).unwrap(), two);
+        assert_eq!(snapshot(&p.a.borrow()), frame);
+        assert_eq!(p.host.token(p.plus).unwrap().revision, 1);
     }
 }

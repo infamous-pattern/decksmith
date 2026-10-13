@@ -27,6 +27,8 @@ mod layout_store;
 mod level_bar;
 #[cfg(any(feature = "hardware", test))]
 mod pages;
+#[cfg(any(feature = "hardware", test))]
+mod physical_lab;
 mod plugin_binding;
 mod plugin_runtime;
 #[cfg(any(feature = "hardware", test))]
@@ -72,6 +74,30 @@ fn main() {
         .with_ansi(false)
         .init();
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    #[cfg(feature = "hardware")]
+    if args.first().is_some_and(|a| a == "--workspace-lab") {
+        if let Err(code) = profile_control::workspace_lab(&args) {
+            eprintln!("{code}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(feature = "hardware")]
+    if args.first().is_some_and(|a| a == "--device-workspace") {
+        if let Err(code) = profile_control::workspace(&args) {
+            eprintln!("{code}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(feature = "hardware")]
+    if args.first().is_some_and(|a| a == "--physical-lab") {
+        if let Err(code) = physical_lab::run(&args) {
+            eprintln!("{code}");
+            std::process::exit(1);
+        }
+        return;
+    }
     #[cfg(feature = "hardware")]
     if args.first().is_some_and(|a| a == "--profile-lab") {
         if let Err(code) = profile_control::lab(&args) {

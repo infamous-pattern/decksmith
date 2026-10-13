@@ -30,13 +30,19 @@ def exercise():
         ed=getattr(app,'editor',None)
         if ed is None or ed.pending or ed.draft is None:return True
         phase=state['phase']
+        if phase>0:assert ed is state['editor'],'Device selection created another editor'
+        if phase>0:assert (ed.get_width(),ed.get_height())==state['size'],'Window resized during device selection'
         assert 'failed' not in ed.status.get_text().lower(),ed.status.get_text()
         assert getattr(ed,'layout_valid',False),ed.status.get_text()
         if phase==0:
-            assert len(ed.keys)==8 and ed.device_model=='plus'
+            assert ed.key_count==8 and ed.device_model=='plus'
+            assert sum(b.get_visible() for b in ed.keys)==8
+            state['editor']=ed;state['size']=(ed.get_width(),ed.get_height())
+            ed.shell.navigate('keys')
             state['plus']=app.selected;state['mk2']=next(d['id'] for d in app.devices if d['model']=='mk2')
             ed.edit_mode.set_active(True);ed.select_key(7);ed.label.set_text('Plus draft 🎵')
             assert ed.draft.dirty;state['plus_draft']=ed.draft
+            app.name.set_text('Desk draft');app.adjust_brightness(1)
             app.choose(state['mk2']);state['phase']=1
         elif phase==1:
             assert len(ed.keys)==15 and ed.device_model=='mk2';assert not ed.touch_preview.get_visible();assert not ed.dial_row.get_visible()
@@ -46,6 +52,7 @@ def exercise():
             profile=json.loads(transport('GetProfile',GLib.Variant('(s)',(state['mk2'],)))[0]);assert profile['layout']['pages'][0]['keys'][14]['label']!='Fifteen 🎵'
             ed.save(None);state['phase']=2
         elif phase==2:
+            assert not ed.shell.test.get_sensitive(),'Virtual test enabled live action execution'
             assert not ed.draft.dirty;profile=json.loads(transport('GetProfile',GLib.Variant('(s)',(state['mk2'],)))[0]);assert profile['layout']['pages'][0]['keys'][14]['label']=='Fifteen 🎵'
             if any(f is None for f in ed.key_preview.frames) or ed.key_preview.rendered!=ed.key_preview.revision:return True
             assert len(ed.key_preview.frames)==15 and all(len(f)==72*72*3 for f in ed.key_preview.frames)
@@ -56,6 +63,7 @@ def exercise():
         elif phase==3:
             assert ed.draft is state['plus_draft'];assert ed.draft.dirty
             assert ed.draft.data['pages'][0]['keys'][7]['label']=='Plus draft 🎵';assert ed.touch_preview.get_visible()
+            assert app.name.get_text()=='Desk draft' and app.desired_brightness==51,'Home settings draft was lost'
             ed.save(None);state['phase']=4
         elif phase==4:
             assert not ed.draft.dirty
@@ -65,8 +73,23 @@ def exercise():
             for identity,label,index in [(state['plus'],'Plus draft 🎵',7),(state['mk2'],'Fifteen 🎵',14)]:
                 profile=json.loads(transport('GetProfile',GLib.Variant('(s)',(identity,)))[0]);assert profile['layout']['pages'][0]['keys'][index]['label']==label
             assert state['plus_draft'].undo_stack==[]
-            (out/'native-profile-result.json').write_text(json.dumps({'status':'passed','checks':['native_model_geometry','15th_key_edit_save','independent_draft_retention','separate_saves','native_model_sized_textures','touch_capabilities','legacy_plus_preview'],'physical_hid':False,'audio_access':False})+'\n')
-            app.quit();return False
+            app.editor.shell.navigate('home');app.save_metadata();state['phase']=5
+        elif phase==5:
+            assert app.clients[state['plus']].brightness==51
+            status=json.loads(transport('ListDevices')[0]);assert next(d['brightness'] for d in status['devices'] if d['id']==state['mk2'])==50
+            app.editor.shell.navigate('keys');app.choose(state['mk2']);state['rounds']=0;state['phase']=6
+        elif phase==6:
+            assert ed is state['editor'];state['rounds']+=1
+            status=json.loads(transport('ListDevices')[0]);count,pending=status['history'];assert not pending
+            if count>8:
+                app.archive_history();state['phase']=7
+            else:app.choose(state['plus'] if app.selected==state['mk2'] else state['mk2'])
+            assert state['rounds']<16
+        elif phase==7:
+            status=json.loads(transport('ListDevices')[0]);assert status['history']==[8,False]
+            assert ed is state['editor'];assert not ed.draft.dirty
+            (out/'native-profile-result.json').write_text(json.dumps({'status':'passed','checks':['single_workspace','stable_window_size','native_model_geometry','15th_key_edit_save','independent_draft_retention','separate_saves','native_model_sized_textures','touch_capabilities','scoped_home_brightness','verified_history_archive','legacy_plus_preview'],'physical_hid':False,'audio_access':False})+'\n')
+            state['phase']=8;app.quit();return False
         return True
     except Exception as e:
         errors.append(str(e));traceback.print_exc();app.quit();return False
@@ -78,5 +101,6 @@ finally:
     except subprocess.TimeoutExpired:service.kill();service.wait()
     if service.returncode!=0:errors.append('Profile host did not stop cleanly')
     tmp.cleanup();log.close()
+if state['phase']!=8 or not (out/'native-profile-result.json').is_file():errors.append('Native profile acceptance did not complete')
 if errors:raise SystemExit('; '.join(errors))
 print('Native profile editor and two VirtualDecks passed')

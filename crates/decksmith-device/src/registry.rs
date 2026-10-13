@@ -40,11 +40,15 @@ impl PhysicalIdentity {
     pub fn model(&self) -> DeviceModel {
         self.model
     }
+    #[cfg(feature = "hardware")]
+    pub(crate) fn serial(&self) -> &str {
+        &self.serial
+    }
 }
 
 /// Snapshot-local locator, not a stable device ID. The host retains its private
 /// USB-path mapping separately and must not reuse a snapshot when opening HID.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Candidate {
     slot: u8,
     model: DeviceModel,
@@ -117,6 +121,9 @@ pub struct Record {
     identity: PhysicalIdentity,
 }
 impl Record {
+    pub(crate) fn same_identity(&self, other: &Self) -> bool {
+        self.id == other.id && self.identity == other.identity
+    }
     pub fn id(&self) -> DeviceId {
         self.id
     }

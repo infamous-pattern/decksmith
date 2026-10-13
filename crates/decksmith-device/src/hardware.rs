@@ -1,17 +1,21 @@
-//! Synchronous Plus adapter. Own on a dedicated device worker, never a UI thread.
+//! Synchronous Plus/MK.2 adapter. Own on a dedicated device worker, never a UI thread.
 //! Construction opens a device but performs no reset, brightness, or image write.
 use crate::{DeckDevice, DeviceError, InputCounts};
 use decksmith_core::{
     InputEvent, RawEvent, TouchGesture,
     device_model::{DeviceDescriptor, DeviceModel},
 };
-use elgato_streamdeck::{StreamDeck, StreamDeckInput, images::ImageRect, info::Kind};
+use elgato_streamdeck::{StreamDeck, StreamDeckInput, images::ImageRect};
 use image::{DynamicImage, RgbImage};
 use serde::Serialize;
 use std::{
     collections::VecDeque,
+    sync::Arc,
     time::{Duration, Instant},
 };
+
+mod inventory;
+pub use inventory::{HardwareOwner, Inventory};
 
 #[derive(Debug, Serialize)]
 pub struct HardwareInfo {
@@ -56,46 +60,52 @@ impl Transport for UsbTransport {
             .map_err(|_| DeviceError::Transport)
     }
 }
-/// One physical Plus session. Closing drops the handle without resetting the deck.
+/// One physical model-specific session. Closing drops the handle without resetting the deck.
 /// Reconnect by opening a new session; state is never reused across USB sessions.
 pub struct PhysicalDeck {
     transport: Box<dyn Transport>,
+    model: DeviceModel,
     normalizer: Normalizer,
     queue: VecDeque<(InputEvent, Instant)>,
     event_received_at: Option<Instant>,
     input_counts: Option<Box<InputCounts>>,
     epoch: Instant,
-    _ownership: Option<std::fs::File>,
+    _ownership: Option<Arc<std::fs::File>>,
+    _claim: Option<inventory::Claim>,
     touch_frame: Option<Vec<u8>>,
 }
 impl PhysicalDeck {
     /// The caller must arrange sole application ownership before calling this.
     /// Rejects ambiguity rather than selecting an arbitrary identical device.
     pub fn open_only_plus() -> Result<Self, DeviceError> {
-        let ownership = crate::ownership::acquire()?;
-        let api = elgato_streamdeck::new_hidapi().map_err(|_| DeviceError::Transport)?;
-        let mut devices = elgato_streamdeck::list_devices(&api)
-            .into_iter()
-            .filter(|(kind, _)| matches!(kind, Kind::Plus));
-        let (_, serial) = devices.next().ok_or(DeviceError::DeviceSelection)?;
-        if devices.next().is_some() {
+        let mut owner = HardwareOwner::acquire()?;
+        let inventory = Inventory::discover()?;
+        let mut plus = inventory
+            .discovery()
+            .candidates()
+            .iter()
+            .filter(|c| c.model() == DeviceModel::Plus);
+        let slot = plus.next().ok_or(DeviceError::DeviceSelection)?.slot();
+        if plus.next().is_some() {
             return Err(DeviceError::DeviceSelection);
         }
-        let deck =
-            StreamDeck::connect(&api, Kind::Plus, &serial).map_err(|_| DeviceError::Transport)?;
-        let mut physical = Self::with_transport(Box::new(UsbTransport(deck)));
-        physical._ownership = Some(ownership);
-        Ok(physical)
+        owner.open(&inventory, slot)
     }
+    #[cfg(test)]
     fn with_transport(transport: Box<dyn Transport>) -> Self {
+        Self::with_model_transport(DeviceModel::Plus, transport)
+    }
+    fn with_model_transport(model: DeviceModel, transport: Box<dyn Transport>) -> Self {
         Self {
             transport,
-            normalizer: Normalizer::default(),
+            model,
+            normalizer: Normalizer::new(model),
             queue: VecDeque::new(),
             event_received_at: None,
             input_counts: None,
             epoch: Instant::now(),
             _ownership: None,
+            _claim: None,
             touch_frame: None,
         }
     }
@@ -170,24 +180,30 @@ impl PhysicalDeck {
     }
     pub fn info(&self) -> Result<HardwareInfo, DeviceError> {
         Ok(HardwareInfo {
-            model: "Stream Deck +",
+            model: match self.model {
+                DeviceModel::Plus => "Stream Deck +",
+                DeviceModel::Mk2 => "Stream Deck MK.2",
+            },
             firmware: self.transport.firmware()?,
         })
     }
 }
 impl DeckDevice for PhysicalDeck {
     fn descriptor(&self) -> DeviceDescriptor {
-        DeviceDescriptor::for_model(DeviceModel::Plus)
+        DeviceDescriptor::for_model(self.model)
     }
     fn set_key_image(&mut self, index: u8, rgb: &[u8]) -> Result<(), DeviceError> {
-        if index >= 8 {
+        let descriptor = self.descriptor();
+        if index >= descriptor.key_count() {
             return Err(DeviceError::InvalidKey);
         }
-        let image = rgb_image(rgb, 120, 120).ok_or(DeviceError::InvalidKeyImage)?;
+        let (width, height) = descriptor.geometry().key_pixels;
+        let image = rgb_image(rgb, u32::from(width), u32::from(height))
+            .ok_or(DeviceError::InvalidKeyImage)?;
         self.transport.key(index, image)
     }
     fn set_touch_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError> {
-        if rgb.len() != 800 * 100 * 3 {
+        if self.model != DeviceModel::Plus || rgb.len() != 800 * 100 * 3 {
             return Err(DeviceError::InvalidTouchImage);
         }
         let region = match &self.touch_frame {
@@ -305,23 +321,45 @@ fn rgb_image(rgb: &[u8], width: u32, height: u32) -> Option<DynamicImage> {
     }
     RgbImage::from_raw(width, height, rgb.to_vec()).map(DynamicImage::ImageRgb8)
 }
-#[derive(Default)]
 struct Normalizer {
-    keys: [bool; 8],
+    model: DeviceModel,
+    keys: [bool; 15],
     dials: [bool; 4],
 }
+impl Default for Normalizer {
+    fn default() -> Self {
+        Self::new(DeviceModel::Plus)
+    }
+}
 impl Normalizer {
+    fn new(model: DeviceModel) -> Self {
+        Self {
+            model,
+            keys: [false; 15],
+            dials: [false; 4],
+        }
+    }
     fn normalize(&mut self, report: StreamDeckInput) -> Result<Vec<RawEvent>, DeviceError> {
         let mut events = Vec::new();
+        if self.model == DeviceModel::Mk2
+            && !matches!(
+                &report,
+                StreamDeckInput::NoData | StreamDeckInput::ButtonStateChange(_)
+            )
+        {
+            return Err(DeviceError::InvalidReport);
+        }
         match report {
             StreamDeckInput::NoData => {}
             StreamDeckInput::ButtonStateChange(mut states) => {
                 // elgato-streamdeck 0.13.1 reads a 14-byte Plus buffer and maps
                 // bytes 4..14 as keys, including two zero padding bytes.
-                if states.len() == 10 && !states[8] && !states[9] {
+                if self.model == DeviceModel::Plus && states.len() == 10 && !states[8] && !states[9]
+                {
                     states.truncate(8);
                 }
-                if states.len() != 8 {
+                let count = DeviceDescriptor::for_model(self.model).key_count();
+                if states.len() != usize::from(count) {
                     return Err(DeviceError::InvalidReport);
                 }
                 for (index, pressed) in states.into_iter().enumerate() {
@@ -399,6 +437,142 @@ fn touch(x: u16, y: u16, gesture: TouchGesture) -> Result<RawEvent, DeviceError>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use elgato_streamdeck::info::Kind;
+    #[test]
+    fn mk2_reports_all_fifteen_edges_without_plus_controls_or_padding() {
+        let mut n = Normalizer::new(DeviceModel::Mk2);
+        let down = n
+            .normalize(StreamDeckInput::ButtonStateChange(vec![true; 15]))
+            .unwrap();
+        assert_eq!(down.len(), 15);
+        assert_eq!(
+            down[14],
+            RawEvent::Key {
+                index: 14,
+                pressed: true
+            }
+        );
+        for report in [
+            StreamDeckInput::ButtonStateChange(vec![false; 10]),
+            StreamDeckInput::ButtonStateChange(vec![false; 16]),
+            StreamDeckInput::EncoderTwist(vec![1, 0, 0, 0]),
+            StreamDeckInput::EncoderStateChange(vec![true; 4]),
+            StreamDeckInput::TouchScreenPress(0, 0),
+            StreamDeckInput::TouchScreenLongPress(0, 0),
+            StreamDeckInput::TouchScreenSwipe((0, 0), (200, 0)),
+        ] {
+            assert_eq!(n.normalize(report), Err(DeviceError::InvalidReport));
+        }
+        assert!(
+            n.normalize(StreamDeckInput::ButtonStateChange(vec![true; 15]))
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            n.normalize(StreamDeckInput::ButtonStateChange(vec![false; 15]))
+                .unwrap()
+                .len(),
+            15
+        );
+    }
+    #[test]
+    fn mk2_images_blank_and_nonblocking_poll_use_its_own_geometry() {
+        let state = std::sync::Arc::new(std::sync::Mutex::new(Recording::default()));
+        let mut deck =
+            PhysicalDeck::with_model_transport(DeviceModel::Mk2, Box::new(Recorder(state.clone())));
+        assert_eq!(deck.info().unwrap().model, "Stream Deck MK.2");
+        assert!(state.lock().unwrap().key_frames.is_empty());
+        assert_eq!(
+            deck.set_touch_image(&vec![0; 800 * 100 * 3]),
+            Err(DeviceError::InvalidTouchImage)
+        );
+        assert_eq!(
+            deck.set_key_image(15, &vec![0; 72 * 72 * 3]),
+            Err(DeviceError::InvalidKey)
+        );
+        assert_eq!(
+            deck.set_key_image(14, &vec![0; 120 * 120 * 3]),
+            Err(DeviceError::InvalidKeyImage)
+        );
+        deck.set_key_image(14, &vec![30; 72 * 72 * 3]).unwrap();
+        deck.blank().unwrap();
+        deck.poll_event_nonblocking().unwrap();
+        let r = state.lock().unwrap();
+        assert_eq!(r.key_frames[0], (14, 72, 72));
+        assert_eq!(
+            &r.key_frames[1..],
+            &(0..15).map(|index| (index, 72, 72)).collect::<Vec<_>>()
+        );
+        assert!(r.writes.is_empty());
+        assert_eq!(r.read_timeouts, vec![Duration::ZERO]);
+    }
+    #[test]
+    fn mk2_queued_reports_keep_receipt_stamp_and_new_session_forgets_old_edges() {
+        let mut reports = vec![false; 15];
+        reports[0] = true;
+        reports[14] = true;
+        let mut deck = PhysicalDeck::with_model_transport(
+            DeviceModel::Mk2,
+            Box::new(Reports(
+                [Ok(StreamDeckInput::ButtonStateChange(reports.clone()))].into(),
+            )),
+        );
+        assert_eq!(
+            deck.poll_event_nonblocking().unwrap().unwrap().event,
+            RawEvent::Key {
+                index: 0,
+                pressed: true
+            }
+        );
+        let received = deck.event_received_at();
+        assert_eq!(
+            deck.poll_event_nonblocking().unwrap().unwrap().event,
+            RawEvent::Key {
+                index: 14,
+                pressed: true
+            }
+        );
+        assert_eq!(deck.event_received_at(), received);
+        let mut fresh = PhysicalDeck::with_model_transport(
+            DeviceModel::Mk2,
+            Box::new(Reports(
+                [Ok(StreamDeckInput::ButtonStateChange(reports))].into(),
+            )),
+        );
+        assert!(fresh.event_received_at().is_none());
+        assert_eq!(
+            fresh.poll_event_nonblocking().unwrap().unwrap().event,
+            RawEvent::Key {
+                index: 0,
+                pressed: true
+            }
+        );
+    }
+    #[test]
+    fn mk2_upstream_image_encoding_mirrors_both_axes_once() {
+        let mut image = RgbImage::new(72, 72);
+        for y in 0..72 {
+            for x in 0..72 {
+                image.put_pixel(
+                    x,
+                    y,
+                    if x < 36 && y < 36 {
+                        image::Rgb([240, 10, 10])
+                    } else {
+                        image::Rgb([10, 10, 240])
+                    },
+                );
+            }
+        }
+        let encoded = elgato_streamdeck::images::convert_image(
+            elgato_streamdeck::info::Kind::Mk2,
+            DynamicImage::ImageRgb8(image),
+        )
+        .unwrap();
+        let decoded = image::load_from_memory(&encoded).unwrap().into_rgb8();
+        assert_eq!((decoded.width(), decoded.height()), (72, 72));
+        assert!(decoded.get_pixel(64, 64)[0] > 200 && decoded.get_pixel(8, 8)[2] > 200);
+    }
     #[test]
     fn state_reports_become_edges_and_signed_ticks() {
         let mut n = Normalizer::default();
@@ -448,7 +622,7 @@ mod tests {
             n.normalize(StreamDeckInput::ButtonStateChange(vec![true; 9]))
                 .is_err()
         );
-        assert_eq!(n.keys, [false; 8]);
+        assert_eq!(n.keys, [false; 15]);
         assert!(
             n.normalize(StreamDeckInput::EncoderStateChange(vec![true; 3]))
                 .is_err()
@@ -646,6 +820,7 @@ mod tests {
         read_timeouts: Vec<Duration>,
         fail: bool,
         keys: usize,
+        key_frames: Vec<(u8, u32, u32)>,
     }
     struct Recorder(std::sync::Arc<std::sync::Mutex<Recording>>);
     impl Transport for Recorder {
@@ -656,8 +831,12 @@ mod tests {
         fn firmware(&self) -> Result<String, DeviceError> {
             Ok("fixture".into())
         }
-        fn key(&mut self, _: u8, _: DynamicImage) -> Result<(), DeviceError> {
-            self.0.lock().unwrap().keys += 1;
+        fn key(&mut self, index: u8, image: DynamicImage) -> Result<(), DeviceError> {
+            let mut record = self.0.lock().unwrap();
+            record.keys += 1;
+            record
+                .key_frames
+                .push((index, image.width(), image.height()));
             Ok(())
         }
         fn brightness(&mut self, _: u8) -> Result<(), DeviceError> {

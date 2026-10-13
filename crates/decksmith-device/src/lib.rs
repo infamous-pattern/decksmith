@@ -22,11 +22,15 @@ pub enum DeviceError {
     InvalidReport,
     ImageEncoding,
     DeviceSelection,
+    DeviceUnavailable,
     DeviceBusy,
 }
 impl std::fmt::Display for DeviceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
+            Self::DeviceUnavailable => {
+                "device identity missing, ambiguous, changed or already open"
+            }
             Self::DeviceBusy => "device ownership unavailable or competing application running",
             Self::Disconnected => "device disconnected",
             Self::Transport => "hardware transport failed",

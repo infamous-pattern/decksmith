@@ -37,3 +37,11 @@ class ProfileClientTests(unittest.TestCase):
         draft=Draft(doc);draft.add_page();self.assertEqual(len(draft.data['pages'][-1]['keys']),15);draft.validate()
         draft.data['dials']=[]
         with self.assertRaises(ValueError):draft.validate()
+
+    def test_workspace_status_never_claims_physical_connection_or_action_readiness(self):
+        c=self.client();c.workspace_only=True
+        status=json.loads(c('GetStatus')[0]);self.assertTrue(status['workspace_only']);self.assertFalse(status['running'])
+        self.assertFalse(c.actions_available)
+        from workspace_shell import save_reason
+        self.assertIsNone(save_reason(True,True,False,{'workspace_only':True,'running':False,'connected':False}))
+        self.assertIsNotNone(save_reason(True,False,False,{'workspace_only':True,'running':False}))

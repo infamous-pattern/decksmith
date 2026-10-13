@@ -29,7 +29,10 @@ pub fn acquire() -> Result<File, DeviceError> {
     }
     let runtime = std::env::var_os("XDG_RUNTIME_DIR").ok_or(DeviceError::DeviceBusy)?;
     let runtime = Path::new(&runtime);
-    let meta = runtime.metadata().map_err(|_| DeviceError::DeviceBusy)?;
+    acquire_in(runtime)
+}
+fn acquire_in(runtime: &Path) -> Result<File, DeviceError> {
+    let meta = std::fs::symlink_metadata(runtime).map_err(|_| DeviceError::DeviceBusy)?;
     let own_uid = std::fs::metadata("/proc/self")
         .map_err(|_| DeviceError::DeviceBusy)?
         .uid();
@@ -43,14 +46,47 @@ pub fn acquire() -> Result<File, DeviceError> {
         .create(true)
         .truncate(false)
         .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .open(runtime.join("decksmith-device.lock"))
         .map_err(|_| DeviceError::DeviceBusy)?;
+    let meta = file.metadata().map_err(|_| DeviceError::DeviceBusy)?;
+    if !meta.is_file() || meta.uid() != own_uid || meta.nlink() != 1 || meta.mode() & 0o077 != 0 {
+        return Err(DeviceError::DeviceBusy);
+    }
     file.try_lock().map_err(|_| DeviceError::DeviceBusy)?;
     Ok(file)
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn private_shared_lease_refuses_links_and_survives_owner_drop() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let root =
+            std::env::temp_dir().join(format!("decksmith-private-lock-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let path = root.join("decksmith-device.lock");
+        let target = root.join("target");
+        std::fs::write(&target, b"unchanged").unwrap();
+        symlink(&target, &path).unwrap();
+        assert!(acquire_in(&root).is_err());
+        std::fs::remove_file(&path).unwrap();
+        std::fs::hard_link(&target, &path).unwrap();
+        assert!(acquire_in(&root).is_err());
+        std::fs::remove_file(&path).unwrap();
+        let owner = std::sync::Arc::new(acquire_in(&root).unwrap());
+        let session = owner.clone();
+        drop(owner);
+        assert!(acquire_in(&root).is_err());
+        drop(session);
+        let next = acquire_in(&root).unwrap();
+        drop(next);
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(acquire_in(&root).is_err());
+        assert_eq!(std::fs::read(&target).unwrap(), b"unchanged");
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn detects_exact_competing_process_name() {
         let root = std::env::temp_dir().join(format!("decksmith-proc-{}", std::process::id()));

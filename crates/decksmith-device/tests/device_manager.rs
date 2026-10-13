@@ -43,6 +43,87 @@ fn registry(models: &[DeviceModel]) -> Registry {
     }
     registry
 }
+#[test]
+fn enrollment_rejects_reassignment_removed_records_invalid_page_and_blocked_state_atomically() {
+    let original = registry(&[DeviceModel::Plus]);
+    let mut manager =
+        DeviceManager::new(Registry::decode(&original.encode_private().unwrap()).unwrap()).unwrap();
+    manager
+        .configure(
+            id(1),
+            0,
+            SessionLayout::new(DeviceModel::Plus, 2, 0).unwrap(),
+        )
+        .unwrap();
+    let revision = manager
+        .reconcile(snapshot(&[(0, DeviceModel::Plus, Some("fixture-0"))]))
+        .unwrap();
+    manager
+        .attach(revision, 0, Box::new(Probe::new(DeviceModel::Plus)))
+        .unwrap();
+    manager.poll_round();
+    let before = manager.context(id(1), ControlAddress::Key(0)).unwrap();
+    let pair = registry(&[DeviceModel::Plus, DeviceModel::Mk2]);
+    assert!(
+        manager
+            .enroll_saved(
+                Registry::decode(&pair.encode_private().unwrap()).unwrap(),
+                id(2),
+                SessionLayout::new(DeviceModel::Mk2, 2, 0).unwrap(),
+                2
+            )
+            .is_err()
+    );
+    assert_eq!(manager.statuses().len(), 1);
+    let changed = registry(&[DeviceModel::Mk2, DeviceModel::Mk2]);
+    assert!(
+        manager
+            .enroll_saved(
+                changed,
+                id(2),
+                SessionLayout::new(DeviceModel::Mk2, 2, 0).unwrap(),
+                0
+            )
+            .is_err()
+    );
+    assert_eq!(manager.statuses().len(), 1);
+    assert!(
+        manager
+            .enroll_saved(
+                registry(&[DeviceModel::Mk2]),
+                id(1),
+                SessionLayout::new(DeviceModel::Mk2, 2, 0).unwrap(),
+                0
+            )
+            .is_err()
+    );
+    assert_eq!(
+        manager.context(id(1), ControlAddress::Key(0)).unwrap(),
+        before
+    );
+    manager.gate(true, false).unwrap();
+    assert!(
+        manager
+            .enroll_saved(
+                Registry::decode(&pair.encode_private().unwrap()).unwrap(),
+                id(2),
+                SessionLayout::new(DeviceModel::Mk2, 2, 0).unwrap(),
+                0
+            )
+            .is_err()
+    );
+    assert_eq!(manager.statuses().len(), 1);
+    manager.gate(false, false).unwrap();
+    manager
+        .enroll_saved(
+            pair,
+            id(2),
+            SessionLayout::new(DeviceModel::Mk2, 2, 0).unwrap(),
+            0,
+        )
+        .unwrap();
+    assert_eq!(manager.statuses().len(), 2);
+}
 #[derive(Clone)]
 struct Probe(Rc<RefCell<State>>);
 struct State {
@@ -630,4 +711,141 @@ fn replacing_a_supervisor_cannot_accept_an_old_local_callback() {
     assert_eq!(old.binding, current.binding);
     assert_ne!(old.supervisor, current.supervisor);
     assert!(!next.current(&old));
+}
+
+/// Sustained qualification for the maximum roster. Never opens HID or services.
+#[test]
+#[ignore = "explicit bounded eight-device reconnect and stale-input stress"]
+fn sustained_max_roster_reconnect_and_stale_feedback_stress() {
+    use std::time::{Duration, Instant};
+    let seconds = std::env::var("DECKSMITH_CHURN_SECONDS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(60)
+        .clamp(1, 600);
+    let models = (0..MAX_DEVICES)
+        .map(|i| {
+            if i % 2 == 0 {
+                DeviceModel::Plus
+            } else {
+                DeviceModel::Mk2
+            }
+        })
+        .collect::<Vec<_>>();
+    let make_discovery = |reverse: bool| {
+        let order = if reverse {
+            (0..MAX_DEVICES).rev().collect::<Vec<_>>()
+        } else {
+            (0..MAX_DEVICES).collect::<Vec<_>>()
+        };
+        Discovery::new(
+            order
+                .into_iter()
+                .enumerate()
+                .map(|(slot, i)| Candidate::new(slot as u8, models[i], Some(&format!("churn-{i}"))))
+                .collect(),
+        )
+        .unwrap()
+    };
+    let mut registry = Registry::default();
+    let first = make_discovery(false);
+    for i in 0..MAX_DEVICES {
+        registry
+            .associate(
+                registry.revision(),
+                id(i as u8 + 1),
+                "Stress",
+                50,
+                &first,
+                i as u8,
+            )
+            .unwrap();
+    }
+    let mut manager = DeviceManager::new(registry).unwrap();
+    let revision = manager.reconcile(first).unwrap();
+    let mut probes = models.iter().map(|m| Probe::new(*m)).collect::<Vec<_>>();
+    for (i, model) in models.iter().enumerate() {
+        manager
+            .configure(
+                id(i as u8 + 1),
+                0,
+                SessionLayout::new(*model, 3, 0).unwrap(),
+            )
+            .unwrap();
+        manager
+            .attach(revision, i as u8, Box::new(probes[i].clone()))
+            .unwrap();
+    }
+    manager.poll_round();
+    let end = Instant::now() + Duration::from_secs(seconds);
+    let mut cycles = 0u64;
+    while Instant::now() < end {
+        let victim = cycles as usize % MAX_DEVICES;
+        let other = (victim + 1) % MAX_DEVICES;
+        let victim_id = id(victim as u8 + 1);
+        let other_id = id(other as u8 + 1);
+        let time = cycles * 10;
+        let old = manager.context(victim_id, ControlAddress::Key(0)).unwrap();
+        let unaffected = manager.context(other_id, ControlAddress::Key(0)).unwrap();
+        let page = manager.active_page(victim_id).unwrap();
+        probes[victim].key(time, true);
+        let down = manager.poll_round();
+        assert_eq!(down.len(), 1);
+        assert_eq!(down[0].context.device, victim_id);
+        probes[victim].0.borrow_mut().fail_read = true;
+        probes[other].key(time, true);
+        let down = manager.poll_round();
+        assert_eq!(down.len(), 1);
+        assert_eq!(down[0].context, unaffected);
+        probes[other].key(time + 1, false);
+        let up = manager.poll_round();
+        assert_eq!(up.len(), 1);
+        assert_eq!(up[0].context, unaffected);
+        assert!(!manager.current(&old));
+        assert!(manager.current(&unaffected));
+        assert_eq!(
+            manager.write_key(
+                &old,
+                &vec![0; DeviceDescriptor::for_model(models[victim]).key_rgb_bytes()]
+            ),
+            Err("stale_device_context")
+        );
+        let reversed = cycles % 2 == 1;
+        let snapshot = make_discovery(reversed);
+        let slot = if reversed {
+            MAX_DEVICES - 1 - victim
+        } else {
+            victim
+        };
+        let revision = manager.reconcile(snapshot).unwrap();
+        probes[victim] = Probe::new(models[victim]);
+        manager
+            .attach(revision, slot as u8, Box::new(probes[victim].clone()))
+            .unwrap();
+        manager.poll_round();
+        assert_eq!(manager.active_page(victim_id).unwrap(), page);
+        assert!(manager.current(&unaffected));
+        let current = manager.context(victim_id, ControlAddress::Key(0)).unwrap();
+        assert!(current.connection > old.connection);
+        // A release after reconnect must not replay the previous hold's action.
+        probes[victim].key(time + 2, false);
+        assert!(manager.poll_round().is_empty());
+        probes[victim].key(time + 3, true);
+        assert_eq!(manager.poll_round().len(), 1);
+        probes[victim].key(time + 4, false);
+        assert_eq!(manager.poll_round().len(), 1);
+        manager
+            .page(victim_id, current.binding, ((cycles + 1) % 3) as u8)
+            .unwrap();
+        manager.poll_round();
+        assert!(manager.current(&unaffected));
+        assert_eq!(manager.statuses().len(), MAX_DEVICES);
+        cycles += 1;
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(cycles > 0);
+    assert!(manager.stop().is_empty());
+    println!(
+        "eight-device stress: {cycles} reconnect cycles; reversed inventories, overlapping holds and stale feedback rejected"
+    );
 }

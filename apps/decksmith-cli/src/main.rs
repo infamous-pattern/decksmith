@@ -63,6 +63,15 @@ fn run() -> Result<(), CliError> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice(){
         #[cfg(feature = "hardware")]
+        ["hardware", "inventory"] => {
+            let inventory = decksmith_device::hardware::Inventory::discover().map_err(CliError::Hardware)?;
+            let registry = decksmith_device::registry::Registry::default();
+            let summaries: Vec<_> = inventory.discovery().candidates().iter().map(|c| {
+                serde_json::json!({"slot":c.slot(),"model":c.model(),"association":registry.resolve(inventory.discovery(),c)})
+            }).collect();
+            output(&summaries)?;
+        },
+        #[cfg(feature = "hardware")]
         ["hardware", "info", "--exclusive"] => {
             let deck = decksmith_device::hardware::PhysicalDeck::open_only_plus().map_err(CliError::Hardware)?;
             output(&deck.info().map_err(CliError::Hardware)?)?;
@@ -117,7 +126,7 @@ fn run() -> Result<(), CliError> {
                 }
             }
         },
-        ["--help"]|[]=>writeln!(io::stdout().lock(),"decksmithctl devices | virtual info | virtual emulate | virtual resolve\nEmulate reads timestamped JSON events, one per line, from stdin.\nHardware feature: hardware info --exclusive | hardware monitor --exclusive --seconds 60 (1..120 seconds). hardware display-test --exclusive writes numbered diagnostic images. hardware logo-preview --exclusive shows the approved app icon on key 1. Close OpenDeck first.").map_err(|_|CliError::Write)?,
+        ["--help"]|[]=>writeln!(io::stdout().lock(),"decksmithctl devices | virtual info | virtual emulate | virtual resolve\nEmulate reads timestamped JSON events, one per line, from stdin.\nHardware feature: hardware inventory is read-only and redacts serials/paths; slots are temporary and all units are unassigned without a saved registry. hardware info --exclusive | hardware monitor --exclusive --seconds 60 (1..120 seconds). hardware display-test --exclusive writes numbered diagnostic images. hardware logo-preview --exclusive shows the approved app icon on key 1. Close OpenDeck first.").map_err(|_|CliError::Write)?,
         _=>return Err(CliError::Usage),
     }
     Ok(())

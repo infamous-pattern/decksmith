@@ -307,3 +307,14 @@ and [lab](../profile-editor-lab.md) now joins saved profiles,
 retained native drafts, model-sized previews and scoped writes to a supplied
 VirtualDeck pair. Normal startup still uses Control1. Retention, production
 workspace/backend integration and physical qualification remain activation gates.
+
+The [single-workspace/history slice](../checkpoints/2026-10-13-single-workspace-history.md)
+reuses the main workspace for independent profile and Home settings drafts, owned
+metadata updates and explicit verified history archiving. Retention copies/syncs/
+validates before pruning; a journal blocks writes until interrupted cleanup resumes.
+Production service/roster/async disk policy and physical acceptance remain gates.
+
+The [hardware discovery/transport slice](../checkpoints/2026-10-13-hardware-discovery.md)
+adds a bounded private inventory, snapshot-verified model opener, shared cooperative
+lease and explicit enrollment without rebuilding the supervisor. Physical opener/
+orientation, production roster/backend scheduling and paired acceptance remain gates.

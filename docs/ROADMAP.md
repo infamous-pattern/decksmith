@@ -1,6 +1,6 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 12, 2026. The v0.4 product
+This is the implementation roadmap, updated October 13, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
@@ -1161,12 +1161,35 @@ loaded resource use before release.
 ### Simultaneous multiple-device support — clarified September 13
 
 **October 13 integration checkpoint:** the explicit
-[editor/rendering lab](profile-editor-lab.md) connects the saved-profile store to
-independent native drafts, selection, revision-fenced saves and Plus/MK.2
-model-sized VirtualDeck rendering. This isolated slice does not enable public
-multi-device support. Retention, production workspace/backend wiring, physical
-HID and pair/resource qualification remain required.
+[workspace lab](profile-editor-lab.md) now uses one native editor with independent
+layout/Home settings drafts, stable model geometry, owned name/brightness saves
+and late-preview fencing. [Verified history archives](profile-history.md) retain
+older generations before explicit pruning, with journaled recovery and unchanged
+active device contexts. The [physical discovery/transport foundation](hardware-discovery.md) now adds a
+bounded private inventory, verified model opener/shared cooperative lease and live
+enrollment without disturbing other sessions. All fifteen MK.2 key reports and
+model-sized images are fixture-qualified. Production service/lock/roster/backend
+wiring, async disk and archive quota/policy, full paired lifecycle and resource
+qualification remain required; this does not enable public multi-device support.
 
+**October 13 physical checkpoint:** the guarded
+[MK.2/Plus trial](checkpoints/2026-10-13-physical-mk2-pair.md) confirmed all fifteen
+MK.2 keys and orientation, independent paired pages/brightness and Plus strip/dial
+feedback. MK.2 removal/recovery was isolated while Plus input continued. Both tests
+restored the original Plus page/build and unchanged configuration. The resumed
+checks also passed Plus removal/recovery with MK.2 continuing, Plus-only swipes,
+four dial pushes/turns and isolated touch input. Physical reversed connection
+order, paired lifecycle, shared action backends and resource qualification remain
+open; multi-device control is not installed or released.
+
+**October 13 saved-workspace checkpoint:** the opt-in
+[saved-device workspace](device-workspace.md) now connects real read-only discovery,
+explicit private profile enrollment/reopening and one native device chooser/editor.
+Plus import retains the original V1 document; MK.2 has its own defaults. Offline
+saves and selection preserve other drafts, and status separates detection from
+physical readiness. This endpoint can coexist with V1 and does not claim HID or
+execute actions. Shared backends, live lock/feedback/display scheduling and physical
+production qualification are still required before activation.
 
 **V1.5 release requirement — confirmed October 9:** deliver simultaneous device
 control, initially qualified with Stream Deck + and the user's incoming MK.2.

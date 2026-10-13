@@ -9,8 +9,9 @@ license.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 decksmith-core.workspace = true
+libc = { version = "0.2", optional = true }
 elgato-streamdeck = { version = "=0.13.1", optional = true }
 image = { version = "0.25", default-features = false, features = ["jpeg", "bmp"], optional = true }
 
 [features]
-hardware = ["dep:elgato-streamdeck", "dep:image"]
+hardware = ["dep:elgato-streamdeck", "dep:image", "dep:libc"]

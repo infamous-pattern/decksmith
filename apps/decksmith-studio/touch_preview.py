@@ -25,6 +25,12 @@ class TouchPreview(Gtk.Overlay):
         self.note.add_css_class('dim-label')
         self.timer=GLib.timeout_add(50,self.refresh)
 
+    def rebind(self,call):
+        self.call=call;self.desired=None;self.revision+=1
+        self.rgb=None;self.rendered_revision=None;self.mode=None
+        self.picture.set_paintable(None)
+        self.message.set_text('Loading selected device…');self.message.set_visible(True)
+
     def request(self,payload,page):
         self.invalid=False
         desired=(payload,page)

@@ -296,6 +296,7 @@ dependencies = [
  "decksmith-core",
  "elgato-streamdeck",
  "image",
+ "libc",
  "serde",
  "serde_json",
 ]

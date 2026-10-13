@@ -46,8 +46,10 @@ the existing deployment/migration workflow; this store is not a whole-user backu
 
 Bounds are eight profiles, a 1 MiB layout and optional 1 MiB original per profile,
 64 KiB each for registry/preferences/manifest, and sixteen retained generations,
-including failed ones. No backup is automatically deleted. **Retention/compaction
-must be completed before enabling a live editor**; reaching the bound stops saves.
+including failed ones. No backup is automatically deleted. An explicit
+[verified archive](profile-history.md) can preserve older generations separately
+before pruning the active store. Production quota/automatic policy and async
+recovery still require review; reaching the bound stops saves until archiving.
 Runtime page/dial events do not write generations. Saved-page persistence is an
 explicit save, separate from the current session page; coalesced lifecycle writes
 remain integration work.
@@ -73,9 +75,11 @@ This store and control cache now also feed the explicit
 [device-addressed editor/rendering lab](profile-editor-lab.md). Its separate test
 endpoint and supplied VirtualDeck pair never activate on normal startup. Production
 bus integration and authorization still require review. Dispatching these results to shared audio/microphone/media/
-plugin services, runtime nonce/press generation, canonical targets, dynamic live
-enrollment, production editor/device selection, asynchronous rendering and MK.2 HID
-ownership still need integration. Replacing a manager/service must quiesce old writers and fence
+plugin services, runtime nonce/press generation, canonical targets, production editor/device selection, asynchronous rendering and
+physical qualification still need integration. The explicit
+[hardware discovery/opener and live enrollment seams](hardware-discovery.md) now
+resolve supplied inventory against saved identities and add one saved session
+without disturbing another. They remain dormant in production. Replacing a manager/service must quiesce old writers and fence
 all old contexts; do not rebuild it merely to add a newly enrolled device.
 
 See [device sessions](device-sessions.md), [layout formats](layout-models.md),

@@ -25,7 +25,7 @@ class KeyPreview:
         try:
             pixels=bytes(future.result())
             if len(pixels)!=self.count*self.pixels*self.pixels*3:raise ValueError('Invalid key frame')
-            for i,button in enumerate(self.owner.keys):
+            for i,button in enumerate(self.owner.keys[:self.count]):
                 size=self.pixels*self.pixels*3
                 frame=pixels[i*size:(i+1)*size]
                 picture=self.pictures[i]
