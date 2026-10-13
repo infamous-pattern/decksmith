@@ -1874,7 +1874,7 @@ impl Pages {
                     );
                 }
             }
-            for (pixel, source) in rgb.chunks_exact_mut(3).zip(icon.pixels()) {
+            for (pixel, source) in rgb.as_chunks_mut::<3>().0.iter_mut().zip(icon.pixels()) {
                 for c in 0..3 {
                     let fg =
                         if key.icon_tint && matches!(key.artwork, Some(Artwork::ApplicationIcon)) {
@@ -2653,10 +2653,14 @@ mod tests {
                     assert_eq!(&pixels[..43200], deck.key_image(0).unwrap());
                     let rows = |red: bool| -> Vec<usize> {
                         pixels[..43200]
-                            .chunks_exact(360)
+                            .as_chunks::<360>()
+                            .0
+                            .iter()
                             .enumerate()
                             .filter_map(|(y, row)| {
-                                row.chunks_exact(3)
+                                row.as_chunks::<3>()
+                                    .0
+                                    .iter()
                                     .any(|p| {
                                         if red {
                                             p[0] > 200 && p[1] < 10 && p[2] < 10
@@ -2705,7 +2709,9 @@ mod tests {
                 let pixels = pages.preview_keys(0, pages.touch_state()).unwrap();
                 assert_eq!(&pixels[..43200], deck.key_image(0).unwrap());
                 let red = pixels[..43200]
-                    .chunks_exact(3)
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
                     .filter(|p| p[0] > 200 && p[1] < 10 && p[2] < 10)
                     .count();
                 assert!(red >= prior);
@@ -3502,16 +3508,17 @@ mod tests {
             LabelColor::Yellow.rgb(),
         );
         assert!(
-            rgb.chunks_exact(3)
+            rgb.as_chunks::<3>()
+                .0
+                .iter()
                 .all(|pixel| pixel[0] >= 123 && pixel[1] >= 123 && pixel[2] <= 123)
         );
+        assert!(rgb.as_chunks::<3>().0.contains(&LabelColor::Yellow.rgb()));
         assert!(
-            rgb.chunks_exact(3)
-                .any(|pixel| pixel == LabelColor::Yellow.rgb())
-        );
-        assert!(
-            rgb.chunks_exact(3)
-                .any(|pixel| pixel != [123, 123, 123] && pixel != LabelColor::Yellow.rgb()),
+            rgb.as_chunks::<3>()
+                .0
+                .iter()
+                .any(|pixel| *pixel != [123, 123, 123] && *pixel != LabelColor::Yellow.rgb()),
             "font edges must contain anti-aliased blends"
         );
         let mut dark = vec![123; 43200];
@@ -3523,7 +3530,7 @@ mod tests {
             true,
             LabelColor::White.rgb(),
         );
-        assert!(dark.chunks_exact(3).any(|pixel| pixel == [41, 41, 41]));
+        assert!(dark.as_chunks::<3>().0.contains(&[41, 41, 41]));
     }
     #[test]
     fn editable_layout_round_trip_preserves_actions_and_artwork() {

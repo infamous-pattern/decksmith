@@ -253,7 +253,11 @@ struct TouchRegion {
 }
 fn changed_touch(previous: &[u8], rgb: &[u8]) -> Option<TouchRegion> {
     const ROW: usize = 800 * 3;
-    let mut rows = previous.chunks_exact(ROW).zip(rgb.chunks_exact(ROW));
+    let mut rows = previous
+        .as_chunks::<ROW>()
+        .0
+        .iter()
+        .zip(rgb.as_chunks::<ROW>().0.iter());
     let top = rows.position(|(a, b)| a != b)?;
     let bottom = top + 1 + rows.rposition(|(a, b)| a != b).map_or(0, |i| i + 1);
     let mut left = 800;
@@ -261,7 +265,13 @@ fn changed_touch(previous: &[u8], rgb: &[u8]) -> Option<TouchRegion> {
     for y in top..bottom {
         let a = &previous[y * ROW..(y + 1) * ROW];
         let b = &rgb[y * ROW..(y + 1) * ROW];
-        for (x, (a, b)) in a.chunks_exact(3).zip(b.chunks_exact(3)).enumerate() {
+        for (x, (a, b)) in a
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .zip(b.as_chunks::<3>().0.iter())
+            .enumerate()
+        {
             if a != b {
                 left = left.min(x);
                 right = right.max(x + 1);

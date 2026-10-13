@@ -4,7 +4,7 @@ use decksmith_core::{device_context::DeviceId, device_model::DeviceModel};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-pub const MAX_DEVICES: usize = 8;
+pub const MAX_DEVICES: usize = decksmith_core::shared_dispatch::MAX_DEVICES;
 pub const MAX_DISCOVERED: usize = 16;
 pub const REGISTRY_BYTES: usize = 65_536;
 type Result<T> = std::result::Result<T, &'static str>;

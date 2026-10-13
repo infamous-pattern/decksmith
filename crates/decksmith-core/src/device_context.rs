@@ -50,7 +50,7 @@ impl<'de> Deserialize<'de> for DeviceId {
 }
 
 /// A session fence, not an authorization or plugin-permission grant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct DeviceContext {
     /// Process-local supervisor instance. A future wire API also needs a
     /// startup nonce so replies from an earlier daemon process cannot match.

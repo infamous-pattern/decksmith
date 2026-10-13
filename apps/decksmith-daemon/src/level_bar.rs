@@ -93,7 +93,9 @@ mod tests {
         draw(&mut full, Some(100), false);
         let blue = |image: &[u8]| {
             image
-                .chunks_exact(3)
+                .as_chunks::<3>()
+                .0
+                .iter()
                 .filter(|p| p[2] > 150 && p[2] > p[0])
                 .count()
         };

@@ -374,7 +374,7 @@ pub fn badge(rgb: &mut [u8], failed: bool) {
 }
 
 pub fn key_failure(rgb: &mut [u8], notice: &Notice) {
-    for pixel in rgb.chunks_exact_mut(3) {
+    for pixel in rgb.as_chunks_mut::<3>().0 {
         pixel.copy_from_slice(&[24, 27, 32]);
     }
     let target: String = notice.target_name.chars().take(24).collect();

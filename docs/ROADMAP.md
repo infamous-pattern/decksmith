@@ -346,8 +346,25 @@ startup; per-device preferences and deployed rollback still need integration.
 The [session-foundation checkpoint](checkpoints/2026-10-12-device-session-foundation.md)
 records stable-ID/ambiguity rules, fair polling, independent reconnect/page state
 and stale-input/feedback fences. It is not wired to the production daemon.
+The [shared-action checkpoint](checkpoints/2026-10-13-shared-action-foundation.md)
+adds pure scheduling/target reservations, device-specific microphone leases and
+instance-safe feedback. Native helper/guardian execution, canonical target
+compilation and live device-addressed integration remain required before activation.
 The user confirmed that MK.2
 starts with its own default pages, independent of the existing Plus layout.
+
+The [shared-worker bridge](checkpoints/2026-10-13-shared-worker-bridge.md)
+adds a bounded off-HID executor pool, immutable compiled payloads, per-write and
+consumer scope checks, and a dormant named-volume/output-mute native adapter.
+Controlled backends qualify ordering, concurrency, cancellation and failure
+isolation. Production dispatch, microphone guardians, aliases/app targets,
+shared observation and physical acceptance remain unfinished.
+
+The [shared-microphone guardian](checkpoints/2026-10-13-shared-microphone-guardian.md)
+connects shared hold leases to bounded per-microphone guardians with independent
+watchdogs, acknowledged mute, failure isolation and consumed recovery presses.
+Its controlled/pipe/helper checks do not access real audio. Production routing,
+canonical targets, persistent associations and physical PTT acceptance remain open.
 
 Proceed in small slices: (1) model descriptors and Plus/MK.2 VirtualDeck fixtures;
 (2) model-aware layouts, stable action identities and migration/rollback;

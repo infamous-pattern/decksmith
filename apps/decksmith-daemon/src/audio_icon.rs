@@ -185,7 +185,7 @@ pub fn draw_styled(
         ..Default::default()
     };
     if let Some(rgba) = application_rgba.filter(|v| v.len() == 32 * 32 * 4) {
-        for (index, color) in rgba.chunks_exact(4).enumerate() {
+        for (index, color) in rgba.as_chunks::<4>().0.iter().enumerate() {
             let alpha = u16::from(color[3]);
             pixels.pixels_mut()[(index / 32 + 2) * 200 + index % 32 + 3] =
                 tiny_skia::PremultipliedColorU8::from_rgba(
@@ -264,7 +264,7 @@ mod tests {
             [0; 3],
             None,
         );
-        assert!(rgb.chunks_exact(3).any(|p| p == [0, 255, 0]));
+        assert!(rgb.as_chunks::<3>().0.contains(&[0, 255, 0]));
         let custom = [255, 0, 0, 255].repeat(32 * 32);
         let mut rgb = vec![0; 200 * 100 * 3];
         draw_styled(
@@ -277,7 +277,7 @@ mod tests {
             Some(&custom),
         );
         assert_eq!(&rgb[(2 * 200 + 3) * 3..(2 * 200 + 3) * 3 + 3], &[255, 0, 0]);
-        assert!(!rgb.chunks_exact(3).any(|p| p == [0, 255, 0]));
+        assert!(!rgb.as_chunks::<3>().0.contains(&[0, 255, 0]));
     }
     #[test]
     fn symbols_are_distinct_and_mute_is_reversible() {
@@ -296,7 +296,7 @@ mod tests {
             let mut muted = [30, 34, 39].repeat(200 * 100);
             draw(&mut muted, kind, true, true);
             assert_ne!(normal, muted);
-            assert!(muted.chunks_exact(3).any(|p| p == [255, 75, 85]));
+            assert!(muted.as_chunks::<3>().0.contains(&[255, 75, 85]));
             assert_eq!(
                 &muted[(50 * 200 + 1) * 3..(50 * 200 + 1) * 3 + 3],
                 &[30, 34, 39]

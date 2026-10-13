@@ -34,6 +34,10 @@ mod resume;
 mod runtime_paths;
 #[cfg(any(feature = "hardware", test))]
 mod session_lock;
+#[cfg(any(feature = "hardware", test))]
+pub mod shared_microphone;
+#[cfg(any(feature = "hardware", test))]
+pub mod shared_worker;
 mod system_actions;
 mod theme;
 #[cfg(any(feature = "hardware", test))]

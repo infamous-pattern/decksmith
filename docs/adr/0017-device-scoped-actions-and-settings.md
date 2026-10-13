@@ -18,6 +18,10 @@ The [session-foundation checkpoint](../checkpoints/2026-10-12-device-session-fou
 adds a bounded private registry codec and supplied-adapter manager seam with
 independent context/fault/page state and fair polling. It passes simulation only;
 the production single-Plus worker and shared services are not replaced.
+The next [shared-action slice](../checkpoints/2026-10-13-shared-action-foundation.md)
+adds pure bounded dispatch and microphone lease/desired-state coordination. Its
+native worker/guardian adapters and device-addressed execution remain unfinished;
+simulation does not establish real audio or physical pair acceptance.
 
 This review defines the next implementation slices. It does not change the
 installed daemon, saved layouts or hardware support claims. The user confirmed
@@ -281,3 +285,14 @@ claim numeric display-response or below-1% CPU qualification.
 - [Experimental plugin bridge](0016-plugin-native-review-bridge.md)
 - [Current V1.5 roadmap](../ROADMAP.md#v15-feature-plan--organized-october-8)
 - [Hardware acceptance matrix](../hardware-support-matrix.md)
+
+The [shared-worker bridge](../checkpoints/2026-10-13-shared-worker-bridge.md)
+is the subsequent host slice: bounded concurrent executors and a named native
+audio adapter, still dormant in production. Write-boundary fencing and source
+feedback are tested with controlled backends; shared guardian and resolver
+integration remain required before enabling multi-device execution.
+
+The [shared-microphone guardian](../checkpoints/2026-10-13-shared-microphone-guardian.md)
+adds the subsequent dormant native bridge. One guardian serves all holds for the
+same named microphone, and writer retirement precedes replacement. Production
+bindings, target resolution and physical audio acceptance remain required.

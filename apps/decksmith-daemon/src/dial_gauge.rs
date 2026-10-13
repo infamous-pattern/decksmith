@@ -204,7 +204,12 @@ mod tests {
             draw_signal(&mut image, Some(value), false);
             assert_eq!(&image[..35 * 600], &background[..35 * 600]);
             assert_eq!(&image[94 * 600..], &background[94 * 600..]);
-            for row in image.chunks_exact(600).zip(background.chunks_exact(600)) {
+            for row in image
+                .as_chunks::<600>()
+                .0
+                .iter()
+                .zip(background.as_chunks::<600>().0.iter())
+            {
                 assert_eq!(&row.0[119 * 3..], &row.1[119 * 3..]);
             }
         }
