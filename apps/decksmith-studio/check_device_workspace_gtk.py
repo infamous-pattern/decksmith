@@ -15,6 +15,16 @@ for _ in range(60):
         if service.poll() is not None:raise RuntimeError('Workspace fixture stopped')
         time.sleep(.1)
 else:raise RuntimeError('Workspace fixture unavailable')
+# A duplicate must neither replace this endpoint nor touch its new destination.
+owner=json.loads(transport('ListDevices')[0])['runtime'];other=Path(tmp.name)/'second-store'
+second=subprocess.Popen([str(binary),'--device-workspace',str(other),'--run'],stdout=log,stderr=subprocess.STDOUT)
+try:
+    try:second.wait(timeout=5)
+    except subprocess.TimeoutExpired:raise RuntimeError('Duplicate workspace process stayed running')
+    assert second.returncode!=0 and not other.exists(),'Duplicate workspace touched a store'
+    assert json.loads(transport('ListDevices')[0])['runtime']==owner,'Duplicate replaced the original endpoint'
+finally:
+    if second.poll() is None:second.terminate();second.wait(timeout=5)
 app=DeviceWorkspace();state={'phase':0};errors=[];deadline=time.monotonic()+60
 
 def shot(ed,name):
@@ -55,6 +65,19 @@ def exercise():
             if any(f is None for f in ed.key_preview.frames) or ed.key_preview.rendered!=ed.key_preview.revision:return True
             assert len(ed.key_preview.frames)==15 and all(len(f)==72*72*3 for f in ed.key_preview.frames)
             if not shot(ed,'workspace-mk2'):return True
+            import concurrent.futures
+            raw=json.dumps(json.loads(transport('GetProfile',GLib.Variant('(s)',(state['mk2'],)))[0])['layout'])
+            def preview_request(_):
+                try:
+                    frame=transport('Preview',GLib.Variant('(ssyb)',(state['mk2'],raw,0,False)))
+                    assert len(frame)==15*72*72*3
+                    return 'complete'
+                except Exception as e:
+                    if 'LimitsExceeded' in str(e) and 'queue full' in str(e).lower():return 'bounded_busy'
+                    raise
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:replies=list(pool.map(preview_request,range(48)))
+            assert replies.count('complete')>0
+            state['pressure']={'requests':48,'completed':replies.count('complete'),'bounded_busy':replies.count('bounded_busy')}
             app.choose(state['plus']);state['phase']=5
         elif phase==5:
             assert ed is state['editor'] and ed.draft is state['plus_draft'] and ed.draft.dirty
@@ -67,7 +90,7 @@ def exercise():
             snapshot=json.loads(transport('ListDevices')[0]);assert all(not s['connected'] for s in snapshot['sessions'])
             if any(f is None for f in ed.key_preview.frames) or ed.key_preview.rendered!=ed.key_preview.revision:return True
             if not shot(ed,'workspace-plus'):return True
-            (out/'native-device-workspace-result.json').write_text(json.dumps({'status':'passed','checks':['explicit_initial_enrollment','prepared_plus_import','mk2_own_defaults','live_enrollment_keeps_draft','single_editor','stable_window_size','offline_save','device_addressed_saves','retained_home_draft','model_geometry','read_only_discovery_status','actions_disabled'],'physical_hid':False,'real_audio_access':False})+'\n')
+            (out/'native-device-workspace-result.json').write_text(json.dumps({'status':'passed','checks':['duplicate_service_refused_before_store_creation','explicit_initial_enrollment','prepared_plus_import','mk2_own_defaults','live_enrollment_keeps_draft','single_editor','stable_window_size','offline_save','concurrent_previews_bounded_without_timeout','device_addressed_saves','retained_home_draft','model_geometry','read_only_discovery_status','actions_disabled'],'pressure':state['pressure'],'physical_hid':False,'real_audio_access':False})+'\n')
             state['phase']=7;app.quit();return False
         return True
     except Exception as e:errors.append(str(e));traceback.print_exc();app.quit();return False

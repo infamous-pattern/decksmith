@@ -28,7 +28,9 @@ The separate session-bus endpoint `cc.senecal.Decksmith.ProfileLab`, at
 Each mutation token contains a random startup identity, profile revision and
 connection/binding generations. A previous process, old connection or stale draft
 cannot become a new write merely because its device ID is still present. A queue
-of eight requests bounds work. A timed-out request is explicitly uncertain:
+of eight requests bounds work. Bus handlers await asynchronous replies rather than
+blocking their executor; each reply channel is bounded to one result. Endpoint
+replacement is explicitly disabled. A timed-out request is explicitly uncertain:
 reload before deciding whether to retry. Cancellation skips work still queued;
 it does not claim to undo an already started filesystem/display operation.
 

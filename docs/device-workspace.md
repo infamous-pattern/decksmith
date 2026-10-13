@@ -71,7 +71,8 @@ serials or paths are returned. `actions_available` is false. A detected unit is
 not advertised as connected/ready without an owned adapter. Discovery runs once
 per five seconds, independently of UI activity, and refreshes before enrollment.
 Its revision changes when availability, identity or snapshot order changes;
-requests from an older process or snapshot are rejected. Slots never become
+requests from an older process or snapshot are rejected. Bus-name replacement
+is explicitly disabled; duplicate services fail before touching a store. Slots never become
 persistent identities. Explicit enrollment merges one new profile without
 rebuilding other devices' state. The device limit remains eight; discovered
 candidates remain bounded to sixteen.
@@ -83,8 +84,9 @@ is accidentally attached. Read-only previews reuse the accepted model renderer
 and bounded cache. Queue size, request limits, timeout uncertainty and verified
 history behavior match the [profile lab](profile-editor-lab.md).
 
-Disk publication and preview rendering run on this endpoint's serialized service
-thread; GUI requests use the editor's request worker. There is no physical input
+Bus handlers await bounded asynchronous replies, avoiding executor starvation
+under concurrent requests. Disk publication and preview rendering run on this
+endpoint's serialized service thread; GUI requests use the editor's request worker. There is no physical input
 loop to stall in this slice. Move persistent writes, previews and physical display
 work off the input path before combining it with live sessions. Initial roster and
 status reads still use the inherited synchronous lab reads; move those to bounded
@@ -110,3 +112,5 @@ Before activation, complete shared action target resolution/execution, microphon
 holds, live audio feedback, lock/suspend integration, asynchronous display/disk
 scheduling, migration/recovery policy and paired lifecycle/resource acceptance.
 The existing production `--config ... --exclusive --run` path is unchanged.
+
+Further [restart and concurrent-request qualification](checkpoints/2026-10-13-device-workspace-hardening.md) covers endpoint ownership, bounded busy responses and cancellation.

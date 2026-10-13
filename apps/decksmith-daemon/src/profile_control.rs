@@ -436,14 +436,21 @@ enum Reply {
 struct Request {
     operation: Operation,
     cancelled: Arc<AtomicBool>,
-    answer: SyncSender<Result<Reply>>,
+    answer: async_channel::Sender<Result<Reply>>,
 }
 struct Api {
     queue: SyncSender<Request>,
 }
 impl Api {
-    fn send(&self, operation: Operation) -> zbus::fdo::Result<Reply> {
-        let (answer, receive) = mpsc::sync_channel(1);
+    async fn send(&self, operation: Operation) -> zbus::fdo::Result<Reply> {
+        self.send_until(operation, Duration::from_secs(5)).await
+    }
+    async fn send_until(
+        &self,
+        operation: Operation,
+        deadline: Duration,
+    ) -> zbus::fdo::Result<Reply> {
+        let (answer, receive) = async_channel::bounded(1);
         let cancelled = Arc::new(AtomicBool::new(false));
         self.queue
             .try_send(Request {
@@ -452,7 +459,15 @@ impl Api {
                 answer,
             })
             .map_err(|_| zbus::fdo::Error::LimitsExceeded("Profile queue full".into()))?;
-        match receive.recv_timeout(Duration::from_secs(5)) {
+        // Waiting must yield to the zbus executor, which also transmits replies.
+        // Blocking recv_timeout here can starve concurrent D-Bus calls.
+        let reply =
+            futures_lite::future::or(async { receive.recv().await.map_err(|_| ()) }, async {
+                async_io::Timer::after(deadline).await;
+                Err(())
+            })
+            .await;
+        match reply {
             Ok(value) => value.map_err(|e| zbus::fdo::Error::Failed(e.into())),
             Err(_) => {
                 cancelled.store(true, Ordering::Release);
@@ -462,8 +477,8 @@ impl Api {
             }
         }
     }
-    fn text(&self, op: Operation) -> zbus::fdo::Result<String> {
-        match self.send(op)? {
+    async fn text(&self, op: Operation) -> zbus::fdo::Result<String> {
+        match self.send(op).await? {
             Reply::Text(s) => Ok(s),
             _ => Err(zbus::fdo::Error::Failed("invalid_reply".into())),
         }
@@ -480,16 +495,16 @@ fn token(raw: &str) -> zbus::fdo::Result<Token> {
 }
 #[zbus::interface(name = "cc.senecal.Decksmith.ProfileLab2")]
 impl Api {
-    fn list_devices(&self) -> zbus::fdo::Result<String> {
-        self.text(Operation::Devices)
+    async fn list_devices(&self) -> zbus::fdo::Result<String> {
+        self.text(Operation::Devices).await
     }
-    fn get_profile(&self, device: &str) -> zbus::fdo::Result<String> {
-        self.text(Operation::Profile(id(device)?))
+    async fn get_profile(&self, device: &str) -> zbus::fdo::Result<String> {
+        self.text(Operation::Profile(id(device)?)).await
     }
-    fn archive_history(&self, generation: u64) -> zbus::fdo::Result<String> {
-        self.text(Operation::Archive(generation))
+    async fn archive_history(&self, generation: u64) -> zbus::fdo::Result<String> {
+        self.text(Operation::Archive(generation)).await
     }
-    fn save_metadata(
+    async fn save_metadata(
         &self,
         device: &str,
         revision: &str,
@@ -507,11 +522,12 @@ impl Api {
             name.into(),
             brightness,
         ))
+        .await
     }
-    fn select_device(&self, device: &str, generation: u64) -> zbus::fdo::Result<String> {
-        self.text(Operation::Select(id(device)?, generation))
+    async fn select_device(&self, device: &str, generation: u64) -> zbus::fdo::Result<String> {
+        self.text(Operation::Select(id(device)?, generation)).await
     }
-    fn save_profile(
+    async fn save_profile(
         &self,
         device: &str,
         revision: &str,
@@ -533,11 +549,13 @@ impl Api {
             name.into(),
             brightness,
         ))
+        .await
     }
-    fn show_page(&self, device: &str, revision: &str, page: u8) -> zbus::fdo::Result<String> {
+    async fn show_page(&self, device: &str, revision: &str, page: u8) -> zbus::fdo::Result<String> {
         self.text(Operation::Page(id(device)?, token(revision)?, page))
+            .await
     }
-    fn preview(
+    async fn preview(
         &self,
         device: &str,
         layout: &str,
@@ -547,7 +565,10 @@ impl Api {
         if layout.len() > LIMIT {
             return Err(zbus::fdo::Error::InvalidArgs("layout_too_large".into()));
         }
-        match self.send(Operation::Preview(id(device)?, layout.into(), page, touch))? {
+        match self
+            .send(Operation::Preview(id(device)?, layout.into(), page, touch))
+            .await?
+        {
             Reply::Bytes(b) => Ok(b),
             _ => Err(zbus::fdo::Error::Failed("invalid_reply".into())),
         }
@@ -556,25 +577,27 @@ impl Api {
 struct WorkspaceApi(Api);
 #[zbus::interface(name = "cc.senecal.Decksmith.DeviceWorkspace2")]
 impl WorkspaceApi {
-    fn list_devices(&self) -> zbus::fdo::Result<String> {
-        self.0.list_devices()
+    async fn list_devices(&self) -> zbus::fdo::Result<String> {
+        self.0.list_devices().await
     }
-    fn get_profile(&self, device: &str) -> zbus::fdo::Result<String> {
-        self.0.get_profile(device)
+    async fn get_profile(&self, device: &str) -> zbus::fdo::Result<String> {
+        self.0.get_profile(device).await
     }
-    fn select_device(&self, device: &str, generation: u64) -> zbus::fdo::Result<String> {
-        self.0.select_device(device, generation)
+    async fn select_device(&self, device: &str, generation: u64) -> zbus::fdo::Result<String> {
+        self.0.select_device(device, generation).await
     }
-    fn save_metadata(
+    async fn save_metadata(
         &self,
         device: &str,
         revision: &str,
         name: &str,
         brightness: u8,
     ) -> zbus::fdo::Result<String> {
-        self.0.save_metadata(device, revision, name, brightness)
+        self.0
+            .save_metadata(device, revision, name, brightness)
+            .await
     }
-    fn save_profile(
+    async fn save_profile(
         &self,
         device: &str,
         revision: &str,
@@ -585,24 +608,25 @@ impl WorkspaceApi {
     ) -> zbus::fdo::Result<String> {
         self.0
             .save_profile(device, revision, layout, page, name, brightness)
+            .await
     }
-    fn show_page(&self, device: &str, revision: &str, page: u8) -> zbus::fdo::Result<String> {
-        self.0.show_page(device, revision, page)
+    async fn show_page(&self, device: &str, revision: &str, page: u8) -> zbus::fdo::Result<String> {
+        self.0.show_page(device, revision, page).await
     }
-    fn preview(
+    async fn preview(
         &self,
         device: &str,
         layout: &str,
         page: u8,
         touch: bool,
     ) -> zbus::fdo::Result<Vec<u8>> {
-        self.0.preview(device, layout, page, touch)
+        self.0.preview(device, layout, page, touch).await
     }
-    fn archive_history(&self, generation: u64) -> zbus::fdo::Result<String> {
-        self.0.archive_history(generation)
+    async fn archive_history(&self, generation: u64) -> zbus::fdo::Result<String> {
+        self.0.archive_history(generation).await
     }
     #[allow(clippy::too_many_arguments)]
-    fn enroll_device(
+    async fn enroll_device(
         &self,
         runtime: &str,
         discovery: u64,
@@ -617,15 +641,17 @@ impl WorkspaceApi {
                 "profile_request_too_large".into(),
             ));
         }
-        self.0.text(Operation::Enroll(
-            id(runtime)?,
-            discovery,
-            generation,
-            slot,
-            name.into(),
-            brightness,
-            import_plus,
-        ))
+        self.0
+            .text(Operation::Enroll(
+                id(runtime)?,
+                discovery,
+                generation,
+                slot,
+                name.into(),
+                brightness,
+                import_plus,
+            ))
+            .await
     }
 }
 fn execute(host: &mut Host, op: Operation) -> Result<Reply> {
@@ -697,6 +723,8 @@ pub fn lab(args: &[String]) -> Result<()> {
     let (queue, incoming) = mpsc::sync_channel::<Request>(8);
     let connection = zbus::blocking::connection::Builder::session()
         .map_err(|_| "bus_unavailable")?
+        .allow_name_replacements(false)
+        .replace_existing_names(false)
         .name("cc.senecal.Decksmith.ProfileLab")
         .map_err(|_| "bus_name_failed")?
         .serve_at("/cc/senecal/Decksmith/ProfileLab", Api { queue })
@@ -755,6 +783,8 @@ pub fn workspace(args: &[String]) -> Result<()> {
     let (queue, incoming) = mpsc::sync_channel::<Request>(8);
     let connection = zbus::blocking::connection::Builder::session()
         .map_err(|_| "bus_unavailable")?
+        .allow_name_replacements(false)
+        .replace_existing_names(false)
         .name("cc.senecal.Decksmith.DeviceWorkspace")
         .map_err(|_| "bus_name_failed")?
         .serve_at(
@@ -880,6 +910,8 @@ pub fn workspace_lab(args: &[String]) -> Result<()> {
     let (queue, incoming) = mpsc::sync_channel::<Request>(8);
     let connection = zbus::blocking::connection::Builder::session()
         .map_err(|_| "bus_unavailable")?
+        .allow_name_replacements(false)
+        .replace_existing_names(false)
         .name("cc.senecal.Decksmith.DeviceWorkspace")
         .map_err(|_| "bus_name_failed")?
         .serve_at(
@@ -1025,6 +1057,54 @@ mod tests {
             .map(|i| deck.key_image(i).unwrap().to_vec())
             .chain(std::iter::once(deck.touch_image().to_vec()))
             .collect()
+    }
+    #[test]
+    fn profile_reply_wait_yields_and_queue_and_timeout_stay_bounded() {
+        futures_lite::future::block_on(async {
+            let (queue, incoming) = mpsc::sync_channel(8);
+            let api = Api { queue };
+            let mut waiting = std::pin::pin!(api.send(Operation::Devices));
+            // A D-Bus handler must yield before its service replies; it cannot
+            // block the same executor that has to transmit that reply.
+            assert!(
+                futures_lite::future::poll_once(&mut waiting)
+                    .await
+                    .is_none()
+            );
+            let request = incoming.try_recv().unwrap();
+            request
+                .answer
+                .try_send(Ok(Reply::Text("ready".into())))
+                .unwrap();
+            assert!(matches!(waiting.await, Ok(Reply::Text(s)) if s == "ready"));
+            assert!(
+                api.send_until(Operation::Devices, Duration::ZERO)
+                    .await
+                    .is_err()
+            );
+            let expired = incoming.try_recv().unwrap();
+            assert!(expired.cancelled.load(Ordering::Acquire));
+            assert!(
+                expired
+                    .answer
+                    .try_send(Ok(Reply::Text("late".into())))
+                    .is_err()
+            );
+            for _ in 0..8 {
+                let (answer, _) = async_channel::bounded(1);
+                api.queue
+                    .try_send(Request {
+                        operation: Operation::Devices,
+                        cancelled: Arc::new(AtomicBool::new(false)),
+                        answer,
+                    })
+                    .unwrap();
+            }
+            assert!(matches!(
+                api.send(Operation::Devices).await,
+                Err(zbus::fdo::Error::LimitsExceeded(_))
+            ));
+        });
     }
     fn saved_workspace() -> (std::path::PathBuf, Host) {
         let root = std::env::temp_dir().join(format!(

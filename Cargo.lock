@@ -318,8 +318,11 @@ dependencies = [
 name = "decksmithd"
 version = "1.0.0"
 dependencies = [
+ "async-channel",
+ "async-io",
  "decksmith-core",
  "decksmith-device",
+ "futures-lite",
  "image",
  "libc",
  "serde",

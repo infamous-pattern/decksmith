@@ -1189,7 +1189,10 @@ Plus import retains the original V1 document; MK.2 has its own defaults. Offline
 saves and selection preserve other drafts, and status separates detection from
 physical readiness. This endpoint can coexist with V1 and does not claim HID or
 execute actions. Shared backends, live lock/feedback/display scheduling and physical
-production qualification are still required before activation.
+production qualification are still required before activation. The subsequent
+[restart/pressure checks](checkpoints/2026-10-13-device-workspace-hardening.md) fixed
+endpoint replacement and bus reply starvation; twenty restarts and bounded
+concurrent requests now pass. The eight-device five-minute stress also passed.
 
 **V1.5 release requirement — confirmed October 9:** deliver simultaneous device
 control, initially qualified with Stream Deck + and the user's incoming MK.2.
