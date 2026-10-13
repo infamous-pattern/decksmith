@@ -55,6 +55,7 @@ class Editor(Adw.ApplicationWindow):
         self.close_after_save=False
         super().__init__(application=owner, transient_for=owner.window, modal=not integrated, title='Decksmith' if integrated else 'Edit layout')
         self.owner, self.call = owner, call
+        self.key_count=8;self.key_pixels=120;self.device_model="plus"
         self.draft = None
         self.page = self.key = 0
         self.control_kind="key"
@@ -83,7 +84,7 @@ class Editor(Adw.ApplicationWindow):
         self.set_size_request(900,540)
         self.connect('close-request', self.close_requested)
         toolbar = Adw.ToolbarView()
-        header = Adw.HeaderBar()
+        self.header=header = Adw.HeaderBar()
         self.save_button = Gtk.Button(label='Save and Apply')
         self.save_button.add_css_class('suggested-action')
         self.save_button.connect('clicked', self.save)
@@ -170,7 +171,7 @@ class Editor(Adw.ApplicationWindow):
         self.device_preview=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=16)
         self.device_preview.add_css_class('device-preview')
         left.append(self.device_preview)
-        brand=Gtk.Label(label='DECKSMITH  +',halign=Gtk.Align.CENTER)
+        self.device_brand=brand=Gtk.Label(label='DECKSMITH  +',halign=Gtk.Align.CENTER)
         brand.add_css_class('device-brand');self.device_preview.append(brand)
         self.grid = Gtk.Grid(column_spacing=28, row_spacing=18, column_homogeneous=True, row_homogeneous=True)
         self.grid.set_valign(Gtk.Align.START)
@@ -178,7 +179,7 @@ class Editor(Adw.ApplicationWindow):
         self.keys = []
         self.key_sources = []
         self.key_targets = []
-        for index in range(8):
+        for index in range(15 if getattr(call,"device_model",None)=="mk2" else 8):
             button = KeyPreviewButton()
             button.add_css_class('deck-key')
             button.add_css_class(f'key-slot-{index}')
@@ -207,7 +208,7 @@ class Editor(Adw.ApplicationWindow):
         strip=Gtk.Grid(column_spacing=0,column_homogeneous=True)
         self.touch_preview.add_css_class("device-strip")
         strip.add_css_class("touch-hit-regions")
-        dial_row=Gtk.Grid(column_spacing=20,column_homogeneous=True)
+        self.dial_row=dial_row=Gtk.Grid(column_spacing=20,column_homogeneous=True)
         dial_row.add_css_class("device-dials")
         for index in range(4):
             touch=Gtk.Button();touch.set_size_request(0,52)
@@ -366,6 +367,7 @@ class Editor(Adw.ApplicationWindow):
     def load_layout(self):
         try:return json.loads(self.call('GetLayout')[0]),json.loads(self.call('GetStatus')[0])
         except Exception:
+            if getattr(self.call,'device_scoped',False):raise
             from pathlib import Path
             import os
             base=Path(os.environ.get('XDG_CONFIG_HOME',str(Path.home()/'.config')))/'decksmith'
@@ -423,8 +425,25 @@ class Editor(Adw.ApplicationWindow):
             return False
         future.add_done_callback(lambda _future: GLib.idle_add(finish))
 
+    def configure_device_model(self,layout):
+        model=layout.get('model','plus')
+        if model not in ('plus','mk2'):raise ValueError('Unsupported device model.')
+        count,columns,pixels=(15,5,72) if model=='mk2' else (8,4,120)
+        # Lab selection constructs an editor for the destination model and
+        # retains independent drafts; geometry can never silently truncate keys.
+        if count!=len(self.keys):raise ValueError('Editor geometry does not match the selected device.')
+        self.key_count=count;self.key_pixels=pixels;self.device_model=model
+        for index,button in enumerate(self.keys):
+            self.grid.remove(button);self.grid.attach(button,index%columns,index//columns,1,1)
+            button.preview_size=84 if model=='mk2' else 102
+        self.device_brand.set_text('DECKSMITH  MK.2' if model=='mk2' else 'DECKSMITH  +')
+        self.grid.set_column_spacing(16 if model=='mk2' else 28)
+        for widget in (self.touch_preview,self.dial_row,self.touch_preview.note):widget.set_visible(model=='plus')
+        self.key_preview.configure(count,pixels)
+
     def loaded(self, data):
         layout, status = data
+        self.configure_device_model(layout)
         self.draft = Draft(layout)
         for page in self.draft.data['pages']:
             for key in page['keys']:
@@ -435,7 +454,7 @@ class Editor(Adw.ApplicationWindow):
         if isinstance(page, int) and 0 <= page < len(layout['pages']):
             self.page = self.device_page = page
         # Measure both forms from the first frame, including the first dial click.
-        if self.dial_controls is None:
+        if self.dial_controls is None and self.device_model=="plus":
             from dials import DialControls
             self.dial_controls=DialControls(self,embedded=True)
             self.properties.add_named(self.dial_controls,'dial')
@@ -699,7 +718,7 @@ class Editor(Adw.ApplicationWindow):
             button.set_tooltip_text(f"Key {index+1}: {key['label']}")
             (button.add_css_class if self.control_kind=='key' and index==self.key else button.remove_css_class)('selected-key')
         from dials import effective,is_override
-        for index,dial in enumerate(effective(self.draft.data,self.page)):
+        for index,dial in enumerate(effective(self.draft.data,self.page) if self.device_model=="plus" else []):
             self.touch_buttons[index].update_property([Gtk.AccessibleProperty.LABEL],[f"Dial {index+1}: {dial['label']}"])
             for button in (self.touch_buttons[index],self.dial_buttons[index]):
                 button.set_tooltip_text(f"Dial {index+1}: {dial['label']} · "+("This page" if is_override(self.draft.data,self.page,index) else "Shared settings"))
@@ -725,7 +744,7 @@ class Editor(Adw.ApplicationWindow):
             self.layout_valid=True
             self.validation_error=None
             payload=json.dumps(self.draft.data)
-            self.touch_preview.request(payload,self.page)
+            if self.device_model=="plus":self.touch_preview.request(payload,self.page)
             self.key_preview.request(payload,self.page)
             self.save_button.set_sensitive(self.draft.dirty)
             self.save_button.set_tooltip_text(None if self.draft.dirty else "No changes to save. Copy a key, then paste it into a destination to change the layout.")
@@ -851,7 +870,7 @@ class Editor(Adw.ApplicationWindow):
         self.select_dial(index)
 
     def select_dial(self,index):
-        if self.draft is None or self.pending:return
+        if self.device_model!="plus" or self.draft is None or self.pending:return
         from dials import DialControls,effective
         self.control_kind='dial';self.dial_index=index
         if self.dial_controls is None:

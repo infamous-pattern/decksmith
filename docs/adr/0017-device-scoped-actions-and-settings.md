@@ -301,3 +301,9 @@ The [saved-profile slice](../checkpoints/2026-10-13-saved-device-profiles.md)
 adds explicit private persistence, independent edit revisions and cached
 model-aware routing. The current manager is constructed from an explicitly loaded
 catalog; live enrollment/API/editor/retention remain activation gates.
+
+The [editor/rendering checkpoint](../checkpoints/2026-10-13-profile-editor-rendering.md)
+and [lab](../profile-editor-lab.md) now joins saved profiles,
+retained native drafts, model-sized previews and scoped writes to a supplied
+VirtualDeck pair. Normal startup still uses Control1. Retention, production
+workspace/backend integration and physical qualification remain activation gates.

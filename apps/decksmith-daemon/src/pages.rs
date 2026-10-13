@@ -870,6 +870,23 @@ impl Pages {
         if config.version != 1 {
             return Err("layout_requires_device_api");
         }
+        Self::from_config(config)
+    }
+    // Device-addressed renderer only; legacy Control1 keeps rejecting V2.
+    pub(crate) fn model_renderer(
+        bytes: &[u8],
+        model: decksmith_core::device_model::DeviceModel,
+    ) -> Result<Self, &'static str> {
+        let config = Config::parse(bytes)?;
+        if config.version != 2 {
+            return Err("profile_requires_v2");
+        }
+        if config.model() != model {
+            return Err("layout_model_mismatch");
+        }
+        Self::from_config(config)
+    }
+    fn from_config(config: Config) -> Result<Self, &'static str> {
         let default_page = config.pages.iter().position(|p| p.default).unwrap() as u8;
         let logo = if config
             .pages

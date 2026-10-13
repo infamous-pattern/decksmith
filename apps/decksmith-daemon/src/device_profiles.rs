@@ -597,6 +597,14 @@ impl Controls {
         self.manager
             .brightness(context.device, context.binding, percent)
     }
+    pub fn paint(
+        &mut self,
+        context: DeviceContext,
+        keys: &[u8],
+        touch: Option<&[u8]>,
+    ) -> Result<()> {
+        self.manager.paint(context, keys, touch)
+    }
     pub fn stop(&mut self) -> Vec<DeviceId> {
         self.manager.stop()
     }

@@ -69,11 +69,13 @@ fences only its owner; lock/suspend gates still fence both. Reconnect retains pa
 brightness and association, and rejects old connection contexts. Public summaries
 omit serials, preference values, layouts and settings.
 
-This is cached action resolution/local manager routing, not a new public bus API
-or authorization layer. Dispatching these results to shared audio/microphone/media/
+This store and control cache now also feed the explicit
+[device-addressed editor/rendering lab](profile-editor-lab.md). Its separate test
+endpoint and supplied VirtualDeck pair never activate on normal startup. Production
+bus integration and authorization still require review. Dispatching these results to shared audio/microphone/media/
 plugin services, runtime nonce/press generation, canonical targets, dynamic live
-enrollment, editor drafts/device selection, rendering and MK.2 HID ownership still
-need integration. Replacing a manager/service must quiesce old writers and fence
+enrollment, production editor/device selection, asynchronous rendering and MK.2 HID
+ownership still need integration. Replacing a manager/service must quiesce old writers and fence
 all old contexts; do not rebuild it merely to add a newly enrolled device.
 
 See [device sessions](device-sessions.md), [layout formats](layout-models.md),

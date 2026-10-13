@@ -112,7 +112,7 @@ class Draft:
         names = {page['name'] for page in pages}
         name = next(f'PAGE {chr(65+n)}' for n in range(26) if f'PAGE {chr(65+n)}' not in names)
         pages.append({'name': name, 'background': [30, 34, 39], 'keys': [
-            {'label': 'EMPTY', 'action': {'type': 'none'}} for _ in range(8)]})
+            {'label': 'EMPTY', 'action': {'type': 'none'}} for _ in range(15 if self.data.get("model")=="mk2" else 8)]})
         self.origins.append(None)
         return len(pages) - 1
 
@@ -198,6 +198,9 @@ class Draft:
                     key['label'] = name
 
     def validate(self):
+        if self.data.get('version')==2:
+            from layout_package import _model
+            _model(self.data)
         from text_labels import valid_label
         from plugin_bindings import validate as validate_plugin
         for page in self.data['pages']:

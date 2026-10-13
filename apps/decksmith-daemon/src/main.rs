@@ -30,6 +30,8 @@ mod pages;
 mod plugin_binding;
 mod plugin_runtime;
 #[cfg(any(feature = "hardware", test))]
+mod profile_control;
+#[cfg(any(feature = "hardware", test))]
 mod ptt;
 #[cfg(any(feature = "hardware", test))]
 mod resume;
@@ -70,6 +72,14 @@ fn main() {
         .with_ansi(false)
         .init();
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    #[cfg(feature = "hardware")]
+    if args.first().is_some_and(|a| a == "--profile-lab") {
+        if let Err(code) = profile_control::lab(&args) {
+            eprintln!("{code}");
+            std::process::exit(1);
+        }
+        return;
+    }
     #[cfg(feature = "hardware")]
     if let Some(result) = layout_store::request(&args) {
         match result {

@@ -1160,6 +1160,14 @@ loaded resource use before release.
 
 ### Simultaneous multiple-device support — clarified September 13
 
+**October 13 integration checkpoint:** the explicit
+[editor/rendering lab](profile-editor-lab.md) connects the saved-profile store to
+independent native drafts, selection, revision-fenced saves and Plus/MK.2
+model-sized VirtualDeck rendering. This isolated slice does not enable public
+multi-device support. Retention, production workspace/backend wiring, physical
+HID and pair/resource qualification remain required.
+
+
 **V1.5 release requirement — confirmed October 9:** deliver simultaneous device
 control, initially qualified with Stream Deck + and the user's incoming MK.2.
 This supersedes the earlier separately scoped multi-device milestone. Complete

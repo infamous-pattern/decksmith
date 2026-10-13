@@ -344,6 +344,46 @@ impl DeviceManager {
         }
         Ok(())
     }
+    /// Apply a pre-rendered model-sized frame to one exact connection/binding.
+    /// Validate every surface before the first write. On transport failure,
+    /// attempt a full blank of this owner and close only its adapter.
+    pub fn paint(
+        &mut self,
+        context: DeviceContext,
+        keys: &[u8],
+        touch: Option<&[u8]>,
+    ) -> Result<()> {
+        if !self.current(&context) {
+            return Err("stale_device_context");
+        }
+        let s = self.session_mut(context.device)?;
+        let descriptor = decksmith_core::device_model::DeviceDescriptor::for_model(s.model);
+        if keys.len() != descriptor.key_rgb_bytes() * usize::from(descriptor.key_count())
+            || match (descriptor.capabilities().touch, touch) {
+                (Some(surface), Some(bytes)) => bytes.len() != surface.rgb_bytes(),
+                (None, None) => false,
+                _ => true,
+            }
+        {
+            return Err("invalid_device_frame");
+        }
+        let device = s.device.as_mut().ok_or("device_not_ready")?;
+        let result = (|| {
+            for (index, frame) in keys.chunks_exact(descriptor.key_rgb_bytes()).enumerate() {
+                device.set_key_image(index as u8, frame)?;
+            }
+            if let Some(frame) = touch {
+                device.set_touch_image(frame)?;
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            let _ = device.blank();
+            s.failed(error);
+            return Err("device_frame_failed");
+        }
+        Ok(())
+    }
     /// Shared desktop gate, independent physical drains on both edges. Nothing
     /// automatically unlocks a session or replays held/queued input.
     pub fn gate(&mut self, locked: bool, suspended: bool) -> Result<()> {
