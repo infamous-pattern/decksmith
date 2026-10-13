@@ -253,6 +253,34 @@ impl Registry {
         self.revision = revision;
         Ok(())
     }
+    /// Metadata changes retain the exact physical association and stable ID.
+    pub fn update(
+        &mut self,
+        expected: u64,
+        id: DeviceId,
+        name: &str,
+        brightness: u8,
+    ) -> Result<()> {
+        if expected != self.revision {
+            return Err("stale_registry_revision");
+        }
+        if !valid_name(name) || brightness > 100 {
+            return Err("invalid_device_record");
+        }
+        let index = self
+            .records
+            .iter()
+            .position(|r| r.id == id)
+            .ok_or("unknown_device")?;
+        let revision = self
+            .revision
+            .checked_add(1)
+            .ok_or("registry_revision_exhausted")?;
+        self.records[index].name = name.into();
+        self.records[index].brightness = brightness;
+        self.revision = revision;
+        Ok(())
+    }
     pub fn decode(bytes: &[u8]) -> Result<Self> {
         if bytes.len() > REGISTRY_BYTES {
             return Err("device_registry_too_large");

@@ -10,6 +10,8 @@ mod audio_target;
 mod audio_worker;
 #[cfg(any(feature = "hardware", test))]
 mod control;
+#[cfg(any(feature = "hardware", test))]
+pub mod device_profiles;
 mod dial_gauge;
 #[cfg(any(feature = "hardware", test))]
 mod display;

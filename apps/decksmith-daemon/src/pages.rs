@@ -319,7 +319,235 @@ impl Default for Pages {
             .expect("bundled configuration is valid")
     }
 }
+pub(crate) struct ModelControls {
+    model: DeviceModel,
+    pages: Vec<ControlPage>,
+    audio_dial: bool,
+    default_page: u8,
+}
+struct ControlPage {
+    keys: Vec<Action>,
+    dials: Option<[DialControl; 4]>,
+}
+struct DialControl {
+    press: Action,
+    rotation: Rotation,
+    step: u8,
+    target: Option<String>,
+    plugin: Option<crate::plugin_binding::Binding>,
+    tap: bool,
+}
+impl ModelControls {
+    pub(crate) fn topology(&self) -> (u8, u8) {
+        (self.pages.len() as u8, self.default_page)
+    }
+    /// Manager-confirmed edges only. It arms/releases controls and fences held
+    /// input; this immutable table never invents a fresh press from an editor click.
+    pub(crate) fn resolve(&self, page: u8, event: &RawEvent) -> Option<Action> {
+        if !decksmith_core::device_model::DeviceDescriptor::for_model(self.model)
+            .supports(event.control())
+        {
+            return None;
+        }
+        if let RawEvent::Touch { x, y, gesture } = event {
+            let touch = decksmith_core::device_model::DeviceDescriptor::for_model(self.model)
+                .capabilities()
+                .touch?;
+            if *x >= touch.pixels.0 || *y >= touch.pixels.1 || !touch.supports(gesture) {
+                return None;
+            }
+        }
+        let row = self.pages.get(usize::from(page))?;
+        let pressed = |action: &Action, down: bool| {
+            if !down || matches!(action, Action::PushToTalk { .. }) {
+                Some(action.clone())
+            } else {
+                None
+            }
+        };
+        let action = match event {
+            RawEvent::Key {
+                index,
+                pressed: down,
+            } => pressed(row.keys.get(usize::from(*index))?, *down),
+            RawEvent::DialPush {
+                index,
+                pressed: down,
+            } => {
+                if let Some(dials) = &row.dials {
+                    pressed(&dials.get(usize::from(*index))?.press, *down)
+                } else if self.audio_dial && *index == 0 {
+                    pressed(&Action::MuteToggle, *down)
+                } else {
+                    None
+                }
+            }
+            RawEvent::DialRotate { index, ticks } if *ticks != 0 => {
+                if let Some(dials) = &row.dials {
+                    let d = dials.get(usize::from(*index))?;
+                    let percent = ticks.saturating_mul(i16::from(d.step)).clamp(-20, 20);
+                    if let Some(b) = &d.plugin {
+                        b.supported(true).then(|| Action::Plugin {
+                            binding: b.clone(),
+                            ticks: percent,
+                        })
+                    } else {
+                        match d.rotation {
+                            Rotation::None => None,
+                            Rotation::Brightness => Some(Action::BrightnessAdjust { percent }),
+                            Rotation::Volume => Some(d.target.as_ref().map_or(
+                                Action::VolumeAdjust { percent },
+                                |target| Action::AudioAdjust {
+                                    target: target.clone(),
+                                    percent,
+                                },
+                            )),
+                        }
+                    }
+                } else if self.audio_dial && *index == 0 {
+                    Some(Action::VolumeAdjust {
+                        percent: (*ticks).clamp(-20, 20),
+                    })
+                } else {
+                    None
+                }
+            }
+            RawEvent::Touch {
+                x,
+                y,
+                gesture: TouchGesture::Tap,
+            } if *x < 800 && *y < 100 => {
+                let n = usize::from(*x / 200);
+                if let Some(dials) = &row.dials {
+                    let d = &dials[n];
+                    if d.tap {
+                        Some(d.target.as_ref().map_or(Action::MuteToggle, |target| {
+                            Action::AudioMute {
+                                target: target.clone(),
+                            }
+                        }))
+                    } else {
+                        None
+                    }
+                } else if self.audio_dial && n == 0 {
+                    Some(Action::MuteToggle)
+                } else {
+                    None
+                }
+            }
+            RawEvent::Touch {
+                gesture: TouchGesture::FlickLeft,
+                ..
+            } => Some(Action::NextPage),
+            RawEvent::Touch {
+                gesture: TouchGesture::FlickRight,
+                ..
+            } => Some(Action::PreviousPage),
+            _ => None,
+        }?;
+        let count = self.pages.len() as u8;
+        let action = match action {
+            Action::NextPage => Action::GoToPage {
+                page: (page + 1) % count,
+            },
+            Action::PreviousPage => Action::GoToPage {
+                page: (page + count - 1) % count,
+            },
+            action => action,
+        };
+        if matches!(action, Action::None)
+            || matches!(action,Action::GoToPage { page:target } if target==page)
+        {
+            None
+        } else {
+            Some(action)
+        }
+    }
+}
+
 impl Config {
+    pub(crate) fn topology(&self) -> (u8, u8) {
+        (
+            self.pages.len() as u8,
+            self.pages.iter().position(|p| p.default).unwrap_or(0) as u8,
+        )
+    }
+    /// Cache only action settings/topology, not decoded artwork, for model-aware
+    /// routing. The legacy Plus renderer and Control1 retain their current path.
+    pub(crate) fn model_controls(&self) -> ModelControls {
+        let resolved = Pages::resolve_dials(self);
+        let pages = self
+            .pages
+            .iter()
+            .enumerate()
+            .map(|(page_index, page)| {
+                let keys = page
+                    .keys
+                    .iter()
+                    .map(|key| {
+                        key.plugin.as_ref().map_or_else(
+                            || media_target(key.action.clone(), key.media_player.as_deref()),
+                            |binding| {
+                                if binding.supported(false) {
+                                    Action::Plugin {
+                                        binding: binding.clone(),
+                                        ticks: 0,
+                                    }
+                                } else {
+                                    Action::None
+                                }
+                            },
+                        )
+                    })
+                    .collect();
+                let dials = resolved[page_index].as_ref().map(|dials| {
+                    std::array::from_fn(|n| {
+                        let dial = &dials[n];
+                        let press = dial.plugin_press.as_ref().map_or_else(
+                            || {
+                                if matches!(dial.press, Action::MuteToggle) {
+                                    dial.audio_target.as_ref().map_or(Action::MuteToggle, |t| {
+                                        Action::AudioMute { target: t.clone() }
+                                    })
+                                } else {
+                                    media_target(dial.press.clone(), dial.media_player.as_deref())
+                                }
+                            },
+                            |b| {
+                                if b.supported(false) {
+                                    Action::Plugin {
+                                        binding: b.clone(),
+                                        ticks: 0,
+                                    }
+                                } else {
+                                    Action::None
+                                }
+                            },
+                        );
+                        DialControl {
+                            press,
+                            rotation: dial.rotation,
+                            step: dial.step,
+                            target: dial.audio_target.clone(),
+                            plugin: dial.plugin_rotation.clone(),
+                            tap: matches!(dial.rotation, Rotation::Volume)
+                                || matches!(
+                                    dial.press,
+                                    Action::MuteToggle | Action::PushToTalk { .. }
+                                ),
+                        }
+                    })
+                });
+                ControlPage { keys, dials }
+            })
+            .collect();
+        ModelControls {
+            model: self.model(),
+            pages,
+            audio_dial: self.audio_dial,
+            default_page: self.topology().1,
+        }
+    }
     pub(crate) fn version(&self) -> u8 {
         self.version
     }

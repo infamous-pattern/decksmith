@@ -8,6 +8,7 @@ pub struct Document {
     bytes: Box<[u8]>,
     model: DeviceModel,
     version: u8,
+    topology: (u8, u8),
 }
 
 impl Document {
@@ -17,6 +18,7 @@ impl Document {
             bytes: bytes.into(),
             model: config.model(),
             version: config.version(),
+            topology: config.topology(),
         })
     }
     pub fn bytes(&self) -> &[u8] {
@@ -64,6 +66,9 @@ impl Document {
             include_bytes!("../../../config/mk2-default.json"),
             DeviceModel::Mk2,
         )
+    }
+    pub fn topology(&self) -> (u8, u8) {
+        self.topology
     }
     pub fn bindings(&self) -> Result<Vec<Binding>, &'static str> {
         Config::parse(&self.bytes)?.bindings()

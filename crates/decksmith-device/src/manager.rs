@@ -187,6 +187,9 @@ impl DeviceManager {
             .find(|s| s.id == id)
             .ok_or("unknown_device")
     }
+    pub fn active_page(&self, id: DeviceId) -> Result<u8> {
+        self.session(id)?.page.ok_or("device_layout_unassigned")
+    }
     pub fn statuses(&self) -> Vec<SessionStatus> {
         self.sessions
             .iter()
@@ -318,6 +321,28 @@ impl DeviceManager {
         s.binding = revision;
         s.fence();
         Ok(revision)
+    }
+    /// Device-addressed brightness. Keep the latest desired value for this
+    /// unit's reconnect, with no global/default-device fallback.
+    pub fn brightness(&mut self, id: DeviceId, expected: u64, percent: u8) -> Result<()> {
+        if self.locked || self.suspended {
+            return Err("devices_blocked");
+        }
+        if percent > 100 {
+            return Err("invalid_brightness");
+        }
+        let s = self.session_mut(id)?;
+        if expected != s.binding {
+            return Err("stale_binding_revision");
+        }
+        s.brightness = percent;
+        if let Some(device) = &mut s.device
+            && let Err(error) = device.set_brightness(percent)
+        {
+            s.failed(error);
+            return Err("device_brightness_failed");
+        }
+        Ok(())
     }
     /// Shared desktop gate, independent physical drains on both edges. Nothing
     /// automatically unlocks a session or replays held/queued input.

@@ -296,3 +296,8 @@ The [shared-microphone guardian](../checkpoints/2026-10-13-shared-microphone-gua
 adds the subsequent dormant native bridge. One guardian serves all holds for the
 same named microphone, and writer retirement precedes replacement. Production
 bindings, target resolution and physical audio acceptance remain required.
+
+The [saved-profile slice](../checkpoints/2026-10-13-saved-device-profiles.md)
+adds explicit private persistence, independent edit revisions and cached
+model-aware routing. The current manager is constructed from an explicitly loaded
+catalog; live enrollment/API/editor/retention remain activation gates.

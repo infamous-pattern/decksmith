@@ -25,14 +25,14 @@ fn io<T>(result: std::io::Result<T>) -> Result<T> {
 fn own(meta: &fs::Metadata) -> bool {
     meta.uid() == unsafe { libc::geteuid() } && meta.mode() & 0o022 == 0
 }
-fn directory(path: &Path) -> Result<()> {
+pub(crate) fn directory(path: &Path) -> Result<()> {
     let meta = io(fs::symlink_metadata(path))?;
     if !meta.is_dir() || !own(&meta) {
         return Err("unsafe_layout_directory");
     }
     Ok(())
 }
-fn read(path: &Path, limit: usize) -> Result<Vec<u8>> {
+pub(crate) fn read(path: &Path, limit: usize) -> Result<Vec<u8>> {
     let mut file = io(OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
@@ -48,13 +48,13 @@ fn read(path: &Path, limit: usize) -> Result<Vec<u8>> {
     }
     Ok(bytes)
 }
-fn mkdir(path: &Path) -> Result<()> {
+pub(crate) fn mkdir(path: &Path) -> Result<()> {
     io(fs::DirBuilder::new().mode(0o700).create(path))
 }
-fn sync(path: &Path) -> Result<()> {
+pub(crate) fn sync(path: &Path) -> Result<()> {
     io(io(File::open(path))?.sync_all())
 }
-fn write(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn write(path: &Path, bytes: &[u8]) -> Result<()> {
     let mut file = io(OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -170,9 +170,9 @@ struct Store {
 }
 /// Explicit unlock prevents an unrelated fork/duplicated descriptor from
 /// retaining this file-description lock after the writer's own fd is dropped.
-struct WriterLock(File);
+pub(crate) struct WriterLock(File);
 impl WriterLock {
-    fn acquire(file: File) -> Result<Self> {
+    pub(crate) fn acquire(file: File) -> Result<Self> {
         file.try_lock().map_err(|_| "layout_store_busy")?;
         Ok(Self(file))
     }

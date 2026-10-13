@@ -366,6 +366,13 @@ watchdogs, acknowledged mute, failure isolation and consumed recovery presses.
 Its controlled/pipe/helper checks do not access real audio. Production routing,
 canonical targets, persistent associations and physical PTT acceptance remain open.
 
+The [saved-profile checkpoint](checkpoints/2026-10-13-saved-device-profiles.md)
+connects explicit private identity/profile generations and per-device cached
+control tables to supplied-adapter sessions. Independent saves, recovery,
+all fifteen MK.2 addresses, page/brightness isolation and Plus behavior parity
+are fixture-qualified. Live API/editor/rendering, bounded retention, hot enrollment,
+backend routing and physical acceptance remain required before activation.
+
 Proceed in small slices: (1) model descriptors and Plus/MK.2 VirtualDeck fixtures;
 (2) model-aware layouts, stable action identities and migration/rollback;
 (3) device manager, device-addressed dispatch/API and shared audio/PTT services;
