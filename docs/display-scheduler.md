@@ -49,3 +49,12 @@ The 60-second capture exited successfully with 6 page requests,
 action failures or disconnects were recorded. The final display-settled event
 provides USB completion evidence; visual appearance is a separate user check.
 Raw logs remain ignored under local/display-scheduler-live.jsonl.
+
+## V1.5 independent-output development path
+
+The [connected device runtime](device-execution.md) now supplies independent
+model-aware I/O owners with latest desired/sent slots and separate render owners.
+This removes USB/encoding waits from its coordinator and other Decks; it retains
+queued versus written status and explicit input-drain fences. The production V1
+scheduler above remains unchanged. Native activation and paired resource/lifecycle
+acceptance are still required.

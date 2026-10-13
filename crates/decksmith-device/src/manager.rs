@@ -56,6 +56,9 @@ impl Session {
     fn fence(&mut self) {
         self.armed.clear();
         self.draining = true;
+        if let Some(device) = &mut self.device {
+            device.invalidate_outputs();
+        }
     }
     fn failed(&mut self, error: DeviceError) {
         self.device = None;
@@ -119,6 +122,7 @@ pub struct SessionStatus {
     pub model: DeviceModel,
     pub connected: bool,
     pub input_ready: bool,
+    pub display_ready: bool,
     pub connection: u64,
     pub binding: u64,
     pub page: Option<u8>,
@@ -197,7 +201,9 @@ impl DeviceManager {
                 id: s.id,
                 model: s.model,
                 connected: s.device.is_some(),
+                display_ready: s.device.as_ref().is_some_and(|d| d.display_ready()),
                 input_ready: s.device.is_some()
+                    && s.device.as_ref().is_some_and(|d| d.display_ready())
                     && !s.draining
                     && !self.locked
                     && !self.suspended
@@ -375,6 +381,19 @@ impl DeviceManager {
         s.fence();
         Ok(revision)
     }
+    /// Preserve the page while fencing held/queued inputs and pending output.
+    pub fn invalidate_binding(&mut self, id: DeviceId, expected: u64) -> Result<u64> {
+        let s = self.session_mut(id)?;
+        if s.binding != expected {
+            return Err("stale_binding_revision");
+        }
+        s.binding = s
+            .binding
+            .checked_add(1)
+            .ok_or("binding_revision_exhausted")?;
+        s.fence();
+        Ok(s.binding)
+    }
     pub fn page(&mut self, id: DeviceId, expected: u64, page: u8) -> Result<u64> {
         if self.locked || self.suspended {
             return Err("devices_blocked");
@@ -444,15 +463,7 @@ impl DeviceManager {
             return Err("invalid_device_frame");
         }
         let device = s.device.as_mut().ok_or("device_not_ready")?;
-        let result = (|| {
-            for (index, frame) in keys.chunks_exact(descriptor.key_rgb_bytes()).enumerate() {
-                device.set_key_image(index as u8, frame)?;
-            }
-            if let Some(frame) = touch {
-                device.set_touch_image(frame)?;
-            }
-            Ok(())
-        })();
+        let result = device.queue_frame(keys, touch);
         if let Err(error) = result {
             let _ = device.blank();
             s.failed(error);
@@ -517,13 +528,17 @@ impl DeviceManager {
                 };
                 let polled = device.poll_event_nonblocking();
                 let received_at = device.event_received_at();
+                let input_drained = device.input_drained();
+                let display_ready = device.display_ready();
                 match polled {
                     Err(error) => {
                         s.failed(error);
                         break;
                     }
                     Ok(None) => {
-                        s.draining = false;
+                        if input_drained {
+                            s.draining = false;
+                        }
                         break;
                     }
                     Ok(Some(input)) => {
@@ -531,7 +546,12 @@ impl DeviceManager {
                             s.failed(DeviceError::InvalidReport);
                             break;
                         }
-                        if s.accept(&input, blocked || s.draining) {
+                        let hidden = matches!(
+                            input.event,
+                            RawEvent::Key { pressed: true, .. }
+                                | RawEvent::DialPush { pressed: true, .. }
+                        ) && !display_ready;
+                        if s.accept(&input, blocked || s.draining || hidden) {
                             output.push(ReceivedInput {
                                 context: DeviceContext {
                                     supervisor: self.epoch,
@@ -574,6 +594,32 @@ impl DeviceManager {
             .as_mut()
             .ok_or("device_not_ready")?
             .set_key_image(index, frame)
+        {
+            s.failed(error);
+            return Err("device_write_failed");
+        }
+        Ok(())
+    }
+    pub fn write_touch(&mut self, context: &DeviceContext, bytes: &[u8]) -> Result<()> {
+        if !self.current(context) {
+            return Err("stale_device_context");
+        }
+        if context.control != ControlAddress::Touch {
+            return Err("invalid_control");
+        }
+        let s = self.session_mut(context.device)?;
+        let surface = decksmith_core::device_model::DeviceDescriptor::for_model(s.model)
+            .capabilities()
+            .touch
+            .ok_or("device_has_no_touch")?;
+        if bytes.len() != surface.rgb_bytes() {
+            return Err("invalid_touch_image");
+        }
+        if let Err(error) = s
+            .device
+            .as_mut()
+            .ok_or("device_not_ready")?
+            .set_touch_image(bytes)
         {
             s.failed(error);
             return Err("device_write_failed");

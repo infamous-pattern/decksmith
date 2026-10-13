@@ -3,6 +3,7 @@ use decksmith_core::device_model::{ControlAddress, DeviceDescriptor, DeviceModel
 use decksmith_core::{Geometry, InputEvent, RawEvent};
 use std::collections::VecDeque;
 
+pub mod actor;
 pub mod manager;
 pub mod registry;
 
@@ -94,6 +95,36 @@ pub trait DeckDevice {
     fn set_input_diagnostics(&mut self, _enabled: bool) {}
     fn input_counts(&self) -> Option<InputCounts> {
         None
+    }
+    /// Queue a complete validated frame atomically when the adapter supports it.
+    /// Synchronous adapters retain the existing all-surface write behavior.
+    fn queue_frame(&mut self, keys: &[u8], touch: Option<&[u8]>) -> Result<(), DeviceError> {
+        let descriptor = self.descriptor();
+        if keys.len() != descriptor.key_rgb_bytes() * usize::from(descriptor.key_count())
+            || match (descriptor.capabilities().touch, touch) {
+                (Some(t), Some(b)) => t.rgb_bytes() != b.len(),
+                (None, None) => false,
+                _ => true,
+            }
+        {
+            return Err(DeviceError::InvalidKeyImage);
+        }
+        for (i, b) in keys.chunks_exact(descriptor.key_rgb_bytes()).enumerate() {
+            self.set_key_image(i as u8, b)?;
+        }
+        if let Some(b) = touch {
+            self.set_touch_image(b)?;
+        }
+        Ok(())
+    }
+    /// Fence pending adapter output and require a new actual input-drain probe.
+    fn invalidate_outputs(&mut self) {}
+    fn input_drained(&self) -> bool {
+        true
+    }
+    /// Accepted/queued output is distinct from successfully transmitted output.
+    fn display_ready(&self) -> bool {
+        true
     }
     /// Clear all display surfaces without changing the saved brightness.
     /// Attempt every surface even when a previous write fails.

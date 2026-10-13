@@ -94,3 +94,7 @@ Before production integration, complete:
 See [ADR-0017](adr/0017-device-scoped-actions-and-settings.md),
 [layout models](layout-models.md) and the
 [session checkpoint](checkpoints/2026-10-12-device-session-foundation.md).
+
+The [connected supplied-adapter runtime](device-execution.md) now exercises the
+manager with shared effects and independent output owners. Its activation limits
+and qualification are separate from the existing V1 daemon path.

@@ -121,6 +121,9 @@ impl Service {
             thread: Some(thread),
         })
     }
+    pub fn held(&self) -> usize {
+        self.shared.state.lock().unwrap().holds.held()
+    }
     pub fn acquire(&self, token: HoldToken, target: Microphone) -> Result<()> {
         let mut state = self.shared.state.lock().unwrap();
         if state.stopped {

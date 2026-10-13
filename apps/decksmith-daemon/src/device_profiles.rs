@@ -72,6 +72,9 @@ impl Catalog {
             selected: None,
         }
     }
+    pub(crate) fn same_associations(&self, other: &Self) -> bool {
+        self.registry.same_associations(&other.registry)
+    }
     pub fn profile(&self, id: DeviceId) -> Result<&Profile> {
         self.profiles.get(&id).ok_or("device_profile_missing")
     }
@@ -940,6 +943,9 @@ impl Controls {
         self.manager
             .brightness(context.device, context.binding, percent)
     }
+    pub fn paint_touch(&mut self, context: DeviceContext, frame: &[u8]) -> Result<()> {
+        self.manager.write_touch(&context, frame)
+    }
     pub fn paint_key(&mut self, context: DeviceContext, frame: &[u8]) -> Result<()> {
         self.manager.write_key(&context, frame)
     }
@@ -1002,6 +1008,9 @@ impl Controls {
             return Err("workspace_device_is_live");
         }
         self.manager.page(id, expected, page)
+    }
+    pub fn fence_input(&mut self, id: DeviceId, binding: u64) -> Result<u64> {
+        self.manager.invalidate_binding(id, binding)
     }
     pub fn navigate(&mut self, context: DeviceContext, page: u8) -> Result<u64> {
         if !self.manager.current(&context) {

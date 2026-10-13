@@ -173,6 +173,15 @@ pub struct Summary<'a> {
     pub brightness: u8,
 }
 impl Registry {
+    /// Compare private associations without exposing them or comparing editable
+    /// names/brightness. Live execution cannot adopt a reassigned identity.
+    pub fn same_associations(&self, other: &Self) -> bool {
+        self.records.len() == other.records.len()
+            && self
+                .records
+                .iter()
+                .all(|r| other.get(r.id).is_some_and(|o| r.same_identity(o)))
+    }
     pub fn revision(&self) -> u64 {
         self.revision
     }

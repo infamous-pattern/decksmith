@@ -68,10 +68,21 @@ impl Renderer {
         Ok(keys)
     }
     pub(crate) fn frame(&mut self, page: u8, brightness: u8) -> Result<Frame> {
-        let state = TouchState {
-            brightness: Some(brightness),
-            ..Default::default()
-        };
+        self.frame_state(
+            page,
+            TouchState {
+                brightness: Some(brightness),
+                ..Default::default()
+            },
+        )
+    }
+    pub(crate) fn touch_frame(&mut self, page: u8, state: TouchState) -> Result<Vec<u8>> {
+        if self.descriptor.capabilities().touch.is_none() {
+            return Err("device_has_no_touch");
+        }
+        self.pages.preview_touch(page, state)
+    }
+    pub(crate) fn frame_state(&mut self, page: u8, state: TouchState) -> Result<Frame> {
         let keys = self.keys(page, state.clone())?;
         let touch = if self.descriptor.capabilities().touch.is_some() {
             Some(self.pages.preview_touch(page, state)?)

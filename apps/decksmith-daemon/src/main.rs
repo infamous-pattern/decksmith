@@ -11,10 +11,16 @@ mod audio_worker;
 #[cfg(any(feature = "hardware", test))]
 mod control;
 #[cfg(any(feature = "hardware", test))]
+mod device_execution;
+#[cfg(any(feature = "hardware", test))]
 pub mod device_profiles;
+#[cfg(any(feature = "hardware", test))]
+mod device_render;
 mod dial_gauge;
 #[cfg(any(feature = "hardware", test))]
 mod display;
+#[cfg(any(feature = "hardware", test))]
+mod execution_lab;
 mod feedback;
 #[cfg(any(feature = "hardware", test))]
 mod foreground;
@@ -74,6 +80,14 @@ fn main() {
         .with_ansi(false)
         .init();
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    #[cfg(feature = "hardware")]
+    if args.first().is_some_and(|a| a == "--execution-lab") {
+        if let Err(code) = execution_lab::run(&args) {
+            eprintln!("{code}");
+            std::process::exit(1);
+        }
+        return;
+    }
     #[cfg(feature = "hardware")]
     if args.first().is_some_and(|a| a == "--workspace-lab") {
         if let Err(code) = profile_control::workspace_lab(&args) {

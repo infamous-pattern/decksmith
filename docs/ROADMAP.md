@@ -1194,6 +1194,14 @@ production qualification are still required before activation. The subsequent
 endpoint replacement and bus reply starvation; twenty restarts and bounded
 concurrent requests now pass. The eight-device five-minute stress also passed.
 
+**October 13 connected-execution checkpoint:** the supplied-adapter
+[execution runtime](device-execution.md) now routes cached model-specific input to
+shared action/microphone workers and per-device render/I/O owners. Context fences
+cancel stale effects/feedback, same-target writes retain serialization, microphone
+holds expire when their I/O owner stalls, and metering can update only the Plus
+strip. Native provider resolution, live API/startup/roster integration and physical
+paired qualification remain activation gates; installed V1 stays unchanged.
+
 **V1.5 release requirement — confirmed October 9:** deliver simultaneous device
 control, initially qualified with Stream Deck + and the user's incoming MK.2.
 This supersedes the earlier separately scoped multi-device milestone. Complete
