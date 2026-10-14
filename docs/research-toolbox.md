@@ -3,6 +3,42 @@
 Added October 11, 2026. These are optional development tools, separate from
 Decksmith's application, daemon, installer and release dependencies.
 
+## Impeccable — design guidance adopted October 14
+
+[Impeccable](https://github.com/pbakaus/impeccable), reviewed at commit
+`2f98774f86bc05563876643db37e6c37c322850f`, is an approved part of Decksmith's
+development toolbox for design-review guidance. Its Apache-2.0 repository includes
+audit, polish, clarity and hardening
+procedures. Source and third-party notices were inspected; no installer, binary,
+hook or bundled skill was installed or executed during this review.
+
+Use its principles to review task clarity, consistent spacing, long labels and
+localization expansion, empty/unavailable states, focus, contrast and image
+handling. Preserve Decksmith's accepted navigation/layout and GNOME theme. For
+native editor reviews, adapt these checks to GTK/libadwaita, Orca, keyboard
+navigation and real window sizes; validate actual behavior rather than treating
+a source scan as acceptance.
+
+Its deterministic/browser tools are aimed at web interfaces. The supplied native
+audit is for iOS/Android/adaptive mobile apps, with no GTK/GNOME reference, so
+neither path qualifies our desktop application directly. Web examples, custom
+font/color advice, motion recommendations and mobile target sizes are not
+automatic requirements for Decksmith. Browser tooling may be useful separately
+for the optional plugin web panel and HTML mock-ups after a bounded trial.
+
+The user approved using these ideas throughout the project on October 14. For
+interface changes, identify the user's task and required states, review hierarchy
+and wording, then check the real interface at representative window sizes with
+long labels, keyboard navigation, Orca and light/dark GNOME themes. Prioritize
+task-blocking or confusing behavior over decoration; verify performance changes
+with measurements. Apply this process to the V1.5 device chooser and independent
+device status, and to later editor and plugin-panel work.
+
+Keep the reference outside runtime/release dependencies. A full installation or
+hook trial is a separate decision; adopting its guidance does not add automatic
+code-edit hooks or a new UI framework. No performance or design-quality
+improvement is claimed from adoption alone.
+
 ## Choose the simplest source of evidence
 
 Start with official Elgato HID/SDK documentation, saved test profiles and observed

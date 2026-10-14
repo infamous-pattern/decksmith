@@ -9,6 +9,8 @@ mod audio_target;
 #[cfg(any(feature = "hardware", test))]
 mod audio_worker;
 #[cfg(any(feature = "hardware", test))]
+mod connected_physical_lab;
+#[cfg(any(feature = "hardware", test))]
 mod control;
 #[cfg(any(feature = "hardware", test))]
 mod device_execution;
@@ -80,6 +82,17 @@ fn main() {
         .with_ansi(false)
         .init();
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    #[cfg(feature = "hardware")]
+    if args
+        .first()
+        .is_some_and(|a| a == "--connected-physical-lab")
+    {
+        if let Err(code) = connected_physical_lab::run(&args) {
+            eprintln!("{code}");
+            std::process::exit(1);
+        }
+        return;
+    }
     #[cfg(feature = "hardware")]
     if args.first().is_some_and(|a| a == "--execution-lab") {
         if let Err(code) = execution_lab::run(&args) {

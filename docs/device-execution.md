@@ -110,3 +110,13 @@ migration, then repeat physical paired lifecycle/response/resource acceptance.
 Do not switch an installed V1 service to this path yet.
 
 The [October 13 qualification checkpoint](checkpoints/2026-10-13-connected-execution.md) records the final immutable source and observed limits.
+
+## Physical diagnostic acceptance — October 14
+
+The opt-in `--connected-physical-lab` command now supplies actual Plus/MK.2 HID
+adapters to this runtime, with memory-only shared level/mute effects. Timed tests
+verified device-tagged shared replies, independent pages/brightness, partner
+progress through disconnection in both directions, reconnect, and joined blanking.
+An external timeout/restore guard returned the original V1 service/configuration
+after each window. These tests do not qualify native action providers or real
+lock/suspend startup. See the [physical checkpoint](checkpoints/2026-10-14-connected-physical.md).

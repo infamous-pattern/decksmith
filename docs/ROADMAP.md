@@ -1,9 +1,31 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 13, 2026. The v0.4 product
+This is the implementation roadmap, updated October 14, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
+
+## Next session — Wednesday, October 14
+
+1. **Impeccable guidance adopted.** The user approved retaining
+   [Impeccable](https://github.com/pbakaus/impeccable) in the project toolbox and
+   using its design ideas
+   for clarity, spacing, long labels, unavailable states and accessibility. Its
+   web detector and mobile native audit do not directly qualify GTK/libadwaita.
+   Preserve the accepted layout, GNOME theme and performance budget; no tools or
+   hooks were installed. See the [toolbox assessment](research-toolbox.md).
+2. **Resume multi-device integration and testing.** Continue from the
+   [connected execution checkpoint](checkpoints/2026-10-13-connected-execution.md):
+   connect the remaining native action providers and feedback, then qualify the
+   new pipeline on the physical Plus and MK.2 before changing the daily build.
+
+**October 14 physical diagnostic checkpoint:** the new connected runtime passed
+two timed Plus/MK.2 hardware windows using a shared simulated level/mute target.
+Both devices supplied successful shared actions, pages/brightness stayed
+independent, each partner remained available through the other's disconnect,
+and both reconnected. Joined blanking and automatic V1/config/page restoration
+passed. Full native providers, API/editor, lock/suspend lifecycle, migration and
+resource gates remain. See the [qualification and limits](checkpoints/2026-10-14-connected-physical.md).
 
 ## Next work priorities — Monday, October 12
 
