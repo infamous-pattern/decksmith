@@ -3,6 +3,19 @@ from unittest.mock import patch
 import audio_meter as m
 
 class MeterTests(unittest.TestCase):
+    def test_shared_budget_deduplicates_valid_targets_and_preserves_v1_limit(self):
+        targets=['output:'+str(i) for i in range(32)]
+        self.assertEqual(len(m.checked_targets(targets,True)),32)
+        self.assertEqual(m.checked_targets(['system','system','default_output']),['default_output','system'])
+        for targets,shared in [(targets,False),(targets+['system'],True),(['app:bad=x'],True),('system',True)]:
+            with self.assertRaises(ValueError):m.checked_targets(targets,shared)
+    def test_shared_stream_budget_retains_whole_app_and_deduplicates_aliases(self):
+        keys=[('out',i) for i in range(64)]
+        mapping={'app:a':keys[:16],'app:b':keys[16:32],'app:c':keys[32:48],'app:d':keys[48:],'app:e':keys[:16],'app:z':[('out',64),keys[0]]}
+        result=m.bounded_mapping(mapping)
+        self.assertEqual(result['app:e'],keys[:16])
+        self.assertEqual(result['app:z'],[])
+        self.assertEqual(len({key for values in result.values() for key in values}),64)
     def test_mainloop_drains_pending_work_without_empty_busy_polling(self):
         from unittest.mock import Mock
         pulse=object.__new__(m.Pulse);pulse.loop=1;pulse.ctx=2;pulse.state=Mock(return_value=4)

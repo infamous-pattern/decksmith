@@ -152,3 +152,31 @@ and another Deck's media pins remain unchanged. Isolated GTK/VirtualDeck checks
 exercise provider changes and partner progress during delayed saves. Production
 activation and the expanded physical/lifecycle/resource checks remain. See the
 [live editor boundary and recovery limits](checkpoints/2026-10-14-live-profile-editor.md).
+
+## Meters from active saved assignments
+
+The connected runtime now derives one shared peak subscription from connected
+touch-capable devices' current saved pages, including dial overrides. It deduplicates
+targets, expires stale epochs and filters levels back to each device before marking
+only the touch strip dirty. MK.2 keys and inactive/offline pages request no peaks.
+Target-union changes restart the helper off the coordinator and may briefly leave
+retained meters unavailable. The prior stream bound is retained; empty subscriptions
+sleep. This replaces the trial's single fixed output meter, without changing the
+installed V1 service. See the [meter checkpoint and physical gates](checkpoints/2026-10-14-saved-active-meters.md).
+
+## Native microphone ownership
+
+The opt-in saved native path connects named input mute and PTT to the same bounded
+owner. Explicit Mute consumes all current holds; the last release always mutes.
+Ordinary unmute is a separate scoped transaction that persists only after a host
+commit. Private retained source/server pins survive helper retries, with no default
+or replacement fallback. A joined microphone shutdown precedes caller restoration.
+An isolated native PipeWire fixture qualifies the actual helper and Rust owner.
+A guarded paired physical trial also passed hold overlap, Mute override, ordinary
+unmute, held-page cancellation and input meters, with exact native-state and V1
+restoration. A subsequent physical System sounds meter trial passed ordinary
+versus event-role isolation with exact state restoration. A later guarded paired
+held-device USB check passed cancellation, fresh-press recovery and surviving
+partner hold isolation. Paired lock/suspend/startup, migration and resource
+qualification remain before production activation. See the
+[mic checkpoint and limits](checkpoints/2026-10-14-native-shared-microphones.md).

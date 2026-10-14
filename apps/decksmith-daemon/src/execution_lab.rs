@@ -160,6 +160,7 @@ impl Guardian for Guard {
     fn poll(&mut self) -> Result<Observation> {
         let muted = self.muted.load(Ordering::Acquire);
         Ok(Observation {
+            committed: false,
             live: !muted,
             muted,
             exited: self.closed.then_some(true),

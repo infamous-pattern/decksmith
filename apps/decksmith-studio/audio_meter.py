@@ -2,7 +2,7 @@
 import ctypes as C
 import json, math, os, sys, time
 from concurrent.futures import ThreadPoolExecutor
-from audio_targets import Snapshot
+from audio_targets import Snapshot, validate
 
 class Spec(C.Structure):
     _fields_=[('format',C.c_int),('rate',C.c_uint32),('channels',C.c_uint8)]
@@ -127,21 +127,37 @@ def needs_restart(state,created,now):
 def correct_source(pulse,stream,key):
     return bool(stream and pulse.sstate(stream)==2 and pulse.source(stream)==key[0].encode())
 
-def run(targets):
+def checked_targets(targets,shared=False):
+    if not isinstance(targets,list) or len(targets)>(32 if shared else 4):raise ValueError('Meter target budget exceeded')
+    for target in targets:validate(target)
+    return sorted(set(targets))
+
+def bounded_mapping(mapping,limit=64):
+    # The prior four-dial path already permitted 4 × 16 app streams. Keep that
+    # same global bound when sharing across Decks; never show a partial app peak.
+    wanted=set();result={}
+    for target,keys in sorted(mapping.items()):
+        unique=set(keys)
+        if len(wanted|unique)>limit:result[target]=[];continue
+        wanted.update(unique);result[target]=keys
+    return result
+
+def run(targets,shared=False):
+    targets=checked_targets(targets,shared)
     from audio_inventory import Inventory
     inventory=Inventory()
-    try:run_with_inventory(targets,inventory)
+    try:run_with_inventory(targets,inventory,shared=shared)
     finally:inventory.close()
 
-def run_with_inventory(targets,inventory):
-    if len(targets)>4:raise ValueError('At most four dial targets')
+def run_with_inventory(targets,inventory,shared=False):
+    targets=checked_targets(targets,shared)
     os.environ["PULSE_SERVER"]="unix:"+os.environ.get("XDG_RUNTIME_DIR",f"/run/user/{os.getuid()}")+"/pulse/native"
     pulse=Pulse();streams={};mapping={};last={};smooth={};created={}
     pool=ThreadPoolExecutor(max_workers=1);future=None;refresh=0.;publish=0.
     while True:
         now=time.monotonic();pulse.tick()
         if future is not None and future.done():
-            mapping=future.result();future=None
+            mapping=bounded_mapping(future.result());future=None
             wanted={key for keys in mapping.values() for key in keys}
             for key in list(streams):
                 if key not in wanted:pulse.close(streams.pop(key));last.pop(key,None);created.pop(key,None)
@@ -165,9 +181,11 @@ def run_with_inventory(targets,inventory):
                 previous=smooth.get(target)
                 if level is not None and previous is not None:level=max(level,previous-12.5)
                 smooth[target]=level;output[target]=level
-            print(json.dumps(output),flush=True);publish=now+.05
+            print(json.dumps(output,ensure_ascii=False),flush=True);publish=now+.05
         time.sleep(.01)
 
 if __name__=='__main__':
-    try:run(json.loads(sys.argv[1]))
+    try:
+        if len(sys.argv) not in (2,3) or (len(sys.argv)==3 and sys.argv[2]!='--shared'):raise ValueError('Invalid meter arguments')
+        run(json.loads(sys.argv[1]),shared=len(sys.argv)==3)
     except (BrokenPipeError,KeyboardInterrupt):pass

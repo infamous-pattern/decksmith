@@ -4,7 +4,7 @@ use crate::shared_worker::Authority;
 use decksmith_core::{
     device_context::DeviceId,
     microphone_holds::{DesiredMic, HoldToken, MAX_TARGETS, MicUpdate, MicrophoneHolds},
-    shared_dispatch::TargetId,
+    shared_dispatch::{ActionScope, TargetId},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -22,7 +22,12 @@ const MAX_ATTEMPTS: u8 = 3;
 pub struct Microphone(TargetId);
 impl Microphone {
     pub fn named(target: &str) -> Result<Self> {
-        if !target.starts_with("input:") || !crate::audio_target::valid(target) {
+        if !target.starts_with("input:")
+            || !crate::audio_target::valid(target)
+            || target.strip_prefix("input:").is_some_and(|name| {
+                name.starts_with('@') || name.bytes().all(|b| b.is_ascii_digit())
+            })
+        {
             return Err("shared_mic_requires_named_input");
         }
         Ok(Self(TargetId::new(target)?))
@@ -33,6 +38,7 @@ pub struct Observation {
     pub live: bool,
     pub muted: bool,
     pub exited: Option<bool>,
+    pub committed: bool,
 }
 /// Trusted adapters: all methods are bounded/nonblocking except terminate,
 /// which must confirm owned writers ended. Never replace a still-running writer.
@@ -41,9 +47,20 @@ pub trait Guardian: Send {
     fn close(&mut self);
     fn poll(&mut self) -> Result<Observation>;
     fn terminate(&mut self) -> bool;
+    fn commit(&mut self) -> Result<()> {
+        Err("shared_mic_commit_unsupported")
+    }
 }
 pub trait Factory: Send + 'static {
     fn start(&mut self, target: &str, desired: DesiredMic) -> Result<Box<dyn Guardian>>;
+    fn toggle(&mut self, _target: &str) -> Result<Box<dyn Guardian>> {
+        Err("shared_mic_toggle_unsupported")
+    }
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct ManualRequest {
+    scope: ActionScope,
+    sequence: u64,
 }
 struct State {
     holds: MicrophoneHolds,
@@ -54,6 +71,7 @@ struct State {
     retry_requests: BTreeMap<TargetId, u64>,
     retry_sequence: u64,
     fatal: Option<&'static str>,
+    manual: BTreeMap<TargetId, ManualRequest>,
 }
 impl State {
     // A tick sampled before a concurrent API call may arrive after that call.
@@ -105,6 +123,7 @@ impl Service {
                 retry_requests: BTreeMap::new(),
                 retry_sequence: 0,
                 fatal: None,
+                manual: BTreeMap::new(),
             }),
             wake: Condvar::new(),
             origin: Instant::now(),
@@ -130,9 +149,22 @@ impl Service {
             return Err("shared_mic_stopped");
         }
         let now = state.at(self.shared.now());
-        let result = state
-            .holds
-            .acquire(token, target.0.clone(), now, &*self.current);
+        let targets = state.holds.states();
+        let reserved = state
+            .manual
+            .keys()
+            .filter(|key| **key != target.0 && !targets.iter().any(|u| u.target == **key))
+            .count();
+        let result = state.holds.acquire_with_limit(
+            token,
+            target.0.clone(),
+            now,
+            &*self.current,
+            MAX_TARGETS.saturating_sub(reserved),
+        );
+        if result.is_ok() {
+            state.manual.remove(&target.0);
+        }
         let result = if result.is_ok() && state.blocked.contains(&target.0) {
             // Consume the genuine down while recovery is pending. Never let a
             // held key silently reopen the mic when the mute retry later succeeds.
@@ -157,16 +189,22 @@ impl Service {
         let mut state = self.shared.state.lock().unwrap();
         let now = state.at(self.shared.now());
         let result = state.holds.heartbeat(device, now, &*self.current);
+        let active = !state.holds.states().is_empty() || !state.manual.is_empty();
         drop(state);
-        self.shared.wake.notify_one();
+        if active {
+            self.shared.wake.notify_one();
+        }
         result
     }
     pub fn invalidate(&self) -> Result<()> {
         let mut state = self.shared.state.lock().unwrap();
         let now = state.at(self.shared.now());
         let result = state.holds.maintain(now, &*self.current);
+        let active = !state.holds.states().is_empty() || !state.manual.is_empty();
         drop(state);
-        self.shared.wake.notify_one();
+        if active {
+            self.shared.wake.notify_one();
+        }
         result
     }
     pub fn mute(&self, target: Microphone) -> Result<()> {
@@ -174,7 +212,18 @@ impl Service {
         if state.stopped {
             return Err("shared_mic_stopped");
         }
+        let targets: BTreeSet<_> = state
+            .holds
+            .states()
+            .into_iter()
+            .map(|u| u.target)
+            .chain(state.manual.keys().cloned())
+            .collect();
+        if !targets.contains(&target.0) && targets.len() >= MAX_TARGETS {
+            return Err("shared_mic_target_limit");
+        }
         state.holds.explicit_mute(&target.0)?;
+        state.manual.remove(&target.0);
         state.retry_sequence = state
             .retry_sequence
             .checked_add(1)
@@ -182,6 +231,39 @@ impl Service {
         let sequence = state.retry_sequence;
         state.retry_requests.insert(target.0, sequence);
         // Only this explicit API request resets an exhausted mute retry budget.
+        drop(state);
+        self.shared.wake.notify_one();
+        Ok(())
+    }
+    /// Ordinary mute toggles run on this same owner. With any active hold,
+    /// Mute always cancels every hold rather than reopening a live microphone.
+    pub fn toggle(&self, scope: ActionScope, target: Microphone) -> Result<()> {
+        let mut state = self.shared.state.lock().unwrap();
+        if state.stopped || !scope.structurally_valid() || !(self.current)(&scope) {
+            return Err("stale_action_scope");
+        }
+        let now = state.at(self.shared.now());
+        state.holds.maintain(now, &*self.current)?;
+        if state.holds.states().iter().any(|u| u.target == target.0)
+            || state.blocked.contains(&target.0)
+        {
+            drop(state);
+            return self.mute(target);
+        }
+        if state.manual.contains_key(&target.0) {
+            return Err("shared_mic_toggle_pending");
+        }
+        if state.manual.len() + state.holds.states().len() >= MAX_TARGETS {
+            return Err("shared_mic_target_limit");
+        }
+        state.retry_sequence = state
+            .retry_sequence
+            .checked_add(1)
+            .ok_or("shared_mic_retry_exhausted")?;
+        let sequence = state.retry_sequence;
+        state
+            .manual
+            .insert(target.0, ManualRequest { scope, sequence });
         drop(state);
         self.shared.wake.notify_one();
         Ok(())
@@ -198,6 +280,7 @@ impl Service {
     pub fn stop(&self) -> Result<()> {
         let mut state = self.shared.state.lock().unwrap();
         state.stopped = true;
+        state.manual.clear();
         let result = state.holds.stop();
         drop(state);
         self.shared.wake.notify_one();
@@ -232,6 +315,16 @@ struct Slot {
 struct Driver {
     slots: BTreeMap<TargetId, Slot>,
     factory: Box<dyn Factory>,
+    manual: BTreeMap<TargetId, ManualSlot>,
+}
+struct ManualSlot {
+    request: ManualRequest,
+    guard: Box<dyn Guardian>,
+    closing: bool,
+    committed: bool,
+    acknowledged: bool,
+    muted: bool,
+    started: u64,
 }
 impl Driver {
     fn fail(shared: &Shared, target: &TargetId, code: &'static str) {
@@ -255,6 +348,7 @@ impl Driver {
         state.holds.states()
     }
     fn step(&mut self, shared: &Shared, current: &Authority, now: u64) {
+        self.step_manual(shared, current, now);
         let states = Self::latest(shared, current, now);
         for update in &states {
             if !self.slots.contains_key(&update.target) {
@@ -388,6 +482,9 @@ impl Driver {
                 }
             }
             if slot.guard.is_none() {
+                if self.manual.contains_key(target) {
+                    continue;
+                }
                 let next = Self::latest(shared, current, now)
                     .into_iter()
                     .find(|u| u.target == *target);
@@ -447,7 +544,115 @@ impl Driver {
             slot.guard.is_some() || targets.iter().any(|u| u.target == *target)
         });
     }
+    fn step_manual(&mut self, shared: &Shared, current: &Authority, now: u64) {
+        let requests = {
+            let mut state = shared.state.lock().unwrap();
+            state.manual.retain(|_, request| current(&request.scope));
+            state.manual.clone()
+        };
+        for (target, request) in requests {
+            if self.slots.contains_key(&target) || self.manual.contains_key(&target) {
+                continue;
+            }
+            match self.factory.toggle(target.as_str()) {
+                Ok(guard) => {
+                    self.manual.insert(
+                        target,
+                        ManualSlot {
+                            request,
+                            guard,
+                            closing: false,
+                            committed: false,
+                            acknowledged: false,
+                            muted: false,
+                            started: now,
+                        },
+                    );
+                }
+                Err(_) => {
+                    shared.state.lock().unwrap().manual.remove(&target);
+                    Self::fail(shared, &target, "shared_mic_toggle_failed");
+                }
+            }
+        }
+        let mut ended = Vec::new();
+        for (target, slot) in &mut self.manual {
+            let allowed = {
+                let state = shared.state.lock().unwrap();
+                !state.stopped
+                    && state.manual.get(target) == Some(&slot.request)
+                    && current(&slot.request.scope)
+            };
+            if !slot.closing && !slot.committed && (!allowed || slot.guard.pulse().is_err()) {
+                slot.guard.close();
+                slot.closing = true;
+            }
+            match slot.guard.poll() {
+                Ok(observation) => {
+                    if observation.live {
+                        slot.muted = false;
+                    }
+                    if observation.muted {
+                        slot.muted = true;
+                    }
+                    slot.acknowledged |= observation.committed;
+                    if (observation.live || observation.muted) && !slot.closing && !slot.committed {
+                        // Discovery/write may have waited. Recheck the exact
+                        // request and scope immediately before persistence.
+                        let state = shared.state.lock().unwrap();
+                        if !state.stopped
+                            && state.manual.get(target) == Some(&slot.request)
+                            && current(&slot.request.scope)
+                            && slot.guard.commit().is_ok()
+                        {
+                            slot.committed = true;
+                        } else {
+                            slot.guard.close();
+                            slot.closing = true;
+                        }
+                    }
+                    if let Some(success) = observation.exited {
+                        ended.push(target.clone());
+                        let mut state = shared.state.lock().unwrap();
+                        if state.manual.get(target) == Some(&slot.request) {
+                            state.manual.remove(target);
+                        }
+                        drop(state);
+                        if !success
+                            || !(slot.committed && slot.acknowledged || slot.closing && slot.muted)
+                        {
+                            Self::fail(shared, target, "shared_mic_toggle_uncertain");
+                        }
+                    }
+                }
+                Err(_) => {
+                    slot.guard.close();
+                    slot.closing = true;
+                }
+            }
+            if !ended.contains(target) && now.saturating_sub(slot.started) >= GUARD_TIMEOUT_MS {
+                if slot.guard.terminate() {
+                    ended.push(target.clone());
+                    shared.state.lock().unwrap().manual.remove(target);
+                    Self::fail(shared, target, "shared_mic_toggle_timeout");
+                } else {
+                    let mut state = shared.state.lock().unwrap();
+                    state.stopped = true;
+                    state.manual.clear();
+                    state.fatal = Some("shared_mic_writer_not_terminated");
+                    let _ = state.holds.stop();
+                }
+            }
+        }
+        for target in ended {
+            self.manual.remove(&target);
+        }
+    }
     fn quiesce(&mut self) {
+        for slot in self.manual.values_mut() {
+            slot.guard.close();
+            let _ = slot.guard.terminate();
+        }
         for slot in self.slots.values_mut() {
             if let Some(guard) = &mut slot.guard {
                 guard.close();
@@ -460,6 +665,7 @@ fn run(shared: Arc<Shared>, current: Authority, factory: Box<dyn Factory>) {
     let mut driver = Driver {
         slots: BTreeMap::new(),
         factory,
+        manual: BTreeMap::new(),
     };
     let mut stop_at = None;
     loop {
@@ -467,18 +673,19 @@ fn run(shared: Arc<Shared>, current: Authority, factory: Box<dyn Factory>) {
         let state = shared.state.lock().unwrap();
         if state.stopped {
             let deadline = *stop_at.get_or_insert_with(|| Instant::now() + Duration::from_secs(10));
-            if driver.slots.is_empty() || Instant::now() >= deadline {
+            if driver.slots.is_empty() && driver.manual.is_empty() || Instant::now() >= deadline {
                 drop(state);
                 driver.quiesce();
                 return;
             }
         }
-        if driver.slots.is_empty()
-            || !state.stopped
-                && driver
-                    .slots
-                    .values()
-                    .all(|slot| slot.guard.is_none() && slot.attempts >= MAX_ATTEMPTS)
+        if driver.manual.is_empty()
+            && (driver.slots.is_empty()
+                || !state.stopped
+                    && driver
+                        .slots
+                        .values()
+                        .all(|slot| slot.guard.is_none() && slot.attempts >= MAX_ATTEMPTS))
         {
             drop(shared.wake.wait(state).unwrap());
         } else {
@@ -492,12 +699,64 @@ fn run(shared: Arc<Shared>, current: Authority, factory: Box<dyn Factory>) {
     }
 }
 
-#[derive(Default)]
-pub struct NativeFactory;
+pub struct NativeFactory {
+    root: std::path::PathBuf,
+    pins: BTreeMap<String, std::path::PathBuf>,
+}
+impl NativeFactory {
+    pub fn new() -> Result<Self> {
+        use std::os::unix::fs::DirBuilderExt;
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-mic-{}",
+            crate::device_profiles::random_device_id()?
+        ));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .map_err(|_| "shared_mic_pin_directory_failed")?;
+        Ok(Self {
+            root,
+            pins: BTreeMap::new(),
+        })
+    }
+    fn pin(&mut self, target: &str) -> Result<std::path::PathBuf> {
+        Microphone::named(target)?;
+        if !self.pins.contains_key(target) {
+            if self.pins.len() >= MAX_TARGETS {
+                return Err("shared_mic_target_limit");
+            }
+            self.pins.insert(
+                target.into(),
+                self.root.join(format!("{}.json", self.pins.len())),
+            );
+        }
+        Ok(self.pins[target].clone())
+    }
+}
+impl Drop for NativeFactory {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
 impl Factory for NativeFactory {
     fn start(&mut self, target: &str, desired: DesiredMic) -> Result<Box<dyn Guardian>> {
-        Microphone::named(target)?;
-        NativeGuardian::start(target, desired).map(|g| Box::new(g) as Box<dyn Guardian>)
+        let pin = self.pin(target)?;
+        NativeGuardian::start(
+            target,
+            if desired == DesiredMic::Live {
+                "hold"
+            } else {
+                "mute"
+            },
+            &pin,
+        )
+        .map(|g| Box::new(g) as Box<dyn Guardian>)
+    }
+    fn toggle(&mut self, target: &str) -> Result<Box<dyn Guardian>> {
+        let pin = self.pin(target)?;
+        let mut guard = NativeGuardian::start(target, "toggle", &pin)?;
+        guard.manual = true;
+        Ok(Box::new(guard))
     }
 }
 struct NativeGuardian {
@@ -507,22 +766,21 @@ struct NativeGuardian {
     bytes: Vec<u8>,
     live_seen: bool,
     muted_seen: bool,
+    committed_seen: bool,
+    manual: bool,
 }
 impl NativeGuardian {
-    fn start(target: &str, desired: DesiredMic) -> Result<Self> {
+    fn start(target: &str, mode: &str, pin: &std::path::Path) -> Result<Self> {
         use std::{
             os::unix::process::CommandExt,
             process::{Command, Stdio},
         };
         let child = Command::new("/usr/bin/python3")
             .arg("-B")
-            .arg(crate::runtime_paths::helper("ptt_guard.py"))
+            .arg(crate::runtime_paths::helper("shared_microphone_native.py"))
             .arg(target)
-            .arg(if desired == DesiredMic::Live {
-                "--shared"
-            } else {
-                "--mute"
-            })
+            .arg(mode)
+            .arg(pin)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -554,10 +812,23 @@ impl NativeGuardian {
             bytes: Vec::new(),
             live_seen: false,
             muted_seen: false,
+            committed_seen: false,
+            manual: false,
         })
     }
 }
 impl Guardian for NativeGuardian {
+    fn commit(&mut self) -> Result<()> {
+        use std::io::Write;
+        if !self.manual || self.committed_seen {
+            return Err("shared_mic_commit_unsupported");
+        }
+        self.input
+            .as_mut()
+            .ok_or("shared_mic_pipe_closed")?
+            .write_all(b"commit\n")
+            .map_err(|_| "shared_mic_pipe_failed")
+    }
     fn pulse(&mut self) -> Result<()> {
         use std::io::Write;
         self.input
@@ -597,6 +868,14 @@ impl Guardian for NativeGuardian {
                 b"muted" if !self.muted_seen => {
                     o.muted = true;
                     self.muted_seen = true;
+                }
+                b"committed"
+                    if self.manual
+                        && !self.committed_seen
+                        && (self.live_seen || self.muted_seen) =>
+                {
+                    o.committed = true;
+                    self.committed_seen = true;
                 }
                 _ => return Err("shared_mic_protocol_failed"),
             }
@@ -641,6 +920,7 @@ mod tests {
         delayed: bool,
         terminated: bool,
         event: Observation,
+        manual: bool,
     }
     #[derive(Default)]
     struct Trace {
@@ -651,6 +931,15 @@ mod tests {
     struct FakeFactory(Arc<Mutex<Trace>>);
     struct FakeGuard(Arc<Mutex<Fake>>);
     impl Factory for FakeFactory {
+        fn toggle(&mut self, target: &str) -> Result<Box<dyn Guardian>> {
+            let fake = Arc::new(Mutex::new(Fake {
+                target: target.into(),
+                manual: true,
+                ..Default::default()
+            }));
+            self.0.lock().unwrap().guards.push(fake.clone());
+            Ok(Box::new(FakeGuard(fake)))
+        }
         fn start(&mut self, target: &str, desired: DesiredMic) -> Result<Box<dyn Guardian>> {
             let mut trace = self.0.lock().unwrap();
             trace.starts.push(desired);
@@ -667,6 +956,15 @@ mod tests {
         }
     }
     impl Guardian for FakeGuard {
+        fn commit(&mut self) -> Result<()> {
+            let mut g = self.0.lock().unwrap();
+            if !g.manual || g.closed {
+                return Err("fixture_invalid_commit");
+            }
+            g.event.committed = true;
+            g.event.exited = Some(true);
+            Ok(())
+        }
         fn pulse(&mut self) -> Result<()> {
             let mut g = self.0.lock().unwrap();
             if g.closed {
@@ -745,6 +1043,7 @@ mod tests {
                         retry_requests: BTreeMap::new(),
                         retry_sequence: 0,
                         fatal: None,
+                        manual: BTreeMap::new(),
                     }),
                     wake: Condvar::new(),
                     origin: Instant::now(),
@@ -754,6 +1053,7 @@ mod tests {
                 driver: Driver {
                     slots: BTreeMap::new(),
                     factory: Box::new(FakeFactory(trace.clone())),
+                    manual: BTreeMap::new(),
                 },
                 trace,
             }
@@ -1202,5 +1502,271 @@ mod tests {
         service.join();
         assert_eq!(trace.lock().unwrap().starts, vec![DesiredMic::Live]);
         assert!(trace.lock().unwrap().guards[0].lock().unwrap().terminated);
+    }
+    fn until(mut condition: impl FnMut() -> bool) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !condition() {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+    #[test]
+    fn ordinary_mute_cancels_both_holds_and_only_fresh_press_reopens() {
+        let trace = Arc::new(Mutex::new(Trace::default()));
+        let service = Service::start(
+            id(99),
+            &[id(1), id(2)],
+            Arc::new(|_| true),
+            Box::new(FakeFactory(trace.clone())),
+        )
+        .unwrap();
+        let mic = Microphone::named("input:fixture").unwrap();
+        let a = token(1, 1, 1);
+        let b = token(2, 1, 1);
+        service.acquire(a, mic.clone()).unwrap();
+        service.acquire(b, mic.clone()).unwrap();
+        until(|| !trace.lock().unwrap().guards.is_empty());
+        service.toggle(a.scope, mic.clone()).unwrap();
+        assert_eq!(service.held(), 0);
+        until(|| trace.lock().unwrap().guards[0].lock().unwrap().terminated);
+        assert_eq!(
+            service.acquire(a, mic.clone()),
+            Err("hold_requires_fresh_press")
+        );
+        assert_eq!(
+            service.acquire(b, mic.clone()),
+            Err("hold_requires_fresh_press")
+        );
+        service.acquire(token(1, 2, 1), mic).unwrap();
+        until(|| trace.lock().unwrap().guards.len() == 2);
+        assert!(!trace.lock().unwrap().guards[1].lock().unwrap().manual);
+        service.join();
+    }
+    #[test]
+    fn manual_transactions_reserve_the_same_eight_target_budget_as_holds() {
+        let trace = Arc::new(Mutex::new(Trace::default()));
+        let service = Service::start(
+            id(99),
+            &[id(1), id(2)],
+            Arc::new(|_| true),
+            Box::new(FakeFactory(trace)),
+        )
+        .unwrap();
+        for index in 0..MAX_TARGETS {
+            service
+                .toggle(
+                    token(1, 1, 1).scope,
+                    Microphone::named(&format!("input:fixture{index}")).unwrap(),
+                )
+                .unwrap();
+        }
+        let held = token(2, 1, 1);
+        let mic = Microphone::named("input:ninth").unwrap();
+        assert_eq!(service.acquire(held, mic.clone()), Err("hold_target_limit"));
+        assert_eq!(service.held(), 0);
+        service.shared.state.lock().unwrap().manual.clear();
+        assert_eq!(service.acquire(held, mic), Err("hold_requires_fresh_press"));
+        service.join();
+        for target in [
+            "input:@DEFAULT_SOURCE@",
+            "input:31",
+            "microphone",
+            "output:fixture",
+        ] {
+            assert!(Microphone::named(target).is_err());
+        }
+    }
+    #[test]
+    fn ordinary_unmute_requires_current_scope_commit_and_does_not_create_hold() {
+        let mut r = Rig::new();
+        let target = TargetId::new("input:fixture").unwrap();
+        let request = ManualRequest {
+            scope: token(1, 1, 1).scope,
+            sequence: 1,
+        };
+        r.shared
+            .state
+            .lock()
+            .unwrap()
+            .manual
+            .insert(target.clone(), request);
+        r.step(0);
+        r.guard(0).lock().unwrap().event.live = true;
+        r.step(1);
+        r.step(2);
+        assert!(r.driver.manual.is_empty());
+        assert!(r.shared.state.lock().unwrap().manual.is_empty());
+        assert_eq!(r.held(), 0);
+        r.revision.store(2, Ordering::Release);
+        r.step(3);
+        assert_eq!(r.trace.lock().unwrap().guards.len(), 1); // No page-change mute for explicit Live.
+
+        let request = ManualRequest {
+            scope: token(1, 2, 2).scope,
+            sequence: 2,
+        };
+        r.shared
+            .state
+            .lock()
+            .unwrap()
+            .manual
+            .insert(target, request);
+        r.step(4);
+        r.guard(1).lock().unwrap().event.live = true;
+        r.revision.store(3, Ordering::Release);
+        r.step(5);
+        assert!(r.guard(1).lock().unwrap().closed);
+        assert!(
+            !r.driver
+                .manual
+                .contains_key(&TargetId::new("input:fixture").unwrap())
+        );
+    }
+    #[test]
+    fn fresh_hold_waits_for_a_cancelled_manual_writer_to_finish() {
+        let mut r = Rig::new();
+        let target = TargetId::new("input:fixture").unwrap();
+        r.shared.state.lock().unwrap().manual.insert(
+            target.clone(),
+            ManualRequest {
+                scope: token(1, 1, 1).scope,
+                sequence: 1,
+            },
+        );
+        r.step(0);
+        r.guard(0).lock().unwrap().delayed = true;
+        r.shared.state.lock().unwrap().manual.clear();
+        r.acquire(token(2, 1, 1), "input:fixture", 1).unwrap();
+        r.step(1);
+        assert_eq!(r.trace.lock().unwrap().guards.len(), 1);
+        r.guard(0).lock().unwrap().event = Observation {
+            muted: true,
+            exited: Some(true),
+            ..Default::default()
+        };
+        r.step(2);
+        assert_eq!(r.trace.lock().unwrap().guards.len(), 2);
+        assert_eq!(r.guard(1).lock().unwrap().desired, Some(DesiredMic::Live));
+    }
+    #[test]
+    #[ignore = "requires an explicitly isolated PipeWire microphone fixture"]
+    fn private_native_microphone_pair_acceptance() {
+        let runtime = std::env::var("XDG_RUNTIME_DIR").unwrap();
+        assert!(runtime.starts_with("/tmp/ds-mic-"));
+        assert_eq!(
+            std::env::var("DECKSMITH_PRIVATE_MIC_TEST").as_deref(),
+            Ok("1")
+        );
+        assert_eq!(
+            std::env::var("PULSE_SERVER").unwrap(),
+            format!("unix:{runtime}/pulse/native")
+        );
+        let binding = Arc::new(AtomicU64::new(1));
+        let read = binding.clone();
+        let factory = NativeFactory::new().unwrap();
+        let pin_directory = factory.root.clone();
+        let service = Service::start(
+            id(99),
+            &[id(1), id(2)],
+            Arc::new(move |s| s.device.binding == read.load(Ordering::Acquire)),
+            Box::new(factory),
+        )
+        .unwrap();
+        let mic = Microphone::named("input:fixture-mic").unwrap();
+        let muted = || {
+            let output = std::process::Command::new("/usr/bin/pactl")
+                .args(["get-source-mute", "fixture-mic"])
+                .env("LC_ALL", "C")
+                .output()
+                .unwrap();
+            assert!(output.status.success());
+            match output.stdout.as_slice() {
+                b"Mute: yes\n" => true,
+                b"Mute: no\n" => false,
+                _ => panic!("invalid private mute state"),
+            }
+        };
+        let settle = |expected| {
+            until(|| {
+                service.heartbeat(id(1)).unwrap();
+                service.heartbeat(id(2)).unwrap();
+                muted() == expected
+            })
+        };
+        service.mute(mic.clone()).unwrap();
+        settle(true);
+        until(|| {
+            service
+                .shared
+                .state
+                .lock()
+                .unwrap()
+                .holds
+                .states()
+                .is_empty()
+        });
+        let a = token(1, 1, 1);
+        let b = token(2, 1, 1);
+        service.acquire(a, mic.clone()).unwrap();
+        service.acquire(b, mic.clone()).unwrap();
+        settle(false);
+        service.release(a).unwrap();
+        assert!(!muted());
+        service.release(b).unwrap();
+        settle(true);
+        until(|| {
+            service
+                .shared
+                .state
+                .lock()
+                .unwrap()
+                .holds
+                .states()
+                .is_empty()
+        });
+        let a = token(1, 2, 1);
+        let b = token(2, 2, 1);
+        service.acquire(a, mic.clone()).unwrap();
+        service.acquire(b, mic.clone()).unwrap();
+        settle(false);
+        service.toggle(a.scope, mic.clone()).unwrap();
+        assert_eq!(service.held(), 0);
+        settle(true);
+        assert_eq!(
+            service.acquire(a, mic.clone()),
+            Err("hold_requires_fresh_press")
+        );
+        assert_eq!(
+            service.acquire(b, mic.clone()),
+            Err("hold_requires_fresh_press")
+        );
+        until(|| {
+            service
+                .shared
+                .state
+                .lock()
+                .unwrap()
+                .holds
+                .states()
+                .is_empty()
+        });
+        service.toggle(a.scope, mic.clone()).unwrap();
+        settle(false);
+        until(|| service.shared.state.lock().unwrap().manual.is_empty());
+        binding.store(2, Ordering::Release);
+        service.invalidate().unwrap();
+        assert!(!muted());
+        service.toggle(token(1, 3, 2).scope, mic.clone()).unwrap();
+        settle(true);
+        until(|| service.shared.state.lock().unwrap().manual.is_empty());
+        service.acquire(token(1, 3, 2), mic).unwrap();
+        settle(false);
+        std::thread::sleep(Duration::from_millis(900));
+        assert!(muted());
+        assert_eq!(service.held(), 0);
+        assert!(service.take_failures().is_empty());
+        service.join();
+        assert!(muted());
+        assert!(!pin_directory.exists());
     }
 }

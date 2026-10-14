@@ -22,7 +22,7 @@ use decksmith_device::{
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{Arc, RwLock},
-    time::Duration,
+    time::{Duration, Instant},
 };
 type Result<T> = std::result::Result<T, &'static str>;
 struct Entry {
@@ -103,6 +103,7 @@ pub struct Runtime {
     renders: device_render::Pool,
     actions: shared_worker::Service,
     mics: Option<shared_microphone::Service>,
+    mic_fatal_reported: bool,
     mirror: Arc<RwLock<View>>,
     dirty: BTreeSet<DeviceId>,
     strip_dirty: BTreeSet<DeviceId>,
@@ -116,6 +117,10 @@ pub struct Runtime {
     native_observer: Option<crate::shared_native_state::Observer>,
     native_states: Vec<(String, Option<crate::audio::State>)>,
     native_contexts: BTreeMap<DeviceId, DeviceContext>,
+    native_meter: Option<crate::meter::Worker>,
+    native_meter_targets: Vec<String>,
+    native_meter_epoch: u64,
+    next_meter: Instant,
     edits: BTreeMap<DeviceId, EditTicket>,
     edit_epoch: u64,
     gate_state: (bool, bool),
@@ -162,6 +167,7 @@ impl Runtime {
             renders,
             actions,
             mics,
+            mic_fatal_reported: false,
             mirror,
             dirty: ids.into_iter().collect(),
             strip_dirty: BTreeSet::new(),
@@ -175,6 +181,10 @@ impl Runtime {
             native_observer: None,
             native_states: Vec::new(),
             native_contexts: BTreeMap::new(),
+            native_meter: None,
+            native_meter_targets: Vec::new(),
+            native_meter_epoch: 1,
+            next_meter: Instant::now(),
             edits: BTreeMap::new(),
             edit_epoch: 1,
             gate_state: (false, false),
@@ -194,10 +204,12 @@ impl Runtime {
         let observer = Some(crate::shared_native_state::Observer::start_many(
             plan.audio.clone(),
         )?);
-        let mut runtime = Self::start(catalog, vec![Box::new(backend)], None)?;
+        let microphones = Box::new(shared_microphone::NativeFactory::new()?);
+        let mut runtime = Self::start(catalog, vec![Box::new(backend)], Some(microphones))?;
         runtime.bind_native_media(bindings)?;
         runtime.native_plan = Some(plan);
         runtime.native_observer = observer;
+        runtime.native_meter = Some(crate::meter::Worker::start_shared());
         Ok(runtime)
     }
     pub fn context(&self, id: DeviceId, control: ControlAddress) -> Result<DeviceContext> {
@@ -310,6 +322,8 @@ impl Runtime {
         self.media_bindings = Some(prepared.bindings);
         self.native_contexts.remove(&id);
         self.edits.remove(&id);
+        self.touch.get_mut(&id).unwrap().levels.clear();
+        self.next_meter = Instant::now();
         self.dirty.insert(id);
         self.sync();
         Ok(())
@@ -496,6 +510,7 @@ impl Runtime {
         let result = self.controls.gate(locked, suspended);
         if result.is_ok() {
             self.gate_state = (locked, suspended);
+            self.next_meter = Instant::now();
         }
         self.sync();
         result
@@ -540,6 +555,8 @@ impl Runtime {
         self.catalog = catalog;
         self.native_plan = plan;
         self.native_contexts.remove(&id);
+        self.touch.get_mut(&id).unwrap().levels.clear();
+        self.next_meter = Instant::now();
         self.sync();
         Ok(())
     }
@@ -651,6 +668,11 @@ impl Runtime {
                     event.received_at,
                 )
                 .map(Some),
+            Action::AudioMute { target } if target.starts_with("input:") => {
+                let mic = self.mics.as_ref().ok_or("shared_microphone_unavailable")?;
+                mic.toggle(self.scope(event.context), Microphone::named(&target)?)?;
+                Ok(None)
+            }
             audio @ (Action::AudioAdjust { .. } | Action::AudioMute { .. }) => self
                 .actions
                 .submit(
@@ -686,6 +708,7 @@ impl Runtime {
             }
         }
         self.sync();
+        self.poll_native_meters();
         if let Some(plan) = &self.native_plan {
             let changed = self
                 .native_observer
@@ -748,6 +771,39 @@ impl Runtime {
                     && self.mirror.read().unwrap().entries.contains_key(id)
                 {
                     let _ = m.heartbeat(*id);
+                }
+            }
+        }
+        if let Some(mics) = &self.mics {
+            let failures = mics.take_failures();
+            let fatal = if self.mic_fatal_reported {
+                None
+            } else {
+                mics.fatal_error()
+            };
+            self.mic_fatal_reported |= fatal.is_some();
+            for status in self.statuses() {
+                let Some(page) = self
+                    .native_plan
+                    .as_ref()
+                    .and_then(|plan| plan.pages.get(&status.id))
+                    .and_then(|pages| status.page.and_then(|page| pages.get(usize::from(page))))
+                else {
+                    continue;
+                };
+                let Some(error) = fatal.or_else(|| {
+                    failures
+                        .iter()
+                        .find(|(target, _)| page.audio.contains(target.as_str()))
+                        .map(|(_, error)| *error)
+                }) else {
+                    continue;
+                };
+                if let Ok(context) = self.context(status.id, ControlAddress::Key(0)) {
+                    feedback.push(Feedback {
+                        scope: self.scope(context),
+                        result: Err(error),
+                    });
                 }
             }
         }
@@ -839,6 +895,45 @@ impl Runtime {
         self.sync();
         feedback
     }
+    fn poll_native_meters(&mut self) {
+        if Instant::now() < self.next_meter {
+            return;
+        }
+        self.next_meter = Instant::now() + Duration::from_millis(50);
+        let (Some(plan), Some(worker)) = (&self.native_plan, &self.native_meter) else {
+            return;
+        };
+        let sessions = self.controls.manager().statuses();
+        let subscriptions = plan.active_meters(&sessions, self.gate_state.0 || self.gate_state.1);
+        let targets: Vec<_> = subscriptions
+            .values()
+            .flatten()
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        if targets != self.native_meter_targets {
+            let Some(epoch) = self.native_meter_epoch.checked_add(1) else {
+                let _ = worker.levels(0, Vec::new());
+                return;
+            };
+            self.native_meter_epoch = epoch;
+            self.native_meter_targets = targets.clone();
+        }
+        let levels = worker.levels(self.native_meter_epoch, targets);
+        let mut routed = crate::saved_native::route_levels(&subscriptions, &levels);
+        for s in sessions
+            .iter()
+            .filter(|s| s.model == decksmith_core::device_model::DeviceModel::Plus)
+        {
+            let wanted = routed.remove(&s.id).unwrap_or_default();
+            let state = self.touch.get_mut(&s.id).unwrap();
+            if state.levels != wanted {
+                state.levels = wanted;
+                self.strip_dirty.insert(s.id);
+            }
+        }
+    }
     pub fn stop(
         &mut self,
     ) -> Vec<(
@@ -857,12 +952,174 @@ impl Runtime {
         // Effects must settle before the caller reports/starts restoration. A
         // late native timeout still records its uncertainty after scope revoke.
         self.actions.quiesce();
+        if let Some(mics) = self.mics.take() {
+            mics.join();
+        }
         self.native_observer = None;
+        self.native_meter = None;
         results
     }
 }
 impl Drop for Runtime {
     fn drop(&mut self) {
         self.stop();
+    }
+}
+
+#[cfg(test)]
+mod meter_tests {
+    use super::*;
+    use crate::device_profiles::{Enrollment, Store};
+    use decksmith_core::device_model::{DeviceDescriptor, DeviceModel};
+    use decksmith_device::{VirtualDeck, registry::Candidate};
+    struct NoEffects;
+    impl shared_worker::Backend for NoEffects {
+        fn execute(&mut self, _: &crate::pages::Action, _: &shared_worker::Fence) -> Result<()> {
+            Err("fixture_no_effects")
+        }
+    }
+    #[test]
+    fn saved_meter_pipeline_routes_pages_and_disconnects_without_partner_or_key_repaint() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-saved-meter-{}",
+            random_device_id().unwrap()
+        ));
+        let store = Store::create(&root).unwrap();
+        let ids = [
+            random_device_id().unwrap(),
+            random_device_id().unwrap(),
+            random_device_id().unwrap(),
+        ];
+        let models = [DeviceModel::Plus, DeviceModel::Plus, DeviceModel::Mk2];
+        let discovery = || {
+            Discovery::new(
+                models
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, m)| Candidate::new(i as u8, m, Some(&format!("meter-fixture-{i}"))))
+                    .collect(),
+            )
+            .unwrap()
+        };
+        for (i, model) in models.into_iter().enumerate() {
+            let d = discovery();
+            store
+                .enroll(
+                    store.load().unwrap().generation,
+                    &d,
+                    i as u8,
+                    Enrollment::new(ids[i], "Meter fixture", 50, None),
+                )
+                .unwrap();
+            let keys = (0..DeviceDescriptor::for_model(model).key_count())
+                .map(|_| serde_json::json!({"label":"Key","action":{"type":"none"}}))
+                .collect::<Vec<_>>();
+            let mut layout = serde_json::json!({"version":2,"model":model,"pages":[{"name":"One","background":[30,34,39],"keys":keys},{"name":"Two","background":[30,34,39],"keys":keys}]});
+            if model == DeviceModel::Plus {
+                let target = if i == 0 { "output:A" } else { "output:B" };
+                layout["dials"] = serde_json::json!([
+                    {"label":"Own target","rotation":"volume","step":1,"audio_target":target,"press":{"type":"none"}},
+                    {"label":"Two","rotation":"brightness","step":1,"press":{"type":"none"}},
+                    {"label":"Three","rotation":"brightness","step":1,"press":{"type":"none"}},
+                    {"label":"Four","rotation":"brightness","step":1,"press":{"type":"none"}}
+                ]);
+                layout["pages"][1]["dial_overrides"] = serde_json::json!([{ "label":"Page target","rotation":"volume","step":1,"audio_target":"output:C","press":{"type":"none"}},null,null,null]);
+            } else {
+                layout["pages"][0]["keys"][0]["action"] =
+                    serde_json::json!({"type":"audio_adjust","target":"output:C","percent":1});
+            }
+            store
+                .save_profile(
+                    ids[i],
+                    1,
+                    &serde_json::to_vec(&layout).unwrap(),
+                    0,
+                    "Meter fixture",
+                    50,
+                )
+                .unwrap();
+        }
+        let catalog = store.load().unwrap();
+        let plan = crate::saved_native::Plan::from_catalog(&catalog).unwrap();
+        let mut runtime = Runtime::start(catalog, vec![Box::new(NoEffects)], None).unwrap();
+        runtime.native_plan = Some(plan);
+        let revision = runtime.discover(discovery()).unwrap();
+        for (i, model) in models.into_iter().enumerate() {
+            runtime
+                .attach(
+                    revision,
+                    &discovery(),
+                    i as u8,
+                    Box::new(VirtualDeck::new(model)),
+                )
+                .unwrap();
+        }
+        let end = Instant::now() + Duration::from_secs(5);
+        while !runtime.statuses().iter().all(|s| s.input_ready) {
+            assert!(Instant::now() < end);
+            runtime.tick();
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let inject = |r: &mut Runtime, epoch, targets: Vec<&str>, values: Vec<(&str, u8)>| {
+            r.native_meter = Some(crate::meter::Worker::fixture(
+                epoch,
+                targets.into_iter().map(str::to_string).collect(),
+                values
+                    .into_iter()
+                    .map(|(t, v)| (t.into(), Some(v)))
+                    .collect(),
+            ));
+            r.next_meter = Instant::now();
+            r.poll_native_meters();
+        };
+        runtime.dirty.clear();
+        runtime.strip_dirty.clear();
+        inject(
+            &mut runtime,
+            2,
+            vec!["output:A", "output:B"],
+            vec![("output:A", 20), ("output:B", 80), ("output:C", 99)],
+        );
+        assert_eq!(runtime.native_meter_targets, vec!["output:A", "output:B"]);
+        assert_eq!(
+            runtime.touch[&ids[0]].levels.get("output:A"),
+            Some(&Some(20))
+        );
+        assert_eq!(
+            runtime.touch[&ids[1]].levels.get("output:B"),
+            Some(&Some(80))
+        );
+        assert!(runtime.touch[&ids[2]].levels.is_empty());
+        assert!(runtime.dirty.is_empty());
+        let partner = runtime.context(ids[1], ControlAddress::Key(0)).unwrap();
+        runtime
+            .navigate(runtime.context(ids[0], ControlAddress::Key(0)).unwrap(), 1)
+            .unwrap();
+        inject(
+            &mut runtime,
+            3,
+            vec!["output:B", "output:C"],
+            vec![("output:B", 80), ("output:C", 30)],
+        );
+        assert_eq!(
+            runtime.touch[&ids[0]].levels,
+            [("output:C".into(), Some(30))].into_iter().collect()
+        );
+        assert_eq!(
+            runtime.context(ids[1], ControlAddress::Key(0)).unwrap(),
+            partner
+        );
+        assert!(!runtime.dirty.contains(&ids[1]));
+        runtime.disconnect(ids[0]).unwrap();
+        inject(&mut runtime, 4, vec!["output:B"], vec![("output:B", 80)]);
+        assert!(runtime.touch[&ids[0]].levels.is_empty());
+        assert_eq!(runtime.native_meter_targets, vec!["output:B"]);
+        runtime.gate(true, false).unwrap();
+        inject(&mut runtime, 5, vec![], vec![]);
+        assert!(runtime.native_meter_targets.is_empty());
+        assert!(runtime.touch[&ids[1]].levels.is_empty());
+        assert!(runtime.stop().iter().all(|(_, r)| r.is_ok()));
+        drop(runtime);
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

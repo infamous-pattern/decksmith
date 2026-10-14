@@ -176,10 +176,6 @@ impl NativeSettings {
     }
 }
 struct NativeObservation {
-    output: String,
-    meter: crate::meter::Worker,
-    levels: crate::meter::Levels,
-    last_meter: Instant,
     uncertain: Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -268,13 +264,7 @@ impl Trial {
                 return Err("native_media_session_changed");
             }
             let runtime = Runtime::start_saved_native(catalog, backend, bindings)?;
-            let native = NativeObservation {
-                output: settings.output.clone(),
-                meter: crate::meter::Worker::start(),
-                levels: Default::default(),
-                last_meter: Instant::now(),
-                uncertain,
-            };
+            let native = NativeObservation { uncertain };
             (runtime, Some(native))
         } else {
             (
@@ -337,20 +327,7 @@ impl Trial {
                 }
             }
         }
-        if let Some(native) = &mut self.native {
-            if native.last_meter.elapsed() >= std::time::Duration::from_millis(50) {
-                let levels = native.meter.levels(1, vec![native.output.clone()]);
-                if levels != native.levels {
-                    for status in self.runtime.statuses() {
-                        if status.model == DeviceModel::Plus {
-                            self.runtime.update_levels(status.id, levels.clone())?;
-                        }
-                    }
-                    native.levels = levels;
-                }
-                native.last_meter = Instant::now();
-            }
-        } else {
+        if self.native.is_none() {
             let level = *self.level.lock().map_err(|_| "diagnostic_state_failed")?;
             if self.last_observation != level.writes {
                 let state = TouchState {

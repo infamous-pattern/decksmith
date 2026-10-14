@@ -65,6 +65,62 @@ Next connect meter subscriptions to all active saved audio assignments, then
 qualify assignment changes and recovery/lifecycle/resource gates before activation.
 See the [paired editor evidence and limits](checkpoints/2026-10-14-live-profile-editor.md#paired-physical-editor-follow-up).
 
+**October 14 saved meter bridge:** the opt-in runtime now derives peak subscriptions
+from connected touch-capable devices' active saved dial assignments and page
+overrides. One shared worker deduplicates targets, fences changed unions by epoch
+and routes each device's levels only to its strip. MK.2 and inactive/offline pages
+create no monitor streams. The 64-stream bound is retained and empty subscriptions
+sleep. The guarded physical output/app/page-override check also passed: 66
+successful audio effects, unavailable-target isolation, Plus disconnect releasing
+peaks with MK.2 continuing, and correct reconnect/resubscription. Exact app/output/
+playback and normal V1 recovery passed. The later System sounds isolation check
+below also passed; lifecycle/resource qualification remains before activation; the installed V1 build is unchanged. See the
+[saved meter boundary and acceptance gates](checkpoints/2026-10-14-saved-active-meters.md).
+
+**October 14 native microphone bridge:** named input mute and push-to-talk now
+share one owner in the opt-in connected runtime. Mute cancels all active holds;
+the last release returns to Muted. Ordinary explicit unmute remains separate from
+holds and requires a current-scope commit. Retained source/server pins prevent
+retrying against replacements, and joined shutdown precedes recovery. Complete
+isolated build/editor checks and a private native PipeWire microphone acceptance
+passed. The paired physical microphone/input-meter check described below also passed;
+the installed V1 build is unchanged. See the
+[native microphone qualification and limits](checkpoints/2026-10-14-native-shared-microphones.md).
+
+**October 14 unattended follow-up:** 60 paired simulated cycles passed independent
+saves, overlapping holds/Mute override, lock cancellation, strip-only meter writes
+and twelve alternating reconnects. Explicit verified history archival preserved
+active profiles/contexts. Nine private native microphone fault cases and forty
+repeated microphone cycles passed, with no production-source/build changes or
+physical device access. Synthetic resource samples are not a production soak.
+
+**October 14 paired microphone acceptance:** physical Plus/MK.2 holds, overlap,
+last-release mute, cross-device Mute override, persistent ordinary unmute, held-page
+cancellation and both input meters passed user acceptance, corroborated by pinned
+native source-state observations and combined physical receipts. Both owners blanked
+and exact microphone/output/playback/configuration/build/page restoration passed;
+the user confirmed normal V1 recovery. Paired lifecycle/migration/resource
+qualification remains before activation. See the
+[physical microphone evidence and limits](checkpoints/2026-10-14-native-shared-microphones.md#paired-physical-microphone-acceptance).
+
+**October 14 System sounds meter acceptance:** a guarded native trial passed
+physical output-versus-event isolation: ordinary audio moved only the output
+meter, while an event-role tone also moved System sounds. Missing app stayed
+unavailable, and ended events did not borrow output peaks. All fixture processes
+were reaped; exact event/output/playback/configuration/build/page restoration
+passed. The trial did not exercise System sounds volume/mute actions or measure
+resource budgets. See the [meter isolation evidence](checkpoints/2026-10-14-saved-active-meters.md#physical-system-sounds-isolation).
+
+**October 14 held-device recovery:** both physical Decks passed disconnecting during
+a microphone hold, no stale unmute after reconnect, and fresh-press recovery. The
+surviving MK.2 hold stayed Live across Plus disconnect until its own release. Pinned
+source observations, device reconnect states and combined receipts corroborate
+the bounded trial; a separate requested page-state mismatch is documented and not
+counted as new navigation evidence. Both owners blanked, sampled helpers exited,
+exact state restoration passed, and the user confirmed normal V1 recovery. Paired
+lock/suspend/startup integration, migration and resource qualification remain.
+See the [held-device recovery evidence](checkpoints/2026-10-14-native-shared-microphones.md#physical-held-device-recovery-follow-up).
+
 ## Next work priorities — Monday, October 12
 
 These are the first two tasks, ahead of new V1.5 features. Work started early

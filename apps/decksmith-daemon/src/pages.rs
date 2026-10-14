@@ -348,10 +348,33 @@ impl ModelControls {
                     if let Action::AudioSelect { target } | Action::PushToTalk { target } = key {
                         providers.key_audio.insert(target.clone());
                     }
+                    if let Action::AudioMute { target } = key
+                        && target.starts_with("input:")
+                    {
+                        providers.key_audio.insert(target.clone());
+                    }
                 }
                 if let Some(dials) = &page.dials {
                     for dial in dials {
                         providers.action(dial.press.clone());
+                        if dial.plugin.is_none()
+                            && (matches!(dial.rotation, Rotation::Volume)
+                                || (matches!(dial.rotation, Rotation::None)
+                                    && matches!(
+                                        dial.press,
+                                        Action::MuteToggle
+                                            | Action::AudioMute { .. }
+                                            | Action::PushToTalk { .. }
+                                    )))
+                        {
+                            let target = dial
+                                .target
+                                .as_ref()
+                                .cloned()
+                                .unwrap_or_else(|| "default_output".into());
+                            providers.audio.insert(target.clone());
+                            providers.meters.insert(target);
+                        }
                         if matches!(dial.rotation, Rotation::Volume) && dial.plugin.is_none() {
                             providers.action(dial.target.as_ref().map_or(
                                 Action::VolumeAdjust { percent: 1 },
@@ -4189,6 +4212,53 @@ mod tests {
         assert!(
             roundtrip.resolved_dials[1].as_ref().unwrap()[0].display_style
                 == DisplayStyle::SingleArc
+        );
+    }
+    #[test]
+    fn shared_explicit_master_meter_is_independent_of_system_sounds() {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../../../config/audio.json")).unwrap();
+        value["dials"] = serde_json::json!([
+            {"label":"Master","rotation":"volume","step":1,"audio_target":"default_output","press":{"type":"none"}},
+            {"label":"System sounds","rotation":"volume","step":1,"audio_target":"system","press":{"type":"none"}},
+            {"label":"Brightness","rotation":"brightness","step":1,"press":{"type":"none"}},
+            {"label":"Empty","rotation":"none","step":1,"press":{"type":"none"}}
+        ]);
+        let mut pages = Pages::parse(&serde_json::to_vec(&value).unwrap()).unwrap();
+        let state = crate::audio::State {
+            percent: 50,
+            muted: false,
+            active: Some(true),
+            icon: Default::default(),
+        };
+        pages.target_states = vec![
+            ("system".into(), Some(state)),
+            ("default_output".into(), Some(state)),
+        ];
+        pages.levels = [
+            ("default_output".into(), Some(10)),
+            ("system".into(), Some(90)),
+        ]
+        .into_iter()
+        .collect();
+        let first = pages.dial_strip(Some(state));
+        pages.levels.insert("default_output".into(), Some(99));
+        let second = pages.dial_strip(Some(state));
+        assert!(
+            (72..94).any(|y| first[y * 2400..y * 2400 + 600] != second[y * 2400..y * 2400 + 600])
+        );
+        for y in 0..100 {
+            assert_eq!(
+                &first[y * 2400 + 600..y * 2400 + 1200],
+                &second[y * 2400 + 600..y * 2400 + 1200]
+            );
+        }
+        let providers = pages.config.model_controls().provider_pages();
+        assert_eq!(
+            providers[0].meters,
+            ["default_output".into(), "system".into()]
+                .into_iter()
+                .collect()
         );
     }
 }

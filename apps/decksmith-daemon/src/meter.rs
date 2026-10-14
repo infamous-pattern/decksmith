@@ -5,7 +5,7 @@ use std::{
     os::unix::net::UnixStream,
     process::{Command, Stdio},
     sync::{
-        Arc, Mutex,
+        Arc, Condvar, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     thread::JoinHandle,
@@ -22,28 +22,60 @@ pub struct Worker {
     latest: Arc<Mutex<Option<(Desired, Instant, Levels)>>>,
     stop: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
+    wake: Arc<Condvar>,
 }
 impl Worker {
+    #[cfg(test)]
+    pub(crate) fn fixture(session: u64, targets: Vec<String>, levels: Levels) -> Self {
+        let desired = Desired { session, targets };
+        Self {
+            desired: Arc::new(Mutex::new(desired.clone())),
+            latest: Arc::new(Mutex::new(Some((desired, Instant::now(), levels)))),
+            stop: Arc::new(AtomicBool::new(false)),
+            thread: None,
+            wake: Arc::new(Condvar::new()),
+        }
+    }
     pub fn start() -> Self {
+        Self::start_with_limit(4)
+    }
+    pub fn start_shared() -> Self {
+        Self::start_with_limit(32)
+    }
+    fn start_with_limit(limit: usize) -> Self {
         let desired = Arc::new(Mutex::new(Desired::default()));
         let latest = Arc::new(Mutex::new(None));
         let stop = Arc::new(AtomicBool::new(false));
+        let wake = Arc::new(Condvar::new());
+        let notify = wake.clone();
         let (want, out, done) = (desired.clone(), latest.clone(), stop.clone());
         let thread = std::thread::spawn(move || {
             while !done.load(Ordering::Acquire) {
-                let current = want.lock().unwrap().clone();
-                if current.session == 0 || current.targets.is_empty() {
-                    std::thread::sleep(Duration::from_millis(20));
-                    continue;
-                }
+                let current = {
+                    let mut desired = want.lock().unwrap();
+                    while !done.load(Ordering::Acquire)
+                        && (desired.session == 0 || desired.targets.is_empty())
+                    {
+                        desired = notify.wait(desired).unwrap();
+                    }
+                    if done.load(Ordering::Acquire) {
+                        break;
+                    }
+                    desired.clone()
+                };
                 let Ok((mut reader, writer)) = UnixStream::pair() else {
                     break;
                 };
                 let _ = reader.set_read_timeout(Some(Duration::from_millis(20)));
                 let path = crate::runtime_paths::helper("audio_meter.py");
-                let child = Command::new("/usr/bin/python3")
+                let mut command = Command::new("/usr/bin/python3");
+                command
                     .arg(path)
-                    .arg(serde_json::to_string(&current.targets).unwrap())
+                    .arg(serde_json::to_string(&current.targets).unwrap());
+                if limit == 32 {
+                    command.arg("--shared");
+                }
+                let child = command
                     .stdin(Stdio::null())
                     .stdout(Stdio::from(std::os::fd::OwnedFd::from(writer)))
                     .stderr(Stdio::null())
@@ -56,13 +88,13 @@ impl Worker {
                             Ok(0) => break,
                             Ok(n) => {
                                 pending.extend_from_slice(&buffer[..n]);
-                                if pending.len() > 8192 {
+                                if pending.len() > if limit == 32 { 32768 } else { 8192 } {
                                     break;
                                 }
                                 while let Some(end) = pending.iter().position(|b| *b == b'\n') {
                                     if let Ok(levels) =
                                         serde_json::from_slice::<Levels>(&pending[..end])
-                                        && levels.len() <= 4
+                                        && levels.len() <= limit
                                         && levels.iter().all(|(k, v)| {
                                             current.targets.contains(k)
                                                 && v.is_none_or(|n| n <= 100)
@@ -100,11 +132,17 @@ impl Worker {
             latest,
             stop,
             thread: Some(thread),
+            wake,
         }
     }
     pub fn levels(&self, session: u64, targets: Vec<String>) -> Levels {
         let desired = Desired { session, targets };
-        *self.desired.lock().unwrap() = desired.clone();
+        let mut current = self.desired.lock().unwrap();
+        if *current != desired {
+            *current = desired.clone();
+            self.wake.notify_all();
+        }
+        drop(current);
         self.latest
             .lock()
             .unwrap()
@@ -116,7 +154,10 @@ impl Worker {
 }
 impl Drop for Worker {
     fn drop(&mut self) {
+        let _guard = self.desired.lock().unwrap();
         self.stop.store(true, Ordering::Release);
+        self.wake.notify_all();
+        drop(_guard);
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
@@ -156,6 +197,12 @@ pub fn draw(rgb: &mut [u8], level: Option<u8>, muted: bool) {
 mod tests {
     use super::*;
     #[test]
+    fn idle_shared_owner_wakes_and_joins_without_a_helper_or_periodic_poll() {
+        for _ in 0..10 {
+            drop(Worker::start_shared());
+        }
+    }
+    #[test]
     fn latest_snapshot_expires_and_rejects_old_sessions_or_targets() {
         let desired = Desired {
             session: 1,
@@ -170,6 +217,7 @@ mod tests {
             )))),
             stop: Arc::new(AtomicBool::new(false)),
             thread: None,
+            wake: Arc::new(Condvar::new()),
         };
         let start = Instant::now();
         assert_eq!(

@@ -162,6 +162,21 @@ impl MicrophoneHolds {
         now: u64,
         current: impl Fn(&ActionScope) -> bool,
     ) -> Result<()> {
+        self.acquire_with_limit(token, target, now, current, MAX_TARGETS)
+    }
+    /// The host may reserve some target slots for ordinary mute transactions.
+    /// Rejected genuine downs are still consumed before checking this budget.
+    pub fn acquire_with_limit(
+        &mut self,
+        token: HoldToken,
+        target: TargetId,
+        now: u64,
+        current: impl Fn(&ActionScope) -> bool,
+        target_limit: usize,
+    ) -> Result<()> {
+        if target_limit > MAX_TARGETS {
+            return Err("hold_target_limit");
+        }
         self.maintain(now, &current)?;
         if !self.scope_allowed(&token.scope, &current)
             || token.press == 0
@@ -193,7 +208,7 @@ impl MicrophoneHolds {
         // Consume this down even when the target budget is full. Do not unmute
         // a still-held key later merely because resource space becomes free.
         self.consumed.insert(owner, (token.scope, token.press));
-        if !self.targets.contains_key(&target) && self.targets.len() >= MAX_TARGETS {
+        if !self.targets.contains_key(&target) && self.targets.len() >= target_limit {
             return Err("hold_target_limit");
         }
         self.desired(&target, DesiredMic::Live, false)?;

@@ -132,9 +132,10 @@ not enable production multi-device operation or qualify latency/resource budgets
 ## Remaining activation gates
 
 The expanded live editor path still needs changes to audio/media assignments with
-appropriate native-state restoration and physical acceptance. The current
-native trial meter still follows its original selected output; active saved-target
-meter subscriptions remain work. Offline saves are available in the saved-only
+appropriate native-state restoration and physical acceptance. The subsequent
+[saved meter bridge](2026-10-14-saved-active-meters.md) replaces the original
+single-output trial meter; expanded physical assignment acceptance is still open.
+Offline saves are available in the saved-only
 workspace; this first connected save path requires a ready session. Add controlled
 recovery for post-publication disconnect/lock and filesystem failure, live roster
 extension, input mute/PTT policy, other native/plugin providers and full paired

@@ -4,11 +4,29 @@ use crate::{device_profiles::Catalog, pages::Action};
 use decksmith_core::device_context::DeviceId;
 use std::collections::{BTreeMap, BTreeSet};
 pub const DEFAULT_MEDIA: &str = "automatic";
+pub fn route_levels(
+    subscriptions: &BTreeMap<DeviceId, BTreeSet<String>>,
+    levels: &crate::meter::Levels,
+) -> BTreeMap<DeviceId, crate::meter::Levels> {
+    subscriptions
+        .iter()
+        .map(|(id, targets)| {
+            (
+                *id,
+                targets
+                    .iter()
+                    .map(|target| (target.clone(), levels.get(target).copied().flatten()))
+                    .collect(),
+            )
+        })
+        .collect()
+}
 #[derive(Default, Clone, PartialEq, Eq)]
 pub struct Page {
     pub audio: BTreeSet<String>,
     pub media: BTreeSet<String>,
     pub key_audio: BTreeSet<String>,
+    pub meters: BTreeSet<String>,
 }
 impl Page {
     pub fn action(&mut self, action: Action) {
@@ -33,6 +51,27 @@ pub struct Plan {
     pub media: Vec<String>,
 }
 impl Plan {
+    /// Only connected touch-capable devices' current pages request peaks. Keys,
+    /// offline pages and MK.2 profiles never create monitor streams.
+    pub fn active_meters(
+        &self,
+        sessions: &[decksmith_device::manager::SessionStatus],
+        blocked: bool,
+    ) -> BTreeMap<DeviceId, BTreeSet<String>> {
+        if blocked {
+            return BTreeMap::new();
+        }
+        sessions
+            .iter()
+            .filter(|s| s.connected && s.model == decksmith_core::device_model::DeviceModel::Plus)
+            .filter_map(|s| {
+                self.pages
+                    .get(&s.id)?
+                    .get(usize::from(s.page?))
+                    .map(|p| (s.id, p.meters.clone()))
+            })
+            .collect()
+    }
     pub fn from_catalog(catalog: &Catalog) -> Result<Self, &'static str> {
         let mut plan = Self::default();
         let mut audio = BTreeSet::new();
@@ -124,6 +163,21 @@ mod tests {
                 .contains("app:application.process.binary=brave")
         );
         assert!(pages[1].audio.contains("output:fixture"));
+        assert_eq!(
+            pages[0].meters,
+            [
+                "app:application.process.binary=brave".into(),
+                "output:fixture".into()
+            ]
+            .into_iter()
+            .collect()
+        );
+        assert_eq!(
+            pages[1].meters,
+            ["app:application.name=MPZ".into(), "output:fixture".into()]
+                .into_iter()
+                .collect()
+        );
         assert!(pages[0].key_audio.is_empty());
         assert_eq!(
             crate::layout_document::Document::parse(&bytes)
@@ -155,5 +209,67 @@ mod tests {
                 .is_err()
             );
         }
+    }
+    #[test]
+    fn active_meters_are_device_and_page_scoped_and_missing_is_not_silence() {
+        use decksmith_core::device_model::DeviceModel;
+        use decksmith_device::manager::SessionStatus;
+        let ids = [1, 2, 3].map(|n| DeviceId::from_bytes([n; 16]).unwrap());
+        let a = Page {
+            meters: ["output:A".into()].into_iter().collect(),
+            ..Default::default()
+        };
+        let b = Page {
+            meters: ["output:B".into()].into_iter().collect(),
+            ..Default::default()
+        };
+        let plan = Plan {
+            pages: [
+                (ids[0], vec![a.clone(), b.clone()]),
+                (ids[1], vec![a.clone()]),
+                (ids[2], vec![b]),
+            ]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+        let mut statuses: Vec<_> = ids
+            .into_iter()
+            .enumerate()
+            .map(|(i, id)| SessionStatus {
+                id,
+                model: if i == 2 {
+                    DeviceModel::Mk2
+                } else {
+                    DeviceModel::Plus
+                },
+                connected: true,
+                input_ready: true,
+                display_ready: true,
+                connection: 1,
+                binding: 1,
+                page: Some(0),
+                brightness: 50,
+                error: None,
+            })
+            .collect();
+        let wanted = plan.active_meters(&statuses, false);
+        assert_eq!(wanted.len(), 2);
+        let levels = [("output:A".into(), Some(0)), ("output:B".into(), Some(99))]
+            .into_iter()
+            .collect();
+        let routed = route_levels(&wanted, &levels);
+        assert_eq!(routed[&ids[0]], routed[&ids[1]]);
+        assert_eq!(routed[&ids[0]].get("output:A"), Some(&Some(0)));
+        statuses[0].page = Some(1);
+        let routed = route_levels(
+            &plan.active_meters(&statuses, false),
+            &[("output:A".into(), Some(73))].into_iter().collect(),
+        );
+        assert_eq!(routed[&ids[0]].get("output:B"), Some(&None));
+        assert_eq!(routed[&ids[1]].get("output:A"), Some(&Some(73)));
+        statuses[0].connected = false;
+        assert_eq!(plan.active_meters(&statuses, false).len(), 1);
+        assert!(plan.active_meters(&statuses, true).is_empty());
     }
 }
