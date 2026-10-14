@@ -55,6 +55,44 @@ pub struct Feedback {
     pub scope: ActionScope,
     pub result: Result<()>,
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EditTicket {
+    pub context: DeviceContext,
+    epoch: u64,
+}
+pub(crate) struct PreparedEdit {
+    controls: crate::device_profiles::PreparedControls,
+    plan: crate::saved_native::Plan,
+    bindings: BTreeMap<String, crate::shared_native_media::Session>,
+    layout: Arc<[u8]>,
+}
+impl PreparedEdit {
+    pub(crate) fn new(
+        catalog: &Catalog,
+        id: DeviceId,
+        bindings: Vec<crate::shared_native_media::Session>,
+    ) -> Result<Self> {
+        let plan = crate::saved_native::Plan::from_catalog(catalog)?;
+        let mut book = BTreeMap::new();
+        if bindings.len() > 8 {
+            return Err("invalid_native_media_bindings");
+        }
+        for binding in bindings {
+            binding.validate()?;
+            if !plan.media.contains(&binding.selector)
+                || book.insert(binding.selector.clone(), binding).is_some()
+            {
+                return Err("invalid_native_media_bindings");
+            }
+        }
+        Ok(Self {
+            controls: crate::device_profiles::PreparedControls::new(catalog, id)?,
+            plan,
+            bindings: book,
+            layout: Arc::from(catalog.profile(id)?.document().bytes()),
+        })
+    }
+}
 pub struct Runtime {
     controls: Controls,
     catalog: Catalog,
@@ -73,6 +111,14 @@ pub struct Runtime {
     holds: BTreeMap<(DeviceId, ControlAddress), HoldToken>,
     press: u64,
     stopped: bool,
+    media_bindings: Option<BTreeMap<String, crate::shared_native_media::Session>>,
+    native_plan: Option<crate::saved_native::Plan>,
+    native_observer: Option<crate::shared_native_state::Observer>,
+    native_states: Vec<(String, Option<crate::audio::State>)>,
+    native_contexts: BTreeMap<DeviceId, DeviceContext>,
+    edits: BTreeMap<DeviceId, EditTicket>,
+    edit_epoch: u64,
+    gate_state: (bool, bool),
 }
 impl Runtime {
     pub fn start(
@@ -124,10 +170,178 @@ impl Runtime {
             holds: BTreeMap::new(),
             press: 0,
             stopped: false,
+            media_bindings: None,
+            native_plan: None,
+            native_observer: None,
+            native_states: Vec::new(),
+            native_contexts: BTreeMap::new(),
+            edits: BTreeMap::new(),
+            edit_epoch: 1,
+            gate_state: (false, false),
         })
     }
+    /// Prepared off the input coordinator. Exactly one native executor serializes
+    /// overlapping logical audio aliases; one deduplicated reader serves all Decks.
+    pub fn start_saved_native(
+        catalog: Catalog,
+        backend: crate::shared_native_media::NativeBackend,
+        bindings: Vec<crate::shared_native_media::Session>,
+    ) -> Result<Self> {
+        let plan = crate::saved_native::Plan::from_catalog(&catalog)?;
+        if bindings.iter().any(|s| !plan.media.contains(&s.selector)) {
+            return Err("native_media_payload_mismatch");
+        }
+        let observer = Some(crate::shared_native_state::Observer::start_many(
+            plan.audio.clone(),
+        )?);
+        let mut runtime = Self::start(catalog, vec![Box::new(backend)], None)?;
+        runtime.bind_native_media(bindings)?;
+        runtime.native_plan = Some(plan);
+        runtime.native_observer = observer;
+        Ok(runtime)
+    }
     pub fn context(&self, id: DeviceId, control: ControlAddress) -> Result<DeviceContext> {
+        if self.edits.contains_key(&id) {
+            return Err("profile_update_pending");
+        }
         self.controls.manager().context(id, control)
+    }
+    pub(crate) fn instance(&self) -> DeviceId {
+        self.mirror.read().unwrap().runtime
+    }
+    pub(crate) fn catalog(&self) -> &Catalog {
+        &self.catalog
+    }
+    pub(crate) fn bindings(&self) -> Vec<crate::shared_native_media::Session> {
+        self.media_bindings
+            .as_ref()
+            .map_or_else(Vec::new, |map| map.values().cloned().collect())
+    }
+    pub(crate) fn reserve_edit(&mut self, context: DeviceContext) -> Result<EditTicket> {
+        if self.stopped || self.edits.contains_key(&context.device) {
+            return Err("profile_update_pending");
+        }
+        if !self.controls.manager().current(&context) {
+            return Err("stale_device_context");
+        }
+        self.revoke(context.device);
+        let binding = self.controls.fence_input(context.device, context.binding)?;
+        let ticket = EditTicket {
+            context: DeviceContext { binding, ..context },
+            epoch: self.edit_epoch,
+        };
+        self.edits.insert(context.device, ticket);
+        self.sync();
+        Ok(ticket)
+    }
+    pub(crate) fn cancel_edit(&mut self, ticket: EditTicket) -> Result<()> {
+        let id = ticket.context.device;
+        if self.edits.get(&id) != Some(&ticket) {
+            return Err("stale_profile_update");
+        }
+        let binding = self
+            .controls
+            .manager()
+            .statuses()
+            .iter()
+            .find(|s| s.id == id)
+            .ok_or("unknown_device")?
+            .binding;
+        self.revoke(id);
+        self.controls.fence_input(id, binding)?;
+        self.edits.remove(&id);
+        self.sync();
+        Ok(())
+    }
+    pub(crate) fn apply_edit(
+        &mut self,
+        ticket: EditTicket,
+        catalog: Catalog,
+        prepared: PreparedEdit,
+    ) -> Result<()> {
+        let id = ticket.context.device;
+        if self.stopped
+            || self.edits.get(&id) != Some(&ticket)
+            || self.edit_epoch != ticket.epoch
+            || !self.controls.manager().statuses().iter().any(|s| {
+                s.id == id
+                    && s.connected
+                    && s.binding == ticket.context.binding
+                    && s.connection == ticket.context.connection
+            })
+        {
+            return Err("stale_profile_update");
+        }
+        if !self.catalog.same_associations(&catalog) || !prepared.controls.matches(&catalog, id) {
+            return Err("invalid_prepared_profile");
+        }
+        for summary in self.catalog.summaries() {
+            let old = self.catalog.profile(summary.id)?;
+            let new = catalog.profile(summary.id)?;
+            if summary.id != id && old.revision != new.revision
+                || summary.id == id && old.revision.checked_add(1) != Some(new.revision)
+            {
+                return Err("stale_device_profile");
+            }
+        }
+        // Preserve pins used by a partner. A save is not permission to rebind
+        // another Deck's player when it pauses, vanishes or changes ownership.
+        if let Some(old_plan) = &self.native_plan {
+            for (partner, pages) in &old_plan.pages {
+                if *partner != id {
+                    for selector in pages.iter().flat_map(|p| &p.media) {
+                        if self.media_bindings.as_ref().and_then(|b| b.get(selector))
+                            != prepared.bindings.get(selector)
+                        {
+                            return Err("partner_media_pin_changed");
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(observer) = &mut self.native_observer {
+            observer.configure(prepared.plan.audio.clone())?;
+        }
+        self.controls
+            .apply_prepared(prepared.controls, ticket.context.binding)?;
+        self.layouts.insert(id, prepared.layout);
+        self.catalog = catalog;
+        self.native_plan = Some(prepared.plan);
+        self.media_bindings = Some(prepared.bindings);
+        self.native_contexts.remove(&id);
+        self.edits.remove(&id);
+        self.dirty.insert(id);
+        self.sync();
+        Ok(())
+    }
+    pub(crate) fn apply_selection(&mut self, catalog: Catalog) -> Result<()> {
+        if !self.catalog.same_associations(&catalog)
+            || self.catalog.summaries().iter().any(|s| {
+                self.catalog.profile(s.id).map(|p| p.revision)
+                    != catalog.profile(s.id).map(|p| p.revision)
+            })
+        {
+            return Err("stale_device_profile");
+        }
+        self.catalog = catalog;
+        Ok(())
+    }
+    pub fn bind_native_media(
+        &mut self,
+        bindings: Vec<crate::shared_native_media::Session>,
+    ) -> Result<()> {
+        if self.media_bindings.is_some() || bindings.len() > 8 {
+            return Err("invalid_native_media_bindings");
+        }
+        let mut map = BTreeMap::new();
+        for binding in bindings {
+            binding.validate()?;
+            if map.insert(binding.selector.clone(), binding).is_some() {
+                return Err("invalid_native_media_bindings");
+            }
+        }
+        self.media_bindings = Some(map);
+        Ok(())
     }
     pub fn key_feedback(&mut self, context: DeviceContext, bytes: &[u8]) -> Result<()> {
         self.controls.paint_key(context, bytes)
@@ -141,6 +355,10 @@ impl Runtime {
             .statuses()
             .into_iter()
             .map(|mut s| {
+                if self.edits.contains_key(&s.id) {
+                    s.input_ready = false;
+                    s.error = Some("profile_update_pending".into());
+                }
                 if self.dirty.contains(&s.id)
                     || self.strip_dirty.contains(&s.id)
                     || self.render_pending.contains(&s.id)
@@ -166,6 +384,9 @@ impl Runtime {
         let mut view = self.mirror.write().unwrap();
         view.entries.clear();
         for status in self.statuses() {
+            if self.edits.contains_key(&status.id) {
+                continue;
+            }
             if let (Ok(context), Some(lease)) = (
                 self.controls
                     .manager()
@@ -252,17 +473,30 @@ impl Runtime {
         result
     }
     pub fn navigate(&mut self, context: DeviceContext, page: u8) -> Result<()> {
+        if self.edits.contains_key(&context.device) {
+            return Err("profile_update_pending");
+        }
         self.revoke(context.device);
         let result = self.controls.navigate(context, page).map(|_| ());
         self.sync();
         result
     }
     pub fn gate(&mut self, locked: bool, suspended: bool) -> Result<()> {
+        if self.gate_state == (locked, suspended) {
+            return Ok(());
+        }
+        self.edit_epoch = self
+            .edit_epoch
+            .checked_add(1)
+            .ok_or("profile_update_epoch_exhausted")?;
         let ids: Vec<_> = self.layouts.keys().copied().collect();
         for id in ids {
             self.revoke(id);
         }
         let result = self.controls.gate(locked, suspended);
+        if result.is_ok() {
+            self.gate_state = (locked, suspended);
+        }
         self.sync();
         result
     }
@@ -274,6 +508,10 @@ impl Runtime {
         if revision < previous {
             return Err("stale_foreground_revision");
         }
+        self.edit_epoch = self
+            .edit_epoch
+            .checked_add(1)
+            .ok_or("profile_update_epoch_exhausted")?;
         for status in self.statuses() {
             self.revoke(status.id);
             self.controls.fence_input(status.id, status.binding)?;
@@ -286,11 +524,22 @@ impl Runtime {
         if !self.catalog.same_associations(&catalog) {
             return Err("execution_roster_change_requires_enrollment_bridge");
         }
+        let plan = if let Some(previous) = &self.native_plan {
+            let next = crate::saved_native::Plan::from_catalog(&catalog)?;
+            if previous.audio != next.audio || previous.media != next.media {
+                return Err("native_plan_refresh_required");
+            }
+            Some(next)
+        } else {
+            None
+        };
         self.revoke(id);
         self.controls.apply_saved_profile(&catalog, id, binding)?;
         self.layouts
             .insert(id, Arc::from(catalog.profile(id)?.document().bytes()));
         self.catalog = catalog;
+        self.native_plan = plan;
+        self.native_contexts.remove(&id);
         self.sync();
         Ok(())
     }
@@ -331,8 +580,16 @@ impl Runtime {
         &mut self,
         event: decksmith_device::manager::ReceivedInput,
     ) -> Result<Option<RequestId>> {
+        if self.edits.contains_key(&event.context.device) {
+            return Err("profile_update_pending");
+        }
         let Some(action) = self.controls.resolve(&event)? else {
             return Ok(None);
+        };
+        let action = if self.native_plan.is_some() {
+            crate::saved_native::normalize(action)
+        } else {
+            action
         };
         let id = event.context.device;
         match action {
@@ -384,7 +641,13 @@ impl Runtime {
                 .actions
                 .submit(
                     self.scope(event.context),
-                    Compiled::media(&player, &command)?,
+                    match &self.media_bindings {
+                        Some(bindings) => Compiled::media_bound(
+                            bindings.get(&player).ok_or("media_unavailable")?.clone(),
+                            &command,
+                        )?,
+                        None => Compiled::media(&player, &command)?,
+                    },
                     event.received_at,
                 )
                 .map(Some),
@@ -392,7 +655,11 @@ impl Runtime {
                 .actions
                 .submit(
                     self.scope(event.context),
-                    Compiled::audio(audio)?,
+                    if self.native_plan.is_some() {
+                        Compiled::saved_audio(audio)?
+                    } else {
+                        Compiled::audio(audio)?
+                    },
                     event.received_at,
                 )
                 .map(Some),
@@ -419,6 +686,62 @@ impl Runtime {
             }
         }
         self.sync();
+        if let Some(plan) = &self.native_plan {
+            let changed = self
+                .native_observer
+                .as_mut()
+                .and_then(|observer| observer.snapshot());
+            let refreshed = changed.is_some();
+            if let Some(states) = changed {
+                self.native_states = states;
+            }
+            for status in self.controls.manager().statuses() {
+                let Ok(context) = self
+                    .controls
+                    .manager()
+                    .context(status.id, ControlAddress::Key(0))
+                else {
+                    continue;
+                };
+                if !refreshed && self.native_contexts.get(&status.id) == Some(&context) {
+                    continue;
+                }
+                self.native_contexts.insert(status.id, context);
+                let Some(page) = status.page.and_then(|page| {
+                    plan.pages
+                        .get(&status.id)
+                        .and_then(|rows| rows.get(usize::from(page)))
+                }) else {
+                    continue;
+                };
+                let wanted: Vec<_> = self
+                    .native_states
+                    .iter()
+                    .filter(|(target, _)| page.audio.contains(target))
+                    .cloned()
+                    .collect();
+                let audio = Some(
+                    wanted
+                        .iter()
+                        .find(|(t, _)| t == "default_output")
+                        .and_then(|(_, state)| *state),
+                );
+                let state = self.touch.get_mut(&status.id).unwrap();
+                if state.targets != wanted || state.audio != audio {
+                    let keys_changed = page.key_audio.iter().any(|target| {
+                        state.targets.iter().find(|(t, _)| t == target)
+                            != wanted.iter().find(|(t, _)| t == target)
+                    });
+                    state.targets = wanted;
+                    state.audio = audio;
+                    if keys_changed {
+                        self.dirty.insert(status.id);
+                    } else if status.model == decksmith_core::device_model::DeviceModel::Plus {
+                        self.strip_dirty.insert(status.id);
+                    }
+                }
+            }
+        }
         if let Some(m) = &self.mics {
             for (id, lease) in &self.leases {
                 if lease.recent(Duration::from_millis(200))
@@ -530,7 +853,12 @@ impl Runtime {
         }
         self.renders.stop();
         self.controls.stop();
-        self.io.join()
+        let results = self.io.join();
+        // Effects must settle before the caller reports/starts restoration. A
+        // late native timeout still records its uncertainty after scope revoke.
+        self.actions.quiesce();
+        self.native_observer = None;
+        results
     }
 }
 impl Drop for Runtime {

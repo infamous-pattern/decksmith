@@ -1,0 +1,487 @@
+//! Guarded MPRIS session adapter for the opt-in connected native path.
+//! A selection is pinned before input: no discovery or player switching on keys.
+use crate::{
+    pages::Action,
+    shared_worker::{Backend, Fence, NamedAudioBackend},
+};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::BTreeSet,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
+type Result<T> = std::result::Result<T, &'static str>;
+const PATH: &str = "/org/mpris/MediaPlayer2";
+const PLAYER: &str = "org.mpris.MediaPlayer2.Player";
+fn family(name: &str) -> &str {
+    name.rsplit_once(".instance")
+        .filter(|(_, suffix)| !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()))
+        .map_or(name, |(prefix, _)| prefix)
+}
+fn previous_selection() -> Option<Session> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Saved {
+        name: String,
+        owner: String,
+    }
+    let path = std::path::PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?)
+        .join("decksmith-media-player.json");
+    let saved: Saved =
+        serde_json::from_slice(&crate::layout_store::read(&path, 4096).ok()?).ok()?;
+    let pin = Session {
+        selector: crate::saved_native::DEFAULT_MEDIA.into(),
+        name: saved.name,
+        owner: saved.owner,
+    };
+    pin.validate().ok()?;
+    Some(pin)
+}
+struct Candidate {
+    name: String,
+    owner: String,
+    status: String,
+}
+fn selection(
+    selector: &str,
+    candidates: &[Candidate],
+    preferred: Option<&Session>,
+) -> Option<Session> {
+    candidates
+        .iter()
+        .filter(|c| {
+            selector == crate::saved_native::DEFAULT_MEDIA
+                || c.name == selector
+                || family(&c.name) == selector
+        })
+        .min_by_key(|c| {
+            (
+                preferred.is_none_or(|p| p.name != c.name || p.owner != c.owner),
+                match c.status.as_str() {
+                    "Playing" => 0,
+                    "Paused" => 1,
+                    _ => 2,
+                },
+                c.name.as_str(),
+            )
+        })
+        .map(|c| Session {
+            selector: selector.into(),
+            name: c.name.clone(),
+            owner: c.owner.clone(),
+        })
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Session {
+    pub selector: String,
+    pub name: String,
+    pub owner: String,
+}
+impl std::fmt::Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("MediaSession([private])")
+    }
+}
+impl Session {
+    pub fn validate(&self) -> Result<()> {
+        if !(crate::launch::valid_player(&self.selector)
+            || self.selector == crate::saved_native::DEFAULT_MEDIA)
+            || !crate::launch::valid_player(&self.name)
+            || !(self.selector == crate::saved_native::DEFAULT_MEDIA
+                || family(&self.name) == self.selector
+                || self.selector == self.name)
+            || self.owner.len() > 255
+            || zbus::names::UniqueName::try_from(self.owner.as_str()).is_err()
+        {
+            return Err("invalid_native_media_session");
+        }
+        Ok(())
+    }
+}
+trait Bus {
+    fn owner(&self, name: &str) -> Result<String>;
+    fn text(&self, owner: &str, property: &str) -> Result<String>;
+    fn flag(&self, owner: &str, property: &str) -> Result<bool>;
+    fn invoke(&self, owner: &str, method: &str) -> Result<()>;
+}
+fn execute(
+    bus: &impl Bus,
+    session: &Session,
+    command: &str,
+    current: impl Fn() -> bool,
+) -> Result<()> {
+    session.validate()?;
+    let method = match command {
+        "play_pause" => "PlayPause",
+        "next" => "Next",
+        "previous" => "Previous",
+        _ => return Err("invalid_shared_media_action"),
+    };
+    if !current() {
+        return Err("stale_action_scope");
+    }
+    if bus.owner(&session.name)? != session.owner {
+        return Err("native_media_session_changed");
+    }
+    let status = bus.text(&session.owner, "PlaybackStatus")?;
+    if !matches!(status.as_str(), "Playing" | "Paused" | "Stopped") {
+        return Err("invalid_native_media_state");
+    }
+    let capability = match command {
+        "next" => "CanGoNext",
+        "previous" => "CanGoPrevious",
+        _ if status == "Playing" => "CanPause",
+        _ => "CanPlay",
+    };
+    if !bus.flag(&session.owner, "CanControl")? || !bus.flag(&session.owner, capability)? {
+        return Err("media_unsupported");
+    }
+    // Capabilities may wait. Revalidate the well-known name's exact owner, then
+    // check the device fence immediately before the only external write.
+    if bus.owner(&session.name)? != session.owner {
+        return Err("native_media_session_changed");
+    }
+    if !current() {
+        return Err("stale_action_scope");
+    }
+    bus.invoke(&session.owner, method)
+}
+struct NativeBus(zbus::blocking::Connection);
+// The flags path bypasses zbus's ordinary connection method_timeout wrapper.
+// Dropping a timed-out future cannot undo a request that has already been sent.
+fn bounded_call<B, R>(
+    proxy: &zbus::blocking::Proxy<'_>,
+    method: &str,
+    body: &B,
+) -> zbus::Result<Option<R>>
+where
+    B: serde::Serialize + zbus::zvariant::DynamicType,
+    R: for<'de> zbus::zvariant::DynamicDeserialize<'de>,
+{
+    futures_lite::future::block_on(futures_lite::future::race(
+        proxy
+            .inner()
+            .call_with_flags(method, zbus::proxy::MethodFlags::NoAutoStart.into(), body),
+        async {
+            async_io::Timer::after(Duration::from_millis(200)).await;
+            Err(zbus::Error::Failure("bounded native media timeout".into()))
+        },
+    ))
+}
+impl NativeBus {
+    fn connect() -> Result<Self> {
+        zbus::blocking::connection::Builder::session()
+            .map_err(|_| "media_unavailable")?
+            .method_timeout(Duration::from_millis(200))
+            .build()
+            .map(Self)
+            .map_err(|_| "media_unavailable")
+    }
+    fn proxy<'a>(
+        &'a self,
+        owner: &'a str,
+        interface: &'a str,
+    ) -> Result<zbus::blocking::Proxy<'a>> {
+        zbus::blocking::Proxy::new(&self.0, owner, PATH, interface).map_err(|_| "media_unavailable")
+    }
+    fn property(&self, owner: &str, property: &str) -> Result<zbus::zvariant::OwnedValue> {
+        bounded_call(
+            &self.proxy(owner, "org.freedesktop.DBus.Properties")?,
+            "Get",
+            &(PLAYER, property),
+        )
+        .map_err(|_| "media_unavailable")?
+        .ok_or("media_unavailable")
+    }
+}
+impl Bus for NativeBus {
+    fn owner(&self, name: &str) -> Result<String> {
+        zbus::blocking::Proxy::new(
+            &self.0,
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+        )
+        .map_err(|_| "media_unavailable")?
+        .call("GetNameOwner", &(name,))
+        .map_err(|_| "media_unavailable")
+    }
+    fn text(&self, owner: &str, property: &str) -> Result<String> {
+        let value = String::try_from(self.property(owner, property)?)
+            .map_err(|_| "invalid_native_media_state")?;
+        if value.len() > 32 {
+            return Err("invalid_native_media_state");
+        }
+        Ok(value)
+    }
+    fn flag(&self, owner: &str, property: &str) -> Result<bool> {
+        bool::try_from(self.property(owner, property)?).map_err(|_| "invalid_native_media_state")
+    }
+    fn invoke(&self, owner: &str, method: &str) -> Result<()> {
+        bounded_call::<_, ()>(&self.proxy(owner, PLAYER)?, method, &())
+            .map_err(|_| "native_media_effect_uncertain")?
+            .ok_or("native_media_effect_uncertain")
+    }
+}
+
+/// One supplied executor for this initial native slice. Named audio and media
+/// are off the I/O/render owners. No input mute or alias/default resolution.
+pub struct NativeBackend {
+    audio: NamedAudioBackend,
+    saved_audio: crate::shared_native_audio::Client,
+    bus: NativeBus,
+    blocked_audio: BTreeSet<String>,
+    blocked_media: BTreeSet<String>,
+    uncertain: Arc<AtomicBool>,
+}
+impl NativeBackend {
+    pub fn connect() -> Result<Self> {
+        Ok(Self {
+            audio: NamedAudioBackend,
+            saved_audio: crate::shared_native_audio::Client::default(),
+            bus: NativeBus::connect()?,
+            blocked_audio: BTreeSet::new(),
+            blocked_media: BTreeSet::new(),
+            uncertain: Arc::new(AtomicBool::new(false)),
+        })
+    }
+    pub fn health(&self) -> Arc<AtomicBool> {
+        self.uncertain.clone()
+    }
+    /// Resolve on the setup owner, never in HID/render/coordinator ticks. The
+    /// returned pins remain stable through pause; absent explicit apps stay absent.
+    pub fn resolve_media(
+        &self,
+        selectors: &[String],
+        preferred: Option<&Session>,
+    ) -> Result<Vec<Session>> {
+        if selectors.len() > 8
+            || selectors
+                .iter()
+                .any(|s| s != crate::saved_native::DEFAULT_MEDIA && !crate::launch::valid_player(s))
+        {
+            return Err("invalid_native_media_bindings");
+        }
+        if selectors.is_empty() {
+            return Ok(Vec::new());
+        }
+        let previous = preferred.cloned().or_else(previous_selection);
+        let proxy = zbus::blocking::Proxy::new(
+            &self.bus.0,
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+        )
+        .map_err(|_| "media_unavailable")?;
+        let names: Vec<String> = proxy
+            .call("ListNames", &())
+            .map_err(|_| "media_unavailable")?;
+        let names: Vec<_> = names
+            .into_iter()
+            .filter(|n| crate::launch::valid_player(n))
+            .collect();
+        if names.len() > 8 {
+            return Err("native_media_inventory_too_large");
+        }
+        let mut candidates = Vec::new();
+        for name in names {
+            let Ok(owner) = self.bus.owner(&name) else {
+                continue;
+            };
+            let Ok(status) = self.bus.text(&owner, "PlaybackStatus") else {
+                continue;
+            };
+            if !matches!(status.as_str(), "Playing" | "Paused" | "Stopped")
+                || self.bus.flag(&owner, "CanControl") != Ok(true)
+                || self.bus.owner(&name).as_ref() != Ok(&owner)
+            {
+                continue;
+            }
+            candidates.push(Candidate {
+                name,
+                owner,
+                status,
+            });
+        }
+        Ok(selectors
+            .iter()
+            .filter_map(|s| selection(s, &candidates, previous.as_ref()))
+            .collect())
+    }
+}
+impl Backend for NativeBackend {
+    fn execute(&mut self, action: &Action, fence: &Fence) -> Result<()> {
+        match action {
+            Action::AudioAdjust { target, .. } | Action::AudioMute { target } => {
+                if self.blocked_audio.len() >= 8 || self.blocked_audio.contains(target) {
+                    return Err("native_audio_effect_blocked");
+                }
+                let result = if matches!(target.as_str(), "system" | "default_output")
+                    || target.starts_with("app:")
+                {
+                    self.saved_audio.execute(action, || fence.accepts())
+                } else {
+                    self.audio.execute(action, fence)
+                };
+                if matches!(
+                    result,
+                    Err("shared_audio_timeout" | "native_audio_effect_uncertain")
+                ) {
+                    self.uncertain.store(true, Ordering::Release);
+                    self.blocked_audio.insert(target.clone());
+                }
+                result
+            }
+            Action::MediaTarget { player, command } => {
+                let session = fence
+                    .media_session()
+                    .ok_or("native_media_requires_pinned_session")?;
+                if player != &session.selector {
+                    return Err("native_media_payload_mismatch");
+                }
+                if self.blocked_media.len() >= 8 || self.blocked_media.contains(&session.owner) {
+                    return Err("native_media_effect_blocked");
+                }
+                let result = execute(&self.bus, session, command, || fence.accepts());
+                if result == Err("native_media_effect_uncertain") {
+                    self.uncertain.store(true, Ordering::Release);
+                    self.blocked_media.insert(session.owner.clone());
+                }
+                result
+            }
+            _ => Err("unsupported_shared_native_action"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::{Cell, RefCell};
+    struct Fake {
+        owner: RefCell<String>,
+        writes: RefCell<Vec<(String, String)>>,
+        alive: Cell<bool>,
+        replace: Cell<bool>,
+        revoke: Cell<bool>,
+        supported: Cell<bool>,
+    }
+    impl Bus for Fake {
+        fn owner(&self, _: &str) -> Result<String> {
+            Ok(self.owner.borrow().clone())
+        }
+        fn text(&self, _: &str, _: &str) -> Result<String> {
+            Ok("Playing".into())
+        }
+        fn flag(&self, _: &str, _: &str) -> Result<bool> {
+            if self.replace.get() {
+                *self.owner.borrow_mut() = ":1.99".into();
+            }
+            if self.revoke.get() {
+                self.alive.set(false);
+            }
+            Ok(self.supported.get())
+        }
+        fn invoke(&self, owner: &str, method: &str) -> Result<()> {
+            self.writes.borrow_mut().push((owner.into(), method.into()));
+            Ok(())
+        }
+    }
+    fn fixture() -> (Fake, Session) {
+        (
+            Fake {
+                owner: RefCell::new(":1.22".into()),
+                writes: RefCell::new(Vec::new()),
+                alive: Cell::new(true),
+                replace: Cell::new(false),
+                revoke: Cell::new(false),
+                supported: Cell::new(true),
+            },
+            Session {
+                selector: "org.mpris.MediaPlayer2.fixture".into(),
+                name: "org.mpris.MediaPlayer2.fixture".into(),
+                owner: ":1.22".into(),
+            },
+        )
+    }
+    #[test]
+    fn exact_owner_dispatch_rejects_replacement_unsupported_and_late_scope_without_fallback() {
+        let (bus, s) = fixture();
+        execute(&bus, &s, "play_pause", || bus.alive.get()).unwrap();
+        assert_eq!(
+            *bus.writes.borrow(),
+            vec![(":1.22".into(), "PlayPause".into())]
+        );
+        for mode in 0..3 {
+            let (bus, s) = fixture();
+            match mode {
+                0 => bus.replace.set(true),
+                1 => bus.revoke.set(true),
+                _ => bus.supported.set(false),
+            };
+            assert!(execute(&bus, &s, "next", || bus.alive.get()).is_err());
+            assert!(bus.writes.borrow().is_empty());
+        }
+    }
+    #[test]
+    fn pinned_media_requires_exact_valid_name_and_unique_owner() {
+        let (_, mut s) = fixture();
+        s.owner = "org.mpris.MediaPlayer2.other".into();
+        assert!(s.validate().is_err());
+        s.owner = ":1.22".into();
+        s.selector = "org.mpris.MediaPlayer2.other".into();
+        assert!(s.validate().is_err());
+    }
+    #[test]
+    fn family_and_default_resolution_keep_explicit_missing_and_retained_paused_player() {
+        let candidates = vec![
+            Candidate {
+                name: "org.mpris.MediaPlayer2.brave.instance7".into(),
+                owner: ":1.22".into(),
+                status: "Paused".into(),
+            },
+            Candidate {
+                name: "org.mpris.MediaPlayer2.mpz".into(),
+                owner: ":1.23".into(),
+                status: "Playing".into(),
+            },
+        ];
+        let brave = selection("org.mpris.MediaPlayer2.brave", &candidates, None).unwrap();
+        brave.validate().unwrap();
+        assert_eq!(brave.owner, ":1.22");
+        assert!(selection("org.mpris.MediaPlayer2.missing", &candidates, None).is_none());
+        assert_eq!(
+            selection(
+                crate::saved_native::DEFAULT_MEDIA,
+                &candidates,
+                Some(&brave)
+            )
+            .unwrap()
+            .owner,
+            ":1.22"
+        );
+        assert_eq!(
+            selection(crate::saved_native::DEFAULT_MEDIA, &candidates, None)
+                .unwrap()
+                .owner,
+            ":1.23"
+        );
+        let mut stale = brave;
+        stale.owner = ":1.99".into();
+        assert_eq!(
+            selection(
+                crate::saved_native::DEFAULT_MEDIA,
+                &candidates,
+                Some(&stale)
+            )
+            .unwrap()
+            .owner,
+            ":1.23"
+        );
+    }
+}

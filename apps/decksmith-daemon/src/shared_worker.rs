@@ -24,6 +24,7 @@ pub struct Compiled {
     target: TargetId,
     action: Action,
     effect: Effect,
+    media: Option<crate::shared_native_media::Session>,
 }
 impl std::fmt::Debug for Compiled {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -49,11 +50,16 @@ impl Compiled {
         {
             return Err("shared_audio_requires_named_target");
         }
+        let name = target.split_once(':').unwrap().1;
+        if name.starts_with('@') || name.bytes().all(|b| b.is_ascii_digit()) {
+            return Err("shared_audio_requires_named_target");
+        }
         let key = TargetId::new(&format!("audio:{target}"))?;
         Ok(Self {
             target: key,
             action,
             effect,
+            media: None,
         })
     }
     pub fn media(player: &str, command: &str) -> Result<Self> {
@@ -73,7 +79,47 @@ impl Compiled {
             } else {
                 Effect::Activate
             },
+            media: None,
         })
+    }
+    /// Saved app and event-sound selectors use the single guarded native helper.
+    /// Default microphone mute remains reserved for the shared hold guardian.
+    pub fn saved_audio(action: Action) -> Result<Self> {
+        let (target, effect) = match &action {
+            Action::AudioAdjust { target, percent }
+                if *percent != 0 && (-20..=20).contains(percent) =>
+            {
+                (target, Effect::Adjust(*percent))
+            }
+            Action::AudioMute { target } => (target, Effect::Toggle),
+            _ => return Err("unsupported_shared_audio_action"),
+        };
+        if target != "system" && target != "default_output" && !target.starts_with("app:") {
+            return Self::audio(action);
+        }
+        if !crate::audio_target::valid(target) {
+            return Err("invalid_shared_native_target");
+        }
+        Ok(Self {
+            target: TargetId::new(&format!("audio:{target}"))?,
+            action,
+            effect,
+            media: None,
+        })
+    }
+    pub fn media_bound(
+        session: crate::shared_native_media::Session,
+        command: &str,
+    ) -> Result<Self> {
+        session.validate()?;
+        let mut compiled = Self::media(&session.name, command)?;
+        compiled.action = Action::MediaTarget {
+            player: session.selector.clone(),
+            command: command.into(),
+        };
+        compiled.target = TargetId::new(&format!("media:{}", session.owner))?;
+        compiled.media = Some(session);
+        Ok(compiled)
     }
     fn action(&self, job: &Job) -> Result<Action> {
         if self.target != job.target {
@@ -99,8 +145,12 @@ pub struct Fence {
     scope: ActionScope,
     authority: Authority,
     shared: Arc<Shared>,
+    media: Option<crate::shared_native_media::Session>,
 }
 impl Fence {
+    pub fn media_session(&self) -> Option<&crate::shared_native_media::Session> {
+        self.media.as_ref()
+    }
     pub fn accepts(&self) -> bool {
         !self.shared.state.lock().unwrap().stopped && (self.authority)(&self.scope)
     }
@@ -241,11 +291,14 @@ impl Service {
         drop(state);
         self.shared.wake.notify_all();
     }
-    pub fn join(mut self) {
+    pub fn quiesce(&mut self) {
         self.stop();
         for thread in self.threads.drain(..) {
             let _ = thread.join();
         }
+    }
+    pub fn join(mut self) {
+        self.quiesce();
     }
 }
 impl Drop for Service {
@@ -267,7 +320,7 @@ fn prune(state: &mut State, current: &Authority) {
 }
 fn run(shared: Arc<Shared>, authority: Authority, mut backend: Box<dyn Backend>) {
     loop {
-        let (job, action) = {
+        let (job, action, media) = {
             let mut state = shared.state.lock().unwrap();
             loop {
                 if state.stopped {
@@ -278,12 +331,13 @@ fn run(shared: Arc<Shared>, authority: Authority, mut backend: Box<dyn Backend>)
                     let Ok(job) = state.dispatch.begin(selected.id, &*authority) else {
                         continue;
                     };
-                    let action = state
+                    let compiled = state
                         .payloads
                         .remove(&job.id)
-                        .ok_or("missing_shared_payload")
-                        .and_then(|p| p.action(&job));
-                    break (job, action);
+                        .ok_or("missing_shared_payload");
+                    let media = compiled.as_ref().ok().and_then(|p| p.media.clone());
+                    let action = compiled.and_then(|p| p.action(&job));
+                    break (job, action, media);
                 }
                 state = shared.wake.wait(state).unwrap();
             }
@@ -292,6 +346,7 @@ fn run(shared: Arc<Shared>, authority: Authority, mut backend: Box<dyn Backend>)
             scope: job.scope,
             authority: authority.clone(),
             shared: shared.clone(),
+            media,
         };
         let receipt_to_dispatch_us = crate::audio_worker::elapsed_us(job.received_at);
         // Backend panic cannot poison the service mutex or free an active target

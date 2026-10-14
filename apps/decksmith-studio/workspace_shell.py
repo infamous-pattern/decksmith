@@ -300,7 +300,7 @@ class WorkspaceShell:
         blocked=not self.can_control() or ed.pending or ed.draft.dirty or not getattr(ed.call,'actions_available',True)
         self.test.set_sensitive(not blocked)
         self.test_note.set_text('Save and Apply before testing edited controls.' if ed.draft.dirty else 'Testing unavailable while the device is locked, disconnected or starting.' if not self.can_control() else 'Runs the selected saved key action or dial press.')
-        if not getattr(ed.call,'actions_available',True):self.test_note.set_text('Physical actions are not applied from this saved-profile workspace.' if getattr(ed.call,'workspace_only',False) else 'Live actions are unavailable in this virtual test. Page navigation and device settings are simulated.')
+        if not getattr(ed.call,'actions_available',True):self.test_note.set_text('Test Action is unavailable in this experimental workspace. Saves apply only to the chosen device.' if getattr(ed.call,'connected_workspace',False) else 'Physical actions are not applied from this saved-profile workspace.' if getattr(ed.call,'workspace_only',False) else 'Live actions are unavailable in this virtual test. Page navigation and device settings are simulated.')
         reason=save_reason(ed.draft.dirty,getattr(ed,'layout_valid',False),ed.pending,
                            self.status,getattr(ed,'validation_error',None))
         enabled=reason is None

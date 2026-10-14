@@ -338,6 +338,37 @@ struct DialControl {
     tap: bool,
 }
 impl ModelControls {
+    pub(crate) fn provider_pages(&self) -> Vec<crate::saved_native::Page> {
+        self.pages
+            .iter()
+            .map(|page| {
+                let mut providers = crate::saved_native::Page::default();
+                for key in &page.keys {
+                    providers.action(key.clone());
+                    if let Action::AudioSelect { target } | Action::PushToTalk { target } = key {
+                        providers.key_audio.insert(target.clone());
+                    }
+                }
+                if let Some(dials) = &page.dials {
+                    for dial in dials {
+                        providers.action(dial.press.clone());
+                        if matches!(dial.rotation, Rotation::Volume) && dial.plugin.is_none() {
+                            providers.action(dial.target.as_ref().map_or(
+                                Action::VolumeAdjust { percent: 1 },
+                                |target| Action::AudioAdjust {
+                                    target: target.clone(),
+                                    percent: 1,
+                                },
+                            ));
+                        }
+                    }
+                } else if self.audio_dial {
+                    providers.action(Action::VolumeAdjust { percent: 1 });
+                }
+                providers
+            })
+            .collect()
+    }
     pub(crate) fn topology(&self) -> (u8, u8) {
         (self.pages.len() as u8, self.default_page)
     }

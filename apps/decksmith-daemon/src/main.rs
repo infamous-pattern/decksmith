@@ -9,6 +9,8 @@ mod audio_target;
 #[cfg(any(feature = "hardware", test))]
 mod audio_worker;
 #[cfg(any(feature = "hardware", test))]
+mod connected_editor_lab;
+#[cfg(any(feature = "hardware", test))]
 mod connected_physical_lab;
 #[cfg(any(feature = "hardware", test))]
 mod control;
@@ -34,6 +36,10 @@ mod layout_document;
 mod layout_store;
 mod level_bar;
 #[cfg(any(feature = "hardware", test))]
+mod live_profiles;
+#[cfg(any(feature = "hardware", test))]
+mod native_media_lab;
+#[cfg(any(feature = "hardware", test))]
 mod pages;
 #[cfg(any(feature = "hardware", test))]
 mod physical_lab;
@@ -47,9 +53,17 @@ mod ptt;
 mod resume;
 mod runtime_paths;
 #[cfg(any(feature = "hardware", test))]
+mod saved_native;
+#[cfg(any(feature = "hardware", test))]
 mod session_lock;
 #[cfg(any(feature = "hardware", test))]
 pub mod shared_microphone;
+#[cfg(any(feature = "hardware", test))]
+mod shared_native_audio;
+#[cfg(any(feature = "hardware", test))]
+mod shared_native_media;
+#[cfg(any(feature = "hardware", test))]
+mod shared_native_state;
 #[cfg(any(feature = "hardware", test))]
 pub mod shared_worker;
 mod system_actions;
@@ -83,10 +97,20 @@ fn main() {
         .init();
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     #[cfg(feature = "hardware")]
-    if args
-        .first()
-        .is_some_and(|a| a == "--connected-physical-lab")
-    {
+    if args.first().is_some_and(|a| a == "--native-media-lab") {
+        if let Err(code) = native_media_lab::run(&args) {
+            eprintln!("{code}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(feature = "hardware")]
+    if args.first().is_some_and(|a| {
+        matches!(
+            a.as_str(),
+            "--connected-physical-lab" | "--connected-native-lab" | "--connected-edit-native-lab"
+        )
+    }) {
         if let Err(code) = connected_physical_lab::run(&args) {
             eprintln!("{code}");
             std::process::exit(1);
@@ -96,6 +120,17 @@ fn main() {
     #[cfg(feature = "hardware")]
     if args.first().is_some_and(|a| a == "--execution-lab") {
         if let Err(code) = execution_lab::run(&args) {
+            eprintln!("{code}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(feature = "hardware")]
+    if args
+        .first()
+        .is_some_and(|a| a == "--connected-workspace-lab")
+    {
+        if let Err(code) = connected_editor_lab::run(&args) {
             eprintln!("{code}");
             std::process::exit(1);
         }

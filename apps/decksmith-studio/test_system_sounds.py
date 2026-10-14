@@ -62,6 +62,13 @@ class SystemSoundsTests(unittest.TestCase):
             client.write(sounds.default_info())
         self.assertEqual(seen,[True])
 
+    def test_shared_prepared_write_never_reconnects_after_authorization(self):
+        client=sounds.Client()
+        with patch.object(client,'ready') as ready, patch.object(client,'write_op') as write:
+            with self.assertRaisesRegex(ValueError,'unavailable'):
+                client.write(sounds.default_info(),prepared_only=True)
+            ready.assert_not_called();write.assert_not_called()
+
     def test_health_is_available_even_without_event_stream(self):
         from control_health import probe
         with patch.object(sounds,'read',return_value={'percent':60,'muted':False}), patch.object(targets,'listing') as listing:

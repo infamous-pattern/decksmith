@@ -6,12 +6,13 @@ import gi
 gi.require_version('Gtk','4.0');gi.require_version('Adw','1')
 from gi.repository import Adw,Gtk,GLib,Gdk,GdkPixbuf,Pango
 from editor import Editor
-from profile_client import DeviceClient,transport,workspace_transport
+from profile_client import DeviceClient,transport,workspace_transport,connected_transport
 from profile_drafts import DraftShelf
 
 class ProfileLab(Adw.Application):
-    def __init__(self,*,workspace=False):
-        self.workspace=workspace;self.transport=workspace_transport if workspace else transport;self.isolation=None
+    def __init__(self,*,workspace=False,connected=False):
+        self.connected=connected;workspace=workspace or connected
+        self.workspace=workspace;self.transport=connected_transport if connected else workspace_transport if workspace else transport;self.isolation=None
         if not workspace:
             if os.environ.get('DECKSMITH_ISOLATED_TEST')!='1':raise ValueError('Isolated test required')
             self.isolation=tempfile.TemporaryDirectory(prefix='decksmith-profile-editor-')
@@ -19,7 +20,7 @@ class ProfileLab(Adw.Application):
                 directory=Path(self.isolation.name)/name;directory.mkdir(mode=0o700);os.environ[variable]=str(directory)
             os.environ['PULSE_SERVER']='unix:'+str(Path(self.isolation.name)/'no-audio.sock')
             os.environ.pop('DECKSMITH_PLUGIN_LAB_CONNECTION',None)
-        super().__init__(application_id='cc.senecal.Decksmith.DeviceWorkspaceEditor' if workspace else 'cc.senecal.Decksmith.ProfileEditorLab')
+        super().__init__(application_id='cc.senecal.Decksmith.ConnectedWorkspaceEditor' if connected else 'cc.senecal.Decksmith.DeviceWorkspaceEditor' if workspace else 'cc.senecal.Decksmith.ProfileEditorLab')
         self.quit_all=False;self.clients={};self.selected=None;self.switching=False;self.shelf=DraftShelf();self.settings_drafts={};self.home_sync=False;self.enrollment_pending=False
         self.connect('activate',self.activate_lab);self.connect('shutdown',self.cleanup_lab)
     def activate_lab(self,*_):
@@ -28,7 +29,7 @@ class ProfileLab(Adw.Application):
         sheet=GdkPixbuf.Pixbuf.new_from_file(str(Path(__file__).resolve().parents[2]/'brand/decksmith-makers-mark-brand-sheet.png'))
         self.logo_texture=Gdk.Texture.new_for_pixbuf(sheet.new_subpixbuf(840,48,212,212).copy())
         snapshot=json.loads(self.transport('ListDevices')[0])
-        if snapshot.get('mode')!=('saved-workspace' if self.workspace else 'virtual-lab') or snapshot.get('api_version')!=2:raise ValueError('Wrong lab service')
+        if snapshot.get('mode')!=('connected-workspace' if self.connected else 'saved-workspace' if self.workspace else 'virtual-lab') or snapshot.get('api_version')!=2:raise ValueError('Wrong lab service')
         self.devices=snapshot['devices'];self.generation=snapshot['generation'];self.selected=snapshot['selected']
         for device in self.devices:self.clients[device['id']]=DeviceClient(device,self.transport)
         if self.selected is None:
@@ -37,8 +38,8 @@ class ProfileLab(Adw.Application):
         self.build_home()
         client=self.clients[self.selected];self.editor=Editor(self,client,integrated=True)
         for c in self.clients.values():c.page=lambda:self.editor.page
-        self.editor.set_title('Decksmith · Saved device profiles' if self.workspace else 'Decksmith · Virtual device workspace');self.refresh();self.editor.present()
-        if self.workspace:self.editor.save_button.set_label('Save profile')
+        self.editor.set_title('Decksmith · Live test workspace' if self.connected else 'Decksmith · Saved device profiles' if self.workspace else 'Decksmith · Virtual device workspace');self.refresh();self.editor.present()
+        if self.workspace:self.editor.save_button.set_label('Save and Apply' if self.connected else 'Save profile')
     def open_enrollment(self):
         ed=self.editor
         if ed.pending:return
@@ -97,9 +98,9 @@ class ProfileLab(Adw.Application):
         box=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=18)
         for edge in ('top','bottom','start','end'):getattr(box,'set_margin_'+edge)(22)
         self.home_content=Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER);self.home_content.set_child(box)
-        group=Adw.PreferencesGroup(title='Your device',description='Saved device profiles · your current background controls keep running. Physical changes are not applied yet.' if self.workspace else 'Virtual test workspace · no physical Deck or desktop settings are changed.');box.append(group)
+        group=Adw.PreferencesGroup(title='Your device',description='Experimental live workspace · changes apply to the selected test device.' if self.connected else 'Saved device profiles · your current background controls keep running. Physical changes are not applied yet.' if self.workspace else 'Virtual test workspace · no physical Deck or desktop settings are changed.');box.append(group)
         self.name=Adw.EntryRow(title='Device name');self.name.connect('changed',lambda *_:self.keep_settings());group.add(self.name)
-        group.add(Adw.ActionRow(title='Background controls',subtitle='Managed by your current Decksmith service' if self.workspace else 'Virtual controls running · managed by the isolated test host'))
+        group.add(Adw.ActionRow(title='Background controls',subtitle='Managed by the temporary test session' if self.connected else 'Managed by your current Decksmith service' if self.workspace else 'Virtual controls running · managed by the isolated test host'))
         for title in ('Start Decksmith at login','Auto-Lock'):
             row=Adw.SwitchRow(title=title,subtitle='Use the main Decksmith app for desktop integration' if self.workspace else 'Desktop integration is unavailable in this virtual test');row.set_sensitive(False);group.add(row)
         brightness=Adw.ActionRow(title='Brightness',subtitle='Percentage for the selected device')
@@ -110,7 +111,7 @@ class ProfileLab(Adw.Application):
             b.connect('clicked',lambda _b,n=offset:self.adjust_brightness(n));controls.append(b)
             if offset<0:controls.append(self.percent)
         brightness.add_suffix(controls);group.add(brightness)
-        self.metadata=Gtk.Button(label='Save device settings' if self.workspace else 'Apply device settings',halign=Gtk.Align.START);self.metadata.connect('clicked',self.save_metadata);box.append(self.metadata)
+        self.metadata=Gtk.Button(label='Apply device settings' if self.connected or not self.workspace else 'Save device settings',halign=Gtk.Align.START);self.metadata.connect('clicked',self.save_metadata);box.append(self.metadata)
         discard=Gtk.Button(label='Discard device settings changes',halign=Gtk.Align.START);discard.connect('clicked',self.discard_settings);box.append(discard)
         history=Adw.PreferencesGroup(title='Saved profile history');box.append(history)
         self.history=Adw.ActionRow(title='Verified history');history.add(self.history)
@@ -125,7 +126,7 @@ class ProfileLab(Adw.Application):
             button=Gtk.Button(label=device['name'],tooltip_text='Select this device without discarding another device’s draft')
             button.connect('clicked',lambda _b,i=device['id']:self.choose(i));content.append(button);self.device_buttons[device['id']]=button
         self.device_picker_content=content
-        if self.workspace:
+        if self.workspace and not self.connected:
             add=Gtk.Button(label='Add detected device',tooltip_text='Refresh discovery and create an independent saved profile.');add.connect('clicked',lambda *_:self.open_enrollment());content.append(add)
         shell.device_menu.get_popover().set_child(content)
         self.caption=Gtk.Label(ellipsize=Pango.EllipsizeMode.END,max_width_chars=26,xalign=0)

@@ -43,6 +43,7 @@ impl<'a> Enrollment<'a> {
         }
     }
 }
+#[derive(Clone)]
 pub struct Profile {
     pub id: DeviceId,
     pub revision: u64,
@@ -55,6 +56,7 @@ impl Profile {
         &self.document
     }
 }
+#[derive(Clone)]
 pub struct Catalog {
     pub generation: u64,
     registry: Registry,
@@ -63,6 +65,44 @@ pub struct Catalog {
     pub selected: Option<DeviceId>,
 }
 impl Catalog {
+    /// Pure projection for an off-thread live save. Publication later checks
+    /// this catalog's exact base generation under the existing writer lock.
+    pub(crate) fn project_profile(
+        &self,
+        id: DeviceId,
+        expected: u64,
+        bytes: &[u8],
+        saved_page: u8,
+        name: &str,
+        brightness: u8,
+    ) -> Result<Self> {
+        let old = self.profile(id)?;
+        if old.revision != expected {
+            return Err("stale_device_profile");
+        }
+        let revision = old
+            .revision
+            .checked_add(1)
+            .ok_or("profile_revision_exhausted")?;
+        let doc = Document::for_model(bytes, old.document.model())?;
+        if doc.version() != 2 || saved_page >= doc.topology().0 {
+            return Err("invalid_profile_page");
+        }
+        let mut next = self.clone();
+        next.registry
+            .update(next.registry.revision(), id, name, brightness)?;
+        next.profiles.insert(
+            id,
+            Profile {
+                id,
+                revision,
+                saved_page,
+                document: Arc::new(doc),
+                legacy: old.legacy.clone(),
+            },
+        );
+        Ok(next)
+    }
     fn empty() -> Self {
         Self {
             generation: 0,
@@ -181,6 +221,14 @@ pub struct Store {
     root: PathBuf,
 }
 impl Store {
+    pub(crate) fn publish_projected(&self, mut catalog: Catalog) -> Result<Catalog> {
+        let _lock = self.lock()?;
+        if self.pointer() != Ok(catalog.generation) {
+            return Err("stale_profile_generation");
+        }
+        catalog.generation = self.commit(&catalog, None)?;
+        Ok(catalog)
+    }
     /// Exclusive, explicit destination only. Normal startup never calls this.
     pub fn create(root: &Path) -> Result<Self> {
         disk::mkdir(root)?;
@@ -853,7 +901,56 @@ pub struct Controls {
     manager: DeviceManager,
     tables: BTreeMap<DeviceId, ModelControls>,
 }
+pub(crate) struct PreparedControls {
+    id: DeviceId,
+    revision: u64,
+    document: Arc<Document>,
+    table: ModelControls,
+    layout: SessionLayout,
+    page: u8,
+    brightness: u8,
+}
+impl PreparedControls {
+    pub(crate) fn new(catalog: &Catalog, id: DeviceId) -> Result<Self> {
+        let p = catalog.profile(id)?;
+        let table = Config::parse(p.document.bytes())?.model_controls();
+        let (count, default) = table.topology();
+        Ok(Self {
+            id,
+            revision: p.revision,
+            document: p.document.clone(),
+            table,
+            layout: SessionLayout::new(p.document.model(), count, default)?,
+            page: p.saved_page,
+            brightness: catalog
+                .registry
+                .get(id)
+                .ok_or("profile_identity_missing")?
+                .brightness(),
+        })
+    }
+    pub(crate) fn matches(&self, catalog: &Catalog, id: DeviceId) -> bool {
+        self.id == id
+            && catalog.profile(id).is_ok_and(|p| {
+                p.revision == self.revision && Arc::ptr_eq(&p.document, &self.document)
+            })
+    }
+}
 impl Controls {
+    pub(crate) fn apply_prepared(
+        &mut self,
+        prepared: PreparedControls,
+        expected_binding: u64,
+    ) -> Result<u64> {
+        let id = prepared.id;
+        let revision = self
+            .manager
+            .configure(id, expected_binding, prepared.layout)?;
+        let revision = self.manager.page(id, revision, prepared.page)?;
+        self.tables.insert(id, prepared.table);
+        self.manager.brightness(id, revision, prepared.brightness)?;
+        Ok(revision)
+    }
     pub fn from_catalog(catalog: &Catalog) -> Result<Self> {
         let registry = Registry::decode(&catalog.registry.encode_private()?)?;
         let mut manager = DeviceManager::new(registry)?;
@@ -1023,6 +1120,34 @@ impl Controls {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn projected_live_save_refuses_changed_store_generation_without_losing_another_selection() {
+        let (_temp, store) = pair();
+        let base = store.load().unwrap();
+        let profile = base.profile(id(1)).unwrap();
+        let projected = base
+            .project_profile(
+                id(1),
+                profile.revision,
+                profile.document().bytes(),
+                0,
+                "Changed",
+                61,
+            )
+            .unwrap();
+        store.select(base.generation, id(2)).unwrap();
+        assert!(matches!(
+            store.publish_projected(projected),
+            Err("stale_profile_generation")
+        ));
+        let latest = store.load().unwrap();
+        assert_eq!(latest.selected, Some(id(2)));
+        assert_eq!(latest.profile(id(1)).unwrap().revision, profile.revision);
+        assert_eq!(
+            latest.profile(id(1)).unwrap().document().bytes(),
+            profile.document().bytes()
+        );
+    }
     use decksmith_core::{
         InputEvent, RawEvent, TouchGesture,
         device_model::{ControlAddress, DeviceDescriptor},

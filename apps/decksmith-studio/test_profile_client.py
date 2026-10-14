@@ -32,6 +32,18 @@ class ProfileClientTests(unittest.TestCase):
         c=self.client()
         with self.assertRaises(ValueError):c('SaveLayout',GLib.Variant('(s)',('{}',)))
         self.assertEqual(self.calls,[])
+    def test_connected_client_never_suppresses_explicit_page_navigation(self):
+        from gi.repository import GLib
+        c=self.client();c.connected_workspace=True;c.page=lambda:1
+        c('GetLayout');c('SaveLayout',GLib.Variant('(s)',('{}',)))
+        c('ShowPage',GLib.Variant('(y)',(1,)))
+        self.assertEqual([method for method,_ in self.calls],['GetProfile','SaveProfile','ShowPage'])
+        c('ShowPage',GLib.Variant('(y)',(0,)))
+        self.assertEqual(self.calls[-1][0],'ShowPage')
+    def test_status_uses_display_acknowledgement_not_input_readiness(self):
+        def transport(method,args=None):return (json.dumps({'sessions':[{'id':'a'*32,'connected':True,'input_ready':True,'display_ready':False,'page':0}]}),)
+        c=DeviceClient({'id':'a'*32,'model':'mk2','name':'Test','brightness':50},transport)
+        self.assertFalse(json.loads(c('GetStatus')[0])['display_ready'])
     def test_mk2_page_operations_keep_fifteen_and_reject_dials(self):
         doc=json.loads((Path(__file__).resolve().parents[2]/'config/mk2-default.json').read_text())
         draft=Draft(doc);draft.add_page();self.assertEqual(len(draft.data['pages'][-1]['keys']),15);draft.validate()

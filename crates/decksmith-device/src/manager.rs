@@ -116,7 +116,7 @@ pub struct ReceivedInput {
     /// leave it absent rather than inventing a physical latency measurement.
     pub received_at: Option<std::time::Instant>,
 }
-#[derive(Serialize)]
+#[derive(Serialize, Clone, PartialEq, Eq)]
 pub struct SessionStatus {
     pub id: DeviceId,
     pub model: DeviceModel,

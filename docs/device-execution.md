@@ -101,7 +101,7 @@ acknowledgement and the maximum retiring-owner budget.
 Connect the existing Linux provider observations and canonical app/System sounds/
 default-player resolution, guarded native media/application/system/plugin effects,
 input-mute policy and shared feedback. The existing named-audio adapter can be
-supplied explicitly; the acceptance command does not select it. Add live roster
+supplied explicitly; the isolated diagnostic command does not select it. Add live roster
 extension to the shared services rather than rebuilding healthy owners; the current
 execution runtime deliberately requires an unchanged set of private associations
 when applying a saved profile. Link the device-addressed API/editor and real
@@ -120,3 +120,35 @@ progress through disconnection in both directions, reconnect, and joined blankin
 An external timeout/restore guard returned the original V1 service/configuration
 after each window. These tests do not qualify native action providers or real
 lock/suspend startup. See the [physical checkpoint](checkpoints/2026-10-14-connected-physical.md).
+
+## First native output/media slice — October 14
+
+The separate opt-in `--connected-native-lab` now supplies one named output
+volume/mute adapter, one pinned MPRIS player session, and shared output/meter
+observations. Both physical Decks passed real volume/mute and Brave pause/resume
+checks. The timed guard verified exact native state and normal V1 restoration.
+The installed daily runtime remains unchanged. This slice does not yet provide
+application/System sounds/default-player resolution, input mute/PTT, the
+device-addressed editor/API or native paired lifecycle/resource qualification.
+See the [native qualification and limits](checkpoints/2026-10-14-connected-native.md).
+
+## Saved audio/media provider bridge
+
+The opt-in native runtime now reads effective assignments from saved device
+documents, shares bounded audio observation, and supports guarded application/
+System sounds writes plus pinned family/automatic media selections. It preserves
+legacy master-volume semantics and deliberate labels/artwork. A changed provider
+set requires a separately prepared refresh; live API/editor activation and the
+expanded physical/lifecycle/resource gates remain. See the
+[saved-provider boundary and checks](checkpoints/2026-10-14-saved-native-providers.md).
+
+## Live editor saves and prepared refresh
+
+The separate connected workspace endpoint now reuses the integrated editor for
+live, device-addressed saves. One disk/preview/provider worker prepares the change;
+the coordinator fences and applies only the edited device using precompiled data.
+Observer subscriptions change through epochs without restarting healthy owners,
+and another Deck's media pins remain unchanged. Isolated GTK/VirtualDeck checks
+exercise provider changes and partner progress during delayed saves. Production
+activation and the expanded physical/lifecycle/resource checks remain. See the
+[live editor boundary and recovery limits](checkpoints/2026-10-14-live-profile-editor.md).

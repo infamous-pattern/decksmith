@@ -27,6 +27,33 @@ and both reconnected. Joined blanking and automatic V1/config/page restoration
 passed. Full native providers, API/editor, lock/suspend lifecycle, migration and
 resource gates remain. See the [qualification and limits](checkpoints/2026-10-14-connected-physical.md).
 
+**October 14 first native checkpoint:** both physical Decks passed real named
+output volume/mute and explicitly pinned Brave pause/resume through the connected
+runtime, with shared output observation and one meter. The final recording has
+28 successful action replies, zero feedback failures and no uncertain effects;
+exact output/playback and normal V1/config/page restoration passed. This is an
+opt-in development slice, not a desktop upgrade. Next connect established app/
+System sounds/player selection rules and saved profiles; then complete the
+device-addressed editor/API and native lifecycle/resource gates. See the
+[native qualification and limits](checkpoints/2026-10-14-connected-native.md).
+
+**October 14 saved-provider bridge:** the opt-in connected runtime derives
+requirements from effective saved key/dial assignments, deduplicates observation,
+and connects guarded app/System sounds writes and pinned family/automatic media
+selection. Deliberate labels/artwork and legacy master-volume semantics are
+preserved. Provider-set edits require prepared refresh before runtime application;
+live editor/API activation, all-active-target metering and expanded physical/
+lifecycle/resource checks remain. See the
+[saved-provider scope and verification](checkpoints/2026-10-14-saved-native-providers.md).
+
+**October 14 live editor bridge:** a separate opt-in endpoint now connects the
+integrated editor to prepared, device-addressed live saves. Disk/preview/provider
+work stays off the input coordinator; only the edited Deck is fenced, observer
+subscriptions use epochs, and partner media pins/contexts remain unchanged.
+Production activation still requires expanded physical assignment acceptance,
+all-active-target meters, lifecycle/recovery and resource checks. See the
+[live editor qualification and limits](checkpoints/2026-10-14-live-profile-editor.md).
+
 ## Next work priorities — Monday, October 12
 
 These are the first two tasks, ahead of new V1.5 features. Work started early

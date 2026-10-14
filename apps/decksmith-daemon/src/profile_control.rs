@@ -104,12 +104,14 @@ struct Token {
 enum Mode {
     VirtualLab,
     SavedWorkspace,
+    ConnectedWorkspace,
 }
 impl Mode {
     fn name(self) -> &'static str {
         match self {
             Self::VirtualLab => "virtual-lab",
             Self::SavedWorkspace => "saved-workspace",
+            Self::ConnectedWorkspace => "connected-workspace",
         }
     }
 }
@@ -125,6 +127,10 @@ struct Host {
     runtime: DeviceId,
     renderers: BTreeMap<DeviceId, Renderer>,
     preview: Option<(DeviceId, String, Renderer)>,
+    live: Option<crate::live_profiles::Link>,
+    native: bool,
+    cancelled: Arc<AtomicBool>,
+    stopping: Arc<AtomicBool>,
 }
 impl Host {
     fn new(store: Store) -> Result<Self> {
@@ -149,17 +155,30 @@ impl Host {
             runtime: random_device_id()?,
             renderers,
             preview: None,
+            live: None,
+            native: false,
+            cancelled: Arc::new(AtomicBool::new(false)),
+            stopping: Arc::new(AtomicBool::new(false)),
         })
     }
     fn context(&self, id: DeviceId) -> Result<DeviceContext> {
+        if let Some(live) = &self.live {
+            return live
+                .view()
+                .contexts
+                .get(&id)
+                .copied()
+                .ok_or("device_not_ready");
+        }
         self.controls.manager().context(id, ControlAddress::Key(0))
     }
     fn token(&self, id: DeviceId) -> Result<Token> {
         let profile = self.catalog.profile(id)?;
-        let status = self
-            .controls
-            .manager()
-            .statuses()
+        let statuses = self.live.as_ref().map_or_else(
+            || self.controls.manager().statuses(),
+            |link| link.view().sessions.clone(),
+        );
+        let status = statuses
             .into_iter()
             .find(|s| s.id == id)
             .ok_or("unknown_device")?;
@@ -199,7 +218,11 @@ impl Host {
                 serde_json::json!({"slot":c.slot(),"model":c.model(),"association":association})
             })
             .collect();
-        Ok(serde_json::json!({"api_version":2,"mode":self.mode.name(),"runtime":self.runtime,"generation":self.catalog.generation,"selected":self.catalog.selected,"devices":self.catalog.summaries(),"sessions":self.controls.manager().statuses(),"history":self.store.history_status()?,"discovery":{"available":self.discovery_available,"revision":self.discovery_revision,"candidates":candidates},"actions_available":false,"legacy_import_prepared":self.import_plus.is_some()}).to_string())
+        let sessions = self.live.as_ref().map_or_else(
+            || self.controls.manager().statuses(),
+            |link| link.view().sessions.clone(),
+        );
+        Ok(serde_json::json!({"api_version":2,"mode":self.mode.name(),"runtime":self.runtime,"generation":self.catalog.generation,"selected":self.catalog.selected,"devices":self.catalog.summaries(),"sessions":sessions,"history":self.store.history_status()?,"discovery":{"available":self.discovery_available,"revision":self.discovery_revision,"candidates":candidates},"actions_available":false,"live_profiles":self.live.is_some(),"native_actions":self.native,"legacy_import_prepared":self.import_plus.is_some()}).to_string())
     }
     fn profile(&self, id: DeviceId) -> Result<String> {
         let p = self.catalog.profile(id)?;
@@ -233,7 +256,16 @@ impl Host {
     }
     fn render(&mut self, id: DeviceId) -> Result<()> {
         let context = self.context(id)?;
-        let page = self.controls.manager().active_page(id)?;
+        let page = if let Some(live) = &self.live {
+            live.view()
+                .sessions
+                .iter()
+                .find(|s| s.id == id)
+                .and_then(|s| s.page)
+                .ok_or("device_not_ready")?
+        } else {
+            self.controls.manager().active_page(id)?
+        };
         let brightness = self
             .controls
             .manager()
@@ -263,12 +295,111 @@ impl Host {
     ) -> Result<String> {
         let raw = String::from_utf8(self.catalog.profile(id)?.document().bytes().to_vec())
             .map_err(|_| "invalid_config")?;
-        let page = self.controls.manager().active_page(id)?;
+        let page = if let Some(live) = &self.live {
+            live.view()
+                .sessions
+                .iter()
+                .find(|s| s.id == id)
+                .and_then(|s| s.page)
+                .ok_or("device_not_ready")?
+        } else {
+            self.controls.manager().active_page(id)?
+        };
         self.save(id, token, &raw, page, name, brightness)
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn save_connected(
+        &mut self,
+        id: DeviceId,
+        token: Token,
+        bytes: &str,
+        page: u8,
+        name: &str,
+        brightness: u8,
+    ) -> Result<String> {
+        let context = self.check(id, &token)?;
+        let link = self
+            .live
+            .as_ref()
+            .ok_or("live_workspace_unavailable")?
+            .clone();
+        let view = link.view();
+        let base = self.store.load()?;
+        if !base.same_associations(&view.catalog)
+            || base.summaries().iter().any(|s| {
+                base.profile(s.id).map(|p| p.revision)
+                    != view.catalog.profile(s.id).map(|p| p.revision)
+            })
+        {
+            return Err("live_profile_reload_required");
+        }
+        let projected =
+            base.project_profile(id, token.revision, bytes.as_bytes(), page, name, brightness)?;
+        let plan = crate::saved_native::Plan::from_catalog(&projected)?;
+        let old_plan = crate::saved_native::Plan::from_catalog(&view.catalog)?;
+        let mut bindings: Vec<_> = view
+            .bindings
+            .iter()
+            .filter(|s| plan.media.contains(&s.selector))
+            .cloned()
+            .collect();
+        let protected: std::collections::BTreeSet<_> = old_plan
+            .pages
+            .iter()
+            .filter(|(partner, _)| **partner != id)
+            .flat_map(|(_, pages)| pages.iter().flat_map(|p| p.media.iter().cloned()))
+            .collect();
+        let new: Vec<_> = plan
+            .media
+            .iter()
+            .filter(|s| !bindings.iter().any(|b| &b.selector == *s) && !protected.contains(*s))
+            .cloned()
+            .collect();
+        if self.native && !new.is_empty() {
+            bindings.extend(
+                crate::shared_native_media::NativeBackend::connect()?.resolve_media(&new, None)?,
+            );
+        }
+        let prepared = crate::device_execution::PreparedEdit::new(&projected, id, bindings)?;
+        if self.cancelled.load(Ordering::Acquire) || self.stopping.load(Ordering::Acquire) {
+            return Err("profile_request_cancelled");
+        }
+        let ticket = link.reserve(context, self.cancelled.clone())?;
+        // Isolated acceptance can deliberately slow disk preparation while the
+        // partner's actor/effects continue. Never read this switch in native mode.
+        if !self.native
+            && std::env::var("DECKSMITH_ISOLATED_TEST").as_deref() == Ok("1")
+            && std::env::var("DECKSMITH_LIVE_PROFILE_TEST_DELAY").as_deref() == Ok("1")
+        {
+            std::thread::sleep(Duration::from_millis(250));
+        }
+        if self.cancelled.load(Ordering::Acquire) || self.stopping.load(Ordering::Acquire) {
+            let _ = link.cancel(ticket);
+            return Err("profile_request_cancelled");
+        }
+        self.catalog = match self.store.publish_projected(projected) {
+            Ok(catalog) => catalog,
+            Err(code) => {
+                if code != "profile_commit_uncertain" {
+                    let _ = link.cancel(ticket);
+                }
+                return Err(code);
+            }
+        };
+        // Once published, finish the known user-requested application even if
+        // its reply deadline expires. Caller receives uncertainty, never retries.
+        link.apply(ticket, self.catalog.clone(), prepared)
+            .map_err(|_| "profile_saved_apply_failed")?;
+        self.preview = None;
+        self.profile(id)
     }
     fn select(&mut self, id: DeviceId, expected: u64) -> Result<String> {
         self.store.select(expected, id)?;
         self.catalog = self.store.load()?;
+        if let Some(live) = &self.live {
+            live.select(self.catalog.clone(), self.cancelled.clone())
+                .map_err(|_| "profile_selected_apply_uncertain")?;
+        }
         self.devices()
     }
     fn save(
@@ -281,6 +412,9 @@ impl Host {
         brightness: u8,
     ) -> Result<String> {
         self.check_token(id, &token)?;
+        if self.mode == Mode::ConnectedWorkspace {
+            return self.save_connected(id, token, bytes, page, name, brightness);
+        }
         if self.mode == Mode::SavedWorkspace
             && self
                 .controls
@@ -313,7 +447,10 @@ impl Host {
         self.profile(id)
     }
     fn page(&mut self, id: DeviceId, token: Token, page: u8) -> Result<String> {
-        if self.mode == Mode::SavedWorkspace {
+        if let Some(live) = &self.live {
+            let context = self.check(id, &token)?;
+            live.page(context, page, self.cancelled.clone())?;
+        } else if self.mode == Mode::SavedWorkspace {
             self.check_token(id, &token)?;
             self.controls.browse_saved_page(id, token.binding, page)?;
         } else {
@@ -679,6 +816,74 @@ fn execute(host: &mut Host, op: Operation) -> Result<Reply> {
         Operation::Page(id, t, p) => host.page(id, t, p).map(Reply::Text),
         Operation::Preview(id, raw, p, t) => host.preview(id, &raw, p, t).map(Reply::Bytes),
     }
+}
+pub(crate) fn start_connected(
+    store: Store,
+    link: crate::live_profiles::Link,
+    native: bool,
+    stop: Arc<AtomicBool>,
+) -> Result<(zbus::blocking::Connection, std::thread::JoinHandle<()>)> {
+    let (queue, incoming) = mpsc::sync_channel::<Request>(8);
+    // No name replacement or service auto-activation; this cannot adopt V1 or
+    // the saved-only workspace. Claim the endpoint before loading a live store.
+    let connection = zbus::blocking::connection::Builder::session()
+        .map_err(|_| "bus_unavailable")?
+        .allow_name_replacements(false)
+        .replace_existing_names(false)
+        .name("cc.senecal.Decksmith.ConnectedWorkspace")
+        .map_err(|_| "bus_name_failed")?
+        .serve_at(
+            "/cc/senecal/Decksmith/ConnectedWorkspace",
+            WorkspaceApi(Api { queue }),
+        )
+        .map_err(|_| "bus_interface_failed")?
+        .build()
+        .map_err(|_| "bus_registration_failed")?;
+    let (ready_send, ready_receive) = mpsc::sync_channel(1);
+    let ending = stop.clone();
+    let thread = std::thread::Builder::new()
+        .name("decksmith-live-profile-disk".into())
+        .spawn(move || {
+            let mut host = match Host::new(store) {
+                Ok(host) => host,
+                Err(code) => {
+                    let _ = ready_send.send(Err(code));
+                    return;
+                }
+            };
+            host.mode = Mode::ConnectedWorkspace;
+            host.runtime = link.view().runtime;
+            host.live = Some(link);
+            host.native = native;
+            host.stopping = stop.clone();
+            host.renderers.clear();
+            let _ = ready_send.send(Ok(()));
+            while !stop.load(Ordering::Acquire) {
+                match incoming.recv_timeout(Duration::from_millis(50)) {
+                    Ok(request) if !request.cancelled.load(Ordering::Acquire) => {
+                        host.cancelled = request.cancelled;
+                        let reply = execute(&mut host, request.operation);
+                        let _ = request.answer.try_send(reply);
+                    }
+                    Ok(_) | Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(_) => break,
+                }
+            }
+        })
+        .map_err(|_| "live_profile_worker_spawn_failed")?;
+    match ready_receive.recv_timeout(Duration::from_secs(5)) {
+        Ok(Ok(())) => {}
+        Ok(Err(code)) => {
+            ending.store(true, Ordering::Release);
+            let _ = thread.join();
+            return Err(code);
+        }
+        Err(_) => {
+            ending.store(true, Ordering::Release);
+            return Err("live_profile_startup_timeout");
+        }
+    }
+    Ok((connection, thread))
 }
 pub fn lab(args: &[String]) -> Result<()> {
     let [_, destination, flag, seconds] = args else {

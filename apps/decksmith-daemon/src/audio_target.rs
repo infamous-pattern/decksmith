@@ -8,7 +8,7 @@ use std::{
 pub fn valid(target: &str) -> bool {
     target.len() <= 512
         && !target.chars().any(char::is_control)
-        && (matches!(target, "system" | "microphone")
+        && (matches!(target, "system" | "microphone" | "default_output")
             || ["output:", "input:"].iter().any(|prefix| {
                 target
                     .strip_prefix(prefix)
@@ -23,14 +23,14 @@ pub fn valid(target: &str) -> bool {
             .any(|prefix| target.strip_prefix(prefix).is_some_and(|s| !s.is_empty())))
 }
 // Bounded helper connections belong to the audio worker; Rust caches no replies.
-struct Connection {
+pub(crate) struct Connection {
     child: std::process::Child,
     input: std::process::ChildStdin,
     output: std::sync::mpsc::Receiver<Vec<u8>>,
     isolated_group: bool,
 }
 impl Connection {
-    fn start(mode: &str) -> Result<Self, &'static str> {
+    pub(crate) fn start(mode: &str) -> Result<Self, &'static str> {
         use std::io::{BufRead, BufReader};
         use std::os::unix::process::CommandExt;
         let mut child = Command::new("/usr/bin/python3")
@@ -72,7 +72,10 @@ impl Connection {
             isolated_group: true,
         })
     }
-    fn exchange(&mut self, request: &impl serde::Serialize) -> Result<Vec<u8>, &'static str> {
+    pub(crate) fn exchange(
+        &mut self,
+        request: &impl serde::Serialize,
+    ) -> Result<Vec<u8>, &'static str> {
         use std::io::Write;
         let bytes = serde_json::to_vec(request).map_err(|_| "audio_target_failed")?;
         if bytes.len() > 8191 {

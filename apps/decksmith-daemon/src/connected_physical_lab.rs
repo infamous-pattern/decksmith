@@ -13,7 +13,7 @@ use decksmith_core::{
     device_model::{DeviceDescriptor, DeviceModel},
 };
 use decksmith_device::{DeckDevice, DeviceError, registry::Discovery};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     path::Path,
@@ -57,21 +57,31 @@ impl Backend for DiagnosticBackend {
     }
 }
 
-fn layout(model: DeviceModel) -> Result<Document> {
+fn layout_for(
+    model: DeviceModel,
+    target: &str,
+    media: Option<&crate::shared_native_media::Session>,
+) -> Result<Document> {
     let count = DeviceDescriptor::for_model(model).key_count();
     let pages = (0..2).map(|page| {
         let keys = (0..count).map(|index| {
             let (label, action) = match index {
-                0 => ("Test Down".to_string(), serde_json::json!({"type":"audio_adjust","target":TARGET,"percent":-1})),
-                1 => ("Test Up".into(), serde_json::json!({"type":"audio_adjust","target":TARGET,"percent":1})),
-                2 => ("Test Mute".into(), serde_json::json!({"type":"audio_mute","target":TARGET})),
+                0 => ("Test Down".to_string(), serde_json::json!({"type":"audio_adjust","target":target,"percent":-1})),
+                1 => ("Test Up".into(), serde_json::json!({"type":"audio_adjust","target":target,"percent":1})),
+                2 => ("Test Mute".into(), serde_json::json!({"type":"audio_mute","target":target})),
+                3 if media.is_some() => ("Play Pause".into(), serde_json::json!({"type":"media_play_pause"})),
+                4 if media.is_some() && model==DeviceModel::Mk2 => ("Next Track".into(), serde_json::json!({"type":"media_next"})),
+                5 if media.is_some() && model==DeviceModel::Mk2 => ("Prev Track".into(), serde_json::json!({"type":"media_previous"})),
                 i if i == count-4 => ("Dim".into(), serde_json::json!({"type":"brightness_adjust","percent":-5})),
                 i if i == count-3 => ("Bright".into(), serde_json::json!({"type":"brightness_adjust","percent":5})),
                 i if i == count-2 => ("Prev".into(), serde_json::json!({"type":"previous_page"})),
                 i if i == count-1 => ("Next".into(), serde_json::json!({"type":"next_page"})),
                 _ => (format!("Key {}", index+1), serde_json::json!({"type":"none"})),
             };
-            serde_json::json!({"label":label,"action":action})
+            let is_media=action["type"].as_str().is_some_and(|t|t.starts_with("media_"));
+            let mut key=serde_json::json!({"label":label,"action":action});
+            if is_media {key["media_player"]=serde_json::json!(media.unwrap().selector);}
+            key
         }).collect::<Vec<_>>();
         serde_json::json!({"name":if page==0 {"Copper A"} else {"Blue B"},"background":if page==0 {[105,55,25]} else {[35,65,105]},"keys":keys})
     }).collect::<Vec<_>>();
@@ -79,15 +89,27 @@ fn layout(model: DeviceModel) -> Result<Document> {
     if model == DeviceModel::Plus {
         value["dials"] = serde_json::json!([
             {"label":"Test brightness","rotation":"brightness","step":1,"press":{"type":"none"}},
-            {"label":"Shared test level","rotation":"volume","step":1,"audio_target":TARGET,"press":{"type":"mute_toggle"}},
-            {"label":"Shared test level","rotation":"volume","step":1,"audio_target":TARGET,"press":{"type":"mute_toggle"}},
-            {"label":"Shared test level","rotation":"volume","step":1,"audio_target":TARGET,"press":{"type":"mute_toggle"}}
+            {"label":"Shared test level","rotation":"volume","step":1,"audio_target":target,"press":{"type":"mute_toggle"}},
+            {"label":"Shared test level","rotation":"volume","step":1,"audio_target":target,"press":{"type":"mute_toggle"}},
+            {"label":"Shared test level","rotation":"volume","step":1,"audio_target":target,"press":{"type":"mute_toggle"}}
         ]);
+    }
+    if let Some(media) = media.filter(|_| model == DeviceModel::Plus) {
+        for index in 1..4 {
+            value["dials"][index]["label"] = serde_json::json!("Output volume");
+        }
+        value["dials"][2]["press"] = serde_json::json!({"type":"media_play_pause"});
+        value["dials"][2]["media_player"] = serde_json::json!(media.selector);
+        value["dials"][2]["label"] = serde_json::json!("Output Play Pause");
     }
     Document::parse(&serde_json::to_vec(&value).map_err(|_| "invalid_test_layout")?)
 }
 
-fn prepare(path: &Path, discovery: &Discovery) -> Result<Catalog> {
+fn prepare_for(
+    path: &Path,
+    discovery: &Discovery,
+    settings: Option<&NativeSettings>,
+) -> Result<Catalog> {
     let candidates = discovery.candidates();
     if candidates.len() != 2
         || [DeviceModel::Plus, DeviceModel::Mk2]
@@ -110,7 +132,11 @@ fn prepare(path: &Path, discovery: &Discovery) -> Result<Catalog> {
             Enrollment::new(id, "Connected test", 50, None),
         )?;
         let catalog = store.load()?;
-        let document = layout(candidate.model())?;
+        let document = layout_for(
+            candidate.model(),
+            settings.map_or(TARGET, |s| s.output.as_str()),
+            settings.map(|s| &s.media),
+        )?;
         generation = store.save_profile(
             id,
             catalog.profile(id)?.revision,
@@ -121,6 +147,40 @@ fn prepare(path: &Path, discovery: &Discovery) -> Result<Catalog> {
         )?;
     }
     store.load()
+}
+
+#[cfg(test)]
+fn layout(model: DeviceModel) -> Result<Document> {
+    layout_for(model, TARGET, None)
+}
+#[cfg(test)]
+fn prepare(path: &Path, discovery: &Discovery) -> Result<Catalog> {
+    prepare_for(path, discovery, None)
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeSettings {
+    output: String,
+    media: crate::shared_native_media::Session,
+}
+impl NativeSettings {
+    fn validate(&self) -> Result<()> {
+        if !self.output.starts_with("output:") {
+            return Err("native_trial_output_required");
+        }
+        crate::shared_worker::Compiled::audio(Action::AudioAdjust {
+            target: self.output.clone(),
+            percent: 1,
+        })?;
+        self.media.validate()
+    }
+}
+struct NativeObservation {
+    output: String,
+    meter: crate::meter::Worker,
+    levels: crate::meter::Levels,
+    last_meter: Instant,
+    uncertain: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[derive(Default, Clone, Serialize)]
@@ -188,29 +248,58 @@ struct Trial {
     level: Arc<Mutex<Level>>,
     counts: BTreeMap<DeviceId, Arc<Mutex<Counts>>>,
     last_observation: u64,
+    native: Option<NativeObservation>,
 }
 impl Trial {
-    fn start(catalog: Catalog) -> Result<Self> {
+    fn start_for(catalog: Catalog, settings: Option<&NativeSettings>) -> Result<Self> {
         let level = Arc::new(Mutex::new(Level::default()));
         let counts = catalog
             .summaries()
             .iter()
             .map(|s| (s.id, Arc::new(Mutex::new(Counts::default()))))
             .collect();
-        let runtime = Runtime::start(
-            catalog,
-            vec![
-                Box::new(DiagnosticBackend(level.clone())),
-                Box::new(DiagnosticBackend(level.clone())),
-            ],
-            None,
-        )?;
+        let (runtime, native) = if let Some(settings) = settings {
+            settings.validate()?;
+            let backend = crate::shared_native_media::NativeBackend::connect()?;
+            let uncertain = backend.health();
+            let plan = crate::saved_native::Plan::from_catalog(&catalog)?;
+            let bindings = backend.resolve_media(&plan.media, Some(&settings.media))?;
+            if !bindings.iter().any(|s| s == &settings.media) {
+                return Err("native_media_session_changed");
+            }
+            let runtime = Runtime::start_saved_native(catalog, backend, bindings)?;
+            let native = NativeObservation {
+                output: settings.output.clone(),
+                meter: crate::meter::Worker::start(),
+                levels: Default::default(),
+                last_meter: Instant::now(),
+                uncertain,
+            };
+            (runtime, Some(native))
+        } else {
+            (
+                Runtime::start(
+                    catalog,
+                    vec![
+                        Box::new(DiagnosticBackend(level.clone())),
+                        Box::new(DiagnosticBackend(level.clone())),
+                    ],
+                    None,
+                )?,
+                None,
+            )
+        };
         Ok(Self {
             runtime,
             level,
             counts,
             last_observation: u64::MAX,
+            native,
         })
+    }
+    #[cfg(test)]
+    fn start(catalog: Catalog) -> Result<Self> {
+        Self::start_for(catalog, None)
     }
     fn attach(
         &mut self,
@@ -248,30 +337,45 @@ impl Trial {
                 }
             }
         }
-        let level = *self.level.lock().map_err(|_| "diagnostic_state_failed")?;
-        if self.last_observation != level.writes {
-            let state = TouchState {
-                targets: vec![(
-                    TARGET.into(),
-                    Some(crate::audio::State {
-                        percent: u16::from(level.percent),
-                        muted: level.muted,
-                        active: None,
-                        icon: crate::audio_icon::Kind::Speaker,
-                    }),
-                )],
-                ..Default::default()
-            };
-            for id in self.counts.keys() {
-                self.runtime.update_touch(*id, state.clone())?;
+        if let Some(native) = &mut self.native {
+            if native.last_meter.elapsed() >= std::time::Duration::from_millis(50) {
+                let levels = native.meter.levels(1, vec![native.output.clone()]);
+                if levels != native.levels {
+                    for status in self.runtime.statuses() {
+                        if status.model == DeviceModel::Plus {
+                            self.runtime.update_levels(status.id, levels.clone())?;
+                        }
+                    }
+                    native.levels = levels;
+                }
+                native.last_meter = Instant::now();
             }
-            self.last_observation = level.writes;
+        } else {
+            let level = *self.level.lock().map_err(|_| "diagnostic_state_failed")?;
+            if self.last_observation != level.writes {
+                let state = TouchState {
+                    targets: vec![(
+                        TARGET.into(),
+                        Some(crate::audio::State {
+                            percent: u16::from(level.percent),
+                            muted: level.muted,
+                            active: None,
+                            icon: crate::audio_icon::Kind::Speaker,
+                        }),
+                    )],
+                    ..Default::default()
+                };
+                for id in self.counts.keys() {
+                    self.runtime.update_touch(*id, state.clone())?;
+                }
+                self.last_observation = level.writes;
+            }
         }
         Ok(())
     }
     fn report(&self, path: &Path, status: &str) -> Result<()> {
         let units = self.runtime.statuses().into_iter().map(|s| serde_json::json!({"model":s.model,"connected":s.connected,"input_ready":s.input_ready,"display_ready":s.display_ready,"page":s.page,"brightness":s.brightness,"error":s.error,"counts":self.counts[&s.id].lock().unwrap().clone()})).collect::<Vec<_>>();
-        write_report(path, &serde_json::to_vec_pretty(&serde_json::json!({"status":status,"mode":"connected-physical-diagnostic","native_audio":false,"native_microphone":false,"shared_test_level":*self.level.lock().unwrap(),"devices":units})).map_err(|_| "test_status_failed")?)
+        write_report(path, &serde_json::to_vec_pretty(&serde_json::json!({"status":status,"mode":if self.native.is_some(){"connected-native-explicit-targets"}else{"connected-physical-diagnostic"},"native_audio":self.native.is_some(),"native_media":self.native.is_some(),"native_effect_uncertain":self.native.as_ref().is_some_and(|n|n.uncertain.load(std::sync::atomic::Ordering::Acquire)),"native_microphone":false,"shared_test_level":*self.level.lock().unwrap(),"devices":units})).map_err(|_| "test_status_failed")?)
     }
 }
 
@@ -291,8 +395,30 @@ pub fn run(args: &[String]) -> Result<()> {
         sync::atomic::{AtomicBool, Ordering},
         time::Duration,
     };
-    let [_, destination, flag, seconds] = args else {
-        return Err("connected_physical_arguments");
+    let (destination, flag, seconds, settings) = match args {
+        [mode, destination, flag, seconds] if mode == "--connected-physical-lab" => {
+            (destination, flag, seconds, None)
+        }
+        [
+            mode,
+            destination,
+            settings_flag,
+            settings_path,
+            flag,
+            seconds,
+        ] if matches!(
+            mode.as_str(),
+            "--connected-native-lab" | "--connected-edit-native-lab"
+        ) && settings_flag == "--settings"
+            && std::env::var("DECKSMITH_NATIVE_TEST").as_deref() == Ok("1") =>
+        {
+            let bytes = crate::layout_store::read(Path::new(settings_path), 4096)?;
+            let settings: NativeSettings =
+                serde_json::from_slice(&bytes).map_err(|_| "invalid_native_trial_settings")?;
+            settings.validate()?;
+            (destination, flag, seconds, Some(settings))
+        }
+        _ => return Err("connected_physical_arguments"),
     };
     let seconds = seconds
         .parse::<u64>()
@@ -314,8 +440,13 @@ pub fn run(args: &[String]) -> Result<()> {
     }
     let mut owner = HardwareOwner::acquire().map_err(|_| "physical_ownership_unavailable")?;
     let inventory = Inventory::discover().map_err(|_| "physical_discovery_failed")?;
-    let catalog = prepare(path, inventory.discovery())?;
-    let mut trial = Trial::start(Store::open(&path.join("profiles"))?.load()?)?;
+    let catalog = prepare_for(path, inventory.discovery(), settings.as_ref())?;
+    let mut trial = Trial::start_for(
+        Store::open(&path.join("profiles"))?.load()?,
+        settings.as_ref(),
+    )?;
+    let editable = args[0] == "--connected-edit-native-lab";
+    let mut editor: Option<crate::live_profiles::Service> = None;
     let end = Instant::now() + Duration::from_secs(seconds);
     let mut refresh = Instant::now() - Duration::from_secs(2);
     let mut report = refresh;
@@ -352,6 +483,24 @@ pub fn run(args: &[String]) -> Result<()> {
                 refresh = Instant::now();
             }
             trial.tick()?;
+            if editable
+                && editor.is_none()
+                && trial
+                    .runtime
+                    .statuses()
+                    .iter()
+                    .all(|s| s.input_ready && s.display_ready)
+            {
+                editor = Some(crate::live_profiles::Service::start(
+                    Store::open(&path.join("profiles"))?,
+                    &trial.runtime,
+                    true,
+                )?);
+            }
+            if let Some(editor) = &mut editor {
+                editor.poll(&mut trial.runtime);
+                editor.publish(&trial.runtime);
+            }
             if report.elapsed() >= Duration::from_millis(250) {
                 trial.report(&path.join("status.json"), "running")?;
                 report = Instant::now();
@@ -360,6 +509,7 @@ pub fn run(args: &[String]) -> Result<()> {
         }
         Ok(())
     })();
+    drop(editor);
     let blank = trial.runtime.stop();
     let blank_failed = blank.iter().any(|(_, r)| r.is_err());
     write_report(
@@ -383,6 +533,13 @@ pub fn run(args: &[String]) -> Result<()> {
     result?;
     if blank_failed {
         return Err("physical_test_blank_failed");
+    }
+    if trial
+        .native
+        .as_ref()
+        .is_some_and(|n| n.uncertain.load(Ordering::Acquire))
+    {
+        return Err("native_effect_uncertain");
     }
     Ok(())
 }
@@ -430,6 +587,32 @@ mod tests {
         }
     }
     #[test]
+    fn native_documents_pin_media_keep_named_output_and_reject_default_aliases() {
+        let media = crate::shared_native_media::Session {
+            selector: "org.mpris.MediaPlayer2.fixture".into(),
+            name: "org.mpris.MediaPlayer2.fixture".into(),
+            owner: ":1.33".into(),
+        };
+        for model in [DeviceModel::Plus, DeviceModel::Mk2] {
+            let document = layout_for(model, "output:native-fixture", Some(&media)).unwrap();
+            let value: serde_json::Value = serde_json::from_slice(document.bytes()).unwrap();
+            assert_eq!(value["pages"][0]["keys"][3]["media_player"], media.selector);
+            assert_eq!(
+                value["pages"][0]["keys"][0]["action"]["target"],
+                "output:native-fixture"
+            );
+        }
+        for target in ["output:@DEFAULT_SINK@", "input:22", "system"] {
+            assert!(
+                crate::shared_worker::Compiled::audio(Action::AudioAdjust {
+                    target: target.into(),
+                    percent: 1
+                })
+                .is_err()
+            );
+        }
+    }
+    #[test]
     fn physical_trial_uses_same_runtime_on_virtual_pair_and_joins_blank_writers() {
         let path = std::env::temp_dir().join(format!(
             "decksmith-connected-physical-{}",
@@ -441,6 +624,15 @@ mod tests {
         ])
         .unwrap();
         let catalog = prepare(&path, &discovery).unwrap();
+        let plan = crate::saved_native::Plan::from_catalog(&catalog).unwrap();
+        assert_eq!(plan.pages.len(), 2);
+        assert_eq!(plan.audio, vec![TARGET.to_string()]);
+        assert!(plan.media.is_empty());
+        for summary in catalog.summaries() {
+            let pages = &plan.pages[&summary.id];
+            assert_eq!(pages.len(), 2);
+            assert!(pages.iter().all(|page| page.audio.contains(TARGET)));
+        }
         let mut trial =
             Trial::start(Store::open(&path.join("profiles")).unwrap().load().unwrap()).unwrap();
         let revision = trial

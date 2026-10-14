@@ -1169,13 +1169,15 @@ class Editor(Adw.ApplicationWindow):
             self.draft.saved_now()
             self.device_layout = "custom"
             self.render()
-            self.status.set_text('Device profile saved. Physical controls remain with your current service.' if getattr(self.call,'workspace_only',False) else 'Saved as My layout and applied to Decksmith.')
+            self.status.set_text('Device profile saved and applied.' if getattr(self.call,'connected_workspace',False) else 'Device profile saved. Physical controls remain with your current service.' if getattr(self.call,'workspace_only',False) else 'Saved as My layout and applied to Decksmith.')
             self.owner.refresh()
             if self.close_after_save:self.close_after_save=False;self.close()
         page = self.page
         def apply():
             self.call('SaveLayout', GLib.Variant('(s)', (payload,)))
-            if not self.integrated or self.shell.can_control():
+            # A connected profile save already applies its selected page in the
+            # fenced transaction. A second navigation would race its input drain.
+            if not getattr(self.call,'connected_workspace',False) and (not self.integrated or self.shell.can_control()):
                 return self.call('ShowPage', GLib.Variant('(y)', (page,)))
         self.request(apply, done)
 

@@ -506,6 +506,191 @@ pub fn run(args: &[String]) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn prepared_live_save_cannot_change_a_partners_pinned_player() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-partner-pin-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.ready()?;
+            let base = t.store.load()?;
+            let mut doc: serde_json::Value =
+                serde_json::from_slice(base.profile(t.ids[1])?.document().bytes()).unwrap();
+            doc["pages"][0]["keys"][2] = serde_json::json!({"label":"Partner media","action":{"type":"media_play_pause"},"media_player":"org.mpris.MediaPlayer2.Fixture"});
+            t.store.save_profile(
+                t.ids[1],
+                base.profile(t.ids[1])?.revision,
+                &serde_json::to_vec(&doc).unwrap(),
+                0,
+                "Partner",
+                50,
+            )?;
+            t.runtime
+                .apply_saved(t.store.load()?, t.ids[1], t.context(1)?.binding)?;
+            t.ready()?;
+            let pin = crate::shared_native_media::Session {
+                selector: "org.mpris.MediaPlayer2.Fixture".into(),
+                name: "org.mpris.MediaPlayer2.Fixture".into(),
+                owner: ":1.44".into(),
+            };
+            t.runtime.bind_native_media(vec![pin.clone()])?;
+            let base = t.store.load()?;
+            let projected = base.project_profile(
+                t.ids[0],
+                base.profile(t.ids[0])?.revision,
+                base.profile(t.ids[0])?.document().bytes(),
+                0,
+                "Own",
+                50,
+            )?;
+            let prepared = crate::device_execution::PreparedEdit::new(
+                &projected,
+                t.ids[0],
+                vec![pin.clone()],
+            )?;
+            let ticket = t.runtime.reserve_edit(t.context(0)?)?;
+            t.runtime
+                .apply_edit(ticket, t.store.publish_projected(projected)?, prepared)?;
+            t.ready()?;
+            let partner = t.context(1)?;
+            let base = t.store.load()?;
+            let projected = base.project_profile(
+                t.ids[0],
+                base.profile(t.ids[0])?.revision,
+                base.profile(t.ids[0])?.document().bytes(),
+                0,
+                "Own changed",
+                50,
+            )?;
+            let mut other = pin;
+            other.owner = ":1.55".into();
+            let prepared =
+                crate::device_execution::PreparedEdit::new(&projected, t.ids[0], vec![other])?;
+            let ticket = t.runtime.reserve_edit(t.context(0)?)?;
+            assert_eq!(
+                t.runtime.apply_edit(ticket, projected, prepared),
+                Err("partner_media_pin_changed")
+            );
+            assert_eq!(t.context(1)?, partner);
+            t.runtime.cancel_edit(ticket)?;
+            t.ready()?;
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
+    fn prepared_live_save_cancels_only_edited_hold_and_keeps_partner_actions_and_context() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-live-save-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.ready()?;
+            t.key(0, 1, true)?;
+            t.key(1, 1, true)?;
+            t.until(|s| s.runtime.held() == 2)?;
+            let partner = t.context(1)?;
+            let base = t.store.load()?;
+            let mut value: serde_json::Value =
+                serde_json::from_slice(base.profile(t.ids[0])?.document().bytes()).unwrap();
+            value["pages"][0]["keys"][2] = serde_json::json!({"label":"Saved 🎵","action":{"type":"audio_adjust","target":"app:application.name=New fixture","percent":1}});
+            let projected = base.project_profile(
+                t.ids[0],
+                base.profile(t.ids[0])?.revision,
+                &serde_json::to_vec(&value).unwrap(),
+                1,
+                "Desk 🎵",
+                61,
+            )?;
+            let prepared =
+                crate::device_execution::PreparedEdit::new(&projected, t.ids[0], Vec::new())?;
+            let ticket = t.runtime.reserve_edit(t.context(0)?)?;
+            t.key(1, 0, true)?;
+            t.key(1, 0, false)?;
+            t.until(|s| s.audio.lock().unwrap().level == 51 && s.runtime.held() == 1)?;
+            assert_eq!(t.context(1)?, partner);
+            assert!(
+                !t.runtime
+                    .statuses()
+                    .iter()
+                    .find(|s| s.id == t.ids[0])
+                    .unwrap()
+                    .input_ready
+            );
+            let published = t.store.publish_projected(projected)?;
+            t.runtime.apply_edit(ticket, published, prepared)?;
+            t.ready()?;
+            assert_eq!(t.context(1)?, partner);
+            let own = t
+                .runtime
+                .statuses()
+                .into_iter()
+                .find(|s| s.id == t.ids[0])
+                .unwrap();
+            assert_eq!(own.page, Some(1));
+            assert_eq!(own.brightness, 61);
+            assert!(
+                t.runtime
+                    .catalog()
+                    .profile(t.ids[0])?
+                    .document()
+                    .bytes()
+                    .windows("Saved 🎵".len())
+                    .any(|b| b == "Saved 🎵".as_bytes())
+            );
+            t.key(1, 1, false)?;
+            t.until(|s| s.runtime.held() == 0 && s.muted.load(Ordering::Acquire))?;
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
+    fn cancelled_live_save_restores_only_own_input_and_disconnected_ticket_cannot_apply() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-live-cancel-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.ready()?;
+            let partner = t.context(1)?;
+            let before = t.store.load()?.generation;
+            let ticket = t.runtime.reserve_edit(t.context(0)?)?;
+            t.runtime.cancel_edit(ticket)?;
+            t.ready()?;
+            assert_eq!(t.context(1)?, partner);
+            assert_eq!(t.store.load()?.generation, before);
+            let base = t.store.load()?;
+            let projected = base.project_profile(
+                t.ids[0],
+                base.profile(t.ids[0])?.revision,
+                base.profile(t.ids[0])?.document().bytes(),
+                0,
+                "Saved",
+                50,
+            )?;
+            let prepared =
+                crate::device_execution::PreparedEdit::new(&projected, t.ids[0], Vec::new())?;
+            let ticket = t.runtime.reserve_edit(t.context(0)?)?;
+            t.runtime.disconnect(t.ids[0])?;
+            assert_eq!(
+                t.runtime.apply_edit(ticket, projected, prepared),
+                Err("stale_profile_update")
+            );
+            assert_eq!(t.context(1)?, partner);
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
     fn stalled_io_cannot_keep_its_microphone_hold_live() {
         let root = std::env::temp_dir().join(format!(
             "decksmith-mic-stall-{}",

@@ -202,6 +202,9 @@ if __name__=='__main__':
     try:
         if sys.argv[1]=='serve-read':serve_read(sys.stdin,sys.stdout)
         elif sys.argv[1]=='serve-execute':serve_execute(sys.stdin,sys.stdout)
+        elif sys.argv[1]=='serve-shared':
+            from shared_audio_native import serve
+            serve(sys.stdin,sys.stdout)
         elif sys.argv[1]=='read':print(json.dumps(read(json.loads(sys.argv[2]))))
         elif sys.argv[1]=='execute':execute(json.loads(sys.argv[2]))
         else:raise ValueError('Unsupported operation')

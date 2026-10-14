@@ -137,8 +137,15 @@ class Client:
             return found[-1] if found else default_info()
         except Exception: self.close(); raise
 
-    def write(self, info):
-        self.ready(); success = []
+    def write(self, info, *, prepared_only=False):
+        if prepared_only:
+            # Shared execution has already read/prepared this connection before
+            # its host fence authorization. Never reconnect/wait after that gate.
+            if not self.context or self.ctxstate(self.context) != 4:
+                raise ValueError('System sounds unavailable')
+        else:
+            self.ready()
+        success = []
         @self.success_cb
         def callback(_context, ok, _data): success.append(bool(ok))
         try:

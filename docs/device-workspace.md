@@ -113,4 +113,9 @@ holds, live audio feedback, lock/suspend integration, asynchronous display/disk
 scheduling, migration/recovery policy and paired lifecycle/resource acceptance.
 The existing production `--config ... --exclusive --run` path is unchanged.
 
+The newer [live editor bridge](checkpoints/2026-10-14-live-profile-editor.md) uses
+a separate connected endpoint and explicit editor entry point for prepared live
+saves. This saved-only workspace keeps its offline/coexistence behavior; it does
+not automatically adopt that endpoint or begin controlling physical devices.
+
 Further [restart and concurrent-request qualification](checkpoints/2026-10-13-device-workspace-hardening.md) covers endpoint ownership, bounded busy responses and cancellation.

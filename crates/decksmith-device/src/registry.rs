@@ -137,7 +137,7 @@ impl Record {
         self.brightness
     }
 }
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Registry {
     revision: u64,
     records: Vec<Record>,
