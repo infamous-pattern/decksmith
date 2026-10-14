@@ -99,10 +99,40 @@ VM and changed no scheduled checkout. Private evidence retains the archive, logs
 screenshots and complete outcomes. No physical latency or CPU/memory budget is
 qualified by this fixture. The installed V1 service was not stopped or updated.
 
+## Paired physical editor follow-up
+
+The guarded Plus/MK.2 trial against canonical commit `076670a` verified native
+editor label saves on both physical devices. The MK.2 retained its custom
+"Testing" label and the Plus retained "Plus 🎵" across metadata saves. Home
+settings applied independent brightness values of **30% on MK.2 and 60% on Plus**;
+these are the actual saved and observed values, rather than the initial requested
+40%/60% pair. MK.2 physical Next selected its blue page while Plus stayed copper.
+Three successful MK.2 output volume/mute effects and one successful Plus dial
+adjustment were recorded with zero failed replies and no uncertain native effects.
+The user confirmed the physical levels, mute, touch strip and device isolation.
+Action assignments were unchanged. The editor also populated its normal media
+artwork/default appearance fields when saving the initially minimal trial layouts.
+
+The first window did not record the reported Plus playback presses, so that result
+was not counted as verified. A separate focused window saved a label-only change
+through the same live SaveProfile endpoint, then recorded **four physical dial
+press/release events and two successful playback effects**. The user confirmed
+Brave paused/resumed using the third physical Plus dial after that save. This
+focused save was prepared by the test driver; the earlier label/metadata saves
+were performed in the native editor.
+
+Both windows completed joined full blanking on both devices and exact restoration
+of original output channel values/mute and the pinned Brave playback state.
+The original V1 build, configuration hashes and page were unchanged, and its
+connected ready display returned. The temporary editor and endpoint were removed.
+Private evidence retains profiles, counts, native outcomes and restoration checks.
+The existing single-device V1 service is still installed; this checkpoint does
+not enable production multi-device operation or qualify latency/resource budgets.
+
 ## Remaining activation gates
 
-The expanded live editor path needs paired physical acceptance, including changes
-to audio/media assignments with appropriate native-state restoration. The current
+The expanded live editor path still needs changes to audio/media assignments with
+appropriate native-state restoration and physical acceptance. The current
 native trial meter still follows its original selected output; active saved-target
 meter subscriptions remain work. Offline saves are available in the saved-only
 workspace; this first connected save path requires a ready session. Add controlled

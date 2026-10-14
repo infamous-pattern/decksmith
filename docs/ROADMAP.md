@@ -54,6 +54,17 @@ Production activation still requires expanded physical assignment acceptance,
 all-active-target meters, lifecycle/recovery and resource checks. See the
 [live editor qualification and limits](checkpoints/2026-10-14-live-profile-editor.md).
 
+**October 14 paired editor acceptance:** both physical Decks now pass native label
+saves and independent Home brightness settings with custom labels retained.
+MK.2 blue/Plus copper page isolation and four real shared output volume/mute
+effects were recorded. A focused post-save Plus playback check recorded four
+physical press/release events and two successful Brave commands. Both guarded
+windows blanked both devices and restored exact native audio/playback state and
+the unchanged normal V1 build/config/page. The daily service remains V1.
+Next connect meter subscriptions to all active saved audio assignments, then
+qualify assignment changes and recovery/lifecycle/resource gates before activation.
+See the [paired editor evidence and limits](checkpoints/2026-10-14-live-profile-editor.md#paired-physical-editor-follow-up).
+
 ## Next work priorities — Monday, October 12
 
 These are the first two tasks, ahead of new V1.5 features. Work started early
