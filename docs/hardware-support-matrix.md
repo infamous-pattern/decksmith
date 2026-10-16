@@ -7,7 +7,9 @@ validation plan, not a statement that these devices already work with Decksmith
 or that Elgato certifies Linux. Implementation checkpoint: October 16, 2026.
 Stream Deck + is the Fedora 44 V1 hardware reference. The standard 15-key MK.2
 now has adapter/fixture, permanent-service and paired physical evidence for
-unreleased V1.5. Final signed-candidate admission and release certification remain open.
+unreleased V1.5. Signed-candidate qualification is recorded in the
+[final V1.5 review](v1.5-release-review.md); publication was approved October 16, with delivery verification still required.
+Only the Plus and standard 15-key MK.2 pair is physically qualified.
 
 ## Current physical device matrix
 

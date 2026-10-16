@@ -7,11 +7,15 @@ change system routing.
 
 ## Current work — Friday, October 16
 
-Finalize version 1.5.0 from the accepted paired development build, then qualify
-the exact signed candidate before requesting publication. Preserve V1 downloads
-and the existing experimental platform scope until release approval. The current
-desktop stays on its qualified development build until a guarded candidate
-installation is prepared. See the [V1.5 candidate review](v1.5-candidate.md).
+Signed candidate `1.5.0-8c0783ad4bf8` is installed on the daily desktop and has
+completed its recorded physical controls/lock/USB/resource checks plus exact-package
+Fedora 44 and diagnostic Fedora 45 VM checks. Source and signatures are verified;
+all ten server guests passed the storage migration checks and old duplicate copies
+were removed. Final review distinguishes exact-candidate repeats from earlier
+lifecycle/editor/accessibility/microphone acceptance carried forward on unchanged
+runtime source. The maintainer approved publication with documented limits on October 16.
+Fresh public-download verification and installer/README promotion remain.
+Preserve V1 and experimental previews. See the [final V1.5 release review](v1.5-release-review.md).
 
 **Linked navigation — explicitly deferred after V1.5 on October 16.** Future
 opt-in page pairs could let navigation keys or Plus swipes change a workspace on
