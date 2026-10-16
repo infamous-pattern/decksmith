@@ -1,9 +1,12 @@
 # Maker’s Mark starter defaults — October 16, 2026
 
-Status: implementation and local qualification passed for proposed V1.5.1;
-signed-candidate qualification is pending. Source synchronization and the signed
-candidate build were approved separately; stable publication remains pending.
-The existing V1.5.0 release, installer pin and desktop installation remain intact.
+Status: V1.5.1 published with unchanged signed bundle `1.5.1-9d7719a68ed2`.
+The maintainer confirmed both Decks and Homebridge work correctly. Stable
+publication was approved and completed; all seven fresh public downloads
+and their source-bound signatures passed before installer promotion.
+The existing V1.5.0 release remains intact. The Fedora installer now selects
+V1.5.1. Desktop upgrade
+preserved both complete saved layouts and retained the earlier build and backup.
 
 The maintainer requested these changes before announcing V1.5 and selected
 Home-page-only placement for the new website key.
@@ -57,7 +60,16 @@ Private results and images are retained under `outputs/v15-defaults-update-20261
 in the parent workspace; they are not release assets.
 
 The initial local bundle was an unsigned development build from uncommitted source.
-Before public delivery: review the defaults, commit/push the approved source,
-build and verify a new signed V1.5.1 candidate, perform the targeted desktop check,
-and approve publication and installer promotion. Do not replace signed V1.5.0
-assets or move its tag. Leave the announcement pending until the update is ready.
+Source was synchronized to both repositories; the signed candidate and targeted
+desktop check passed. Public delivery completed after approval and fresh public download verification;
+Fedora installer and README links select V1.5.1. Do not replace signed V1.5.0
+assets or move its tag. The release is ready for the separate announcement task.
+
+Candidate source: `4891555b388f1806ca0cda909d77af6dbd77a8ee`.
+Archive SHA-256: `dc69ac03cd76210894a5aaf6337aa15496e8cb849a199e1e754521924464c28a`.
+All six attested subjects and 496 archive files passed admission. The AI server
+verified packaged source/fonts, ELF hardening, relocation and paired backup restore
+after 24 later saves. The desktop upgrade retained 160 configuration backup files;
+all installed package files match the signed archive. Fresh OS dependency setup,
+lifecycle, accessibility and resource coverage are carried forward from V1.5;
+they were not repeated for this patch.

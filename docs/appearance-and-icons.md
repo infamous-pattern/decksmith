@@ -122,7 +122,7 @@ Liberation Sans, Serif and Mono Bold are distributed under SIL OFL 1.1; see
 are separate from Decksmith’s Apache-2.0 original code license.
 
 
-## Maker’s Mark starter defaults (proposed V1.5.1)
+## Maker’s Mark starter defaults (V1.5.1)
 
 New installations and newly enrolled devices use Sans, Small, White text,
 Transparent · page color background, Bottom key labels, Transparent label

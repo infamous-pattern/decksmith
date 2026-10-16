@@ -4,7 +4,7 @@
 signed downloads and installation in one helper.
 
 **Alternative: [Manual Installation](v1.5-verified-installation.md)** — individual
-steps for the published Fedora `v1.5.0` downloads and provenance checks. This page also covers
+steps for the published Fedora `v1.5.1` downloads and provenance checks. This page also covers
 dependencies, USB access, recovery and the retained preview installer. Its
 preview shortcut installs preview.3, not V1.
 

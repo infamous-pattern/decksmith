@@ -269,7 +269,7 @@ from runtime_dependencies import runtime_packages
 RELEASES = {
     ('fedora', '44'): {
         'target': 'fedora44', 'label': 'Fedora Workstation 44 GNOME/Wayland',
-        'version': 'v1.5.0', 'source': 'ff21e0a2fa8f2cde7df052c8cb7308e55874b2ae',
+        'version': 'v1.5.1', 'source': '4891555b388f1806ca0cda909d77af6dbd77a8ee',
         'manager': 'dnf', 'experimental': False,
     },
     ('debian', '13'): {

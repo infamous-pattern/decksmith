@@ -11,6 +11,10 @@ login while the editor stays closed.
 and the standard 15-key MK.2, including both together.** Each device keeps its own
 layouts, pages and brightness. Debian, Ubuntu and COSMIC retain separate experimental previews.
 
+**Latest: V1.5.1.** Fresh setups use the Maker’s Mark theme with small white
+bottom labels, transparent backgrounds and 85% icons. Each device’s Home page
+has a bottom-left Maker’s Mark key linking to this repository. Saved layouts stay intact.
+
 [Install](#install) · [User guide](docs/USER_GUIDE.md) ·
 [Release notes](docs/v1.5-release-notes.md) ·
 [Report an issue](https://github.com/infamous-pattern/decksmith/issues) ·
@@ -57,7 +61,7 @@ needed to run them.
 
 | System | Status | Download and installation details |
 |---|---|---|
-| Fedora Workstation 44, GNOME/Wayland | **Supported V1.5** | [v1.5.0](https://github.com/infamous-pattern/decksmith/releases/tag/v1.5.0) · [Verified guide](docs/v1.5-verified-installation.md) |
+| Fedora Workstation 44, GNOME/Wayland | **Supported V1.5** | [v1.5.1](https://github.com/infamous-pattern/decksmith/releases/tag/v1.5.1) · [Verified guide](docs/v1.5-verified-installation.md) |
 | Debian 13, GNOME/Wayland | Experimental native preview | [Debian preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-debian-preview.1) · [Guide and limits](docs/debian-preview-installation.md) |
 | Ubuntu 26.04, GNOME/Wayland | Experimental native preview | [Ubuntu preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1) · [Guide and limits](docs/ubuntu-preview-installation.md) |
 | Pop!_OS 24.04, COSMIC | Experimental preview; Ubuntu 24.04 library baseline | [COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1) · [Guide and limits](docs/popos-preview-installation.md) |
