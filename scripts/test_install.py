@@ -111,3 +111,18 @@ class InstallTests(unittest.TestCase):
             manager.install(self.paths,self.bundle('two'))
         self.assertEqual(manager.current(self.paths),'one')
         self.assertEqual(desktop.read_text().split('Exec=',1)[1].splitlines()[0].split()[0],'/bin/sh')
+
+    def test_new_starter_is_selected_and_existing_saved_layout_is_preserved(self):
+        archive=self.bundle('new-defaults');files=read_archive(archive)
+        files['config/plus-default.json']=(ROOT/'config/plus-default.json').read_bytes()
+        manifest=json.loads(files['release.json']);manifest['files']['config/plus-default.json']=digest(files['config/plus-default.json'])
+        files['release.json']=json.dumps(manifest).encode();write_archive(archive,files)
+        saved=self.paths.config/'decksmith/layout.json';atomic(saved,b'{"custom":"preserve exactly"}')
+        with patch.object(manager,'validate_saved'):
+            manager.install(self.paths,archive)
+        unit=self.paths.integrations()['unit'].read_text()
+        self.assertIn('config/plus-default.json',unit)
+        self.assertEqual(saved.read_bytes(),b'{"custom":"preserve exactly"}')
+        defaults=json.loads((self.paths.app/'current/config/plus-default.json').read_text())
+        self.assertEqual(defaults['theme']['appearance']['icon_size'],85)
+        self.assertEqual(defaults['pages'][0]['keys'][4]['action']['type'],'open_website')

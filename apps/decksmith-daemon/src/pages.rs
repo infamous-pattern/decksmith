@@ -135,7 +135,7 @@ struct Key {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     label_color: Option<LabelColor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    background_color: Option<LabelColor>,
+    background_color: Option<crate::theme::BackgroundColor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     label_background: Option<LabelBackground>,
     #[serde(default)]

@@ -978,7 +978,7 @@ impl Store {
                 (original.upgraded()?, Some(Arc::from(bytes)))
             }
             (DeviceModel::Plus, None) => (
-                Document::parse(include_bytes!("../../../config/navigation.json"))?.upgraded()?,
+                Document::parse(include_bytes!("../../../config/plus-default.json"))?.upgraded()?,
                 None,
             ),
             (DeviceModel::Mk2, None) => (Document::mk2_defaults()?, None),
@@ -1535,6 +1535,28 @@ mod tests {
                 .is_err()
         );
     }
+    #[test]
+    fn fresh_plus_enrollment_uses_the_same_branded_starter_as_first_install() {
+        let temp = Temp::new();
+        let store = Store::create(&temp.0.join("store")).unwrap();
+        store
+            .enroll(
+                0,
+                &discovery(false),
+                0,
+                Enrollment::new(id(1), "Desk", 50, None),
+            )
+            .unwrap();
+        let catalog = store.load().unwrap();
+        let profile = catalog.profile(id(1)).unwrap();
+        let expected = Document::parse(include_bytes!("../../../config/plus-default.json"))
+            .unwrap()
+            .upgraded()
+            .unwrap();
+        assert_eq!(profile.document().bytes(), expected.bytes());
+        assert!(profile.legacy.is_none());
+    }
+
     #[test]
     fn enrollment_preserves_legacy_bytes_independent_defaults_identity_and_preferences() {
         let (_t, s) = pair();

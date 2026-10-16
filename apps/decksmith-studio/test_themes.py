@@ -4,7 +4,7 @@ from pathlib import Path
 from io import BytesIO
 from zipfile import ZipFile
 from editor_model import Draft
-from themes import PRESETS,effective,reset,set_theme,validate,encode_theme,decode_theme
+from themes import PRESETS,effective,reset,set_theme,validate,encode_theme,decode_theme,MAKERS_MARK_DEFAULTS,preset_defaults
 from layout_package import encode,decode
 
 class ThemeTests(unittest.TestCase):
@@ -59,3 +59,41 @@ class ThemeTests(unittest.TestCase):
         for value in (9,11,99,101,'50',True,50.0):
             draft.data['pages'][0]['keys'][0]['appearance']['icon_size']=value
             with self.assertRaises(ValueError):validate(draft.data)
+
+    def test_fresh_defaults_for_both_models_and_home_only_logo_link(self):
+        for model,name,index,count in [('plus','plus-default.json',4,8),('mk2','mk2-default.json',10,15)]:
+            with self.subTest(model=model):
+                layout=json.loads((Path(__file__).resolve().parents[2]/'config'/name).read_text())
+                Draft(layout).validate()
+                self.assertEqual(layout['theme'],{'preset':'makers_mark','appearance':MAKERS_MARK_DEFAULTS})
+                home=layout['pages'][0];key=home['keys'][index]
+                self.assertEqual(key['artwork'],'makers_mark')
+                self.assertEqual(key['action'],{'type':'open_website','url':'https://github.com/infamous-pattern/decksmith'})
+                self.assertEqual(len(home['keys']),count)
+                self.assertTrue(all(k['action'].get('url')!='https://github.com/infamous-pattern/decksmith' for page in layout['pages'][1:] for k in page['keys']))
+                style=effective(layout,key,home['background'])
+                self.assertEqual(style['background'],home['background'])
+                self.assertEqual(style['color'],[255,255,255])
+                self.assertEqual(style['icon_size'],85)
+                packed,_=encode(layout);self.assertEqual(decode(packed),layout)
+                if model=='plus':self.assertEqual(home['keys'][5]['action']['type'],'mute_toggle')
+
+    def test_explicit_transparency_overrides_theme_but_not_text_color_validation(self):
+        layout=self.sample();set_theme(layout,'light');key=layout['pages'][0]['keys'][1]
+        key['appearance']={'background_color':'transparent'}
+        self.assertEqual(effective(layout,key,[12,34,56])['background'],[12,34,56])
+        self.assertEqual(effective(layout,key,dial=True)['background'],[30,34,39])
+        validate(layout)
+        key['appearance']['label_color']='transparent'
+        with self.assertRaises(ValueError):validate(layout)
+
+    def test_new_makers_mark_preset_and_reset_defaults_do_not_rewrite_saved_legacy(self):
+        layout=self.sample();layout['theme']={'preset':'makers_mark','appearance':{}}
+        before=deepcopy(layout);key=layout['pages'][0]['keys'][1]
+        self.assertEqual(effective(layout,key)['size'],'normal')
+        self.assertEqual(layout,before)
+        set_theme(layout,'makers_mark')
+        self.assertEqual(layout['theme']['appearance'],MAKERS_MARK_DEFAULTS)
+        self.assertEqual(preset_defaults('dark'),{})
+        defaults=preset_defaults('makers_mark');defaults['icon_size']=10
+        self.assertEqual(preset_defaults('makers_mark')['icon_size'],85)

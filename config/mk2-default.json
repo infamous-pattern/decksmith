@@ -3,7 +3,15 @@
   "model": "mk2",
   "theme": {
     "preset": "makers_mark",
-    "appearance": {}
+    "appearance": {
+      "font": "sans",
+      "size": "small",
+      "label_color": "white",
+      "background_color": "transparent",
+      "label_position": "bottom",
+      "label_background": "transparent",
+      "icon_size": 85
+    }
   },
   "pages": [
     {
@@ -86,10 +94,11 @@
           }
         },
         {
-          "label": "Empty",
-          "label_position": "hidden",
+          "label": "Decksmith",
+          "artwork": "makers_mark",
           "action": {
-            "type": "none"
+            "type": "open_website",
+            "url": "https://github.com/infamous-pattern/decksmith"
           }
         },
         {

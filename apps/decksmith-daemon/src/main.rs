@@ -131,7 +131,7 @@ fn main() {
         && let Ok(seconds @ 1..=3600) = seconds.parse::<u64>()
     {
         if let Err(code) = permanent_service::run(
-            &runtime_paths::config("audio.json"),
+            &runtime_paths::config("plus-default.json"),
             Some(std::path::Path::new(path)),
             Some(seconds),
         ) {

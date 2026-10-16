@@ -1554,6 +1554,84 @@ mod tests {
         assert_eq!(p.host.catalog.profile(p.plus).unwrap().revision, 1);
     }
     #[test]
+    fn branded_starters_render_at_both_physical_sizes_with_home_only_website() {
+        use decksmith_device::DeckDevice;
+        for (model, raw, slot) in [
+            (
+                DeviceModel::Plus,
+                include_bytes!("../../../config/plus-default.json").as_slice(),
+                4usize,
+            ),
+            (
+                DeviceModel::Mk2,
+                include_bytes!("../../../config/mk2-default.json").as_slice(),
+                10usize,
+            ),
+        ] {
+            let document = crate::layout_document::Document::parse(raw)
+                .unwrap()
+                .upgraded()
+                .unwrap();
+            let mut renderer = Renderer::new(document.bytes(), model).unwrap();
+            let frame = renderer.frame(0, 50).unwrap();
+            let descriptor = DeviceDescriptor::for_model(model);
+            let stride = descriptor.key_rgb_bytes();
+            let (width, height) = descriptor.geometry().key_pixels;
+            assert_eq!(
+                frame.keys.len(),
+                stride * usize::from(descriptor.key_count())
+            );
+            let mut deck = VirtualDeck::new(model);
+            for (i, key) in frame.keys.chunks_exact(stride).enumerate() {
+                deck.set_key_image(i as u8, key).unwrap();
+                assert_eq!(deck.key_image(i as u8).unwrap(), key);
+            }
+            if let Some(touch) = frame.touch {
+                deck.set_touch_image(&touch).unwrap();
+            }
+            let config = crate::pages::Config::parse(document.bytes()).unwrap();
+            let controls = config.model_controls();
+            assert_eq!(
+                controls.resolve(
+                    0,
+                    &decksmith_core::RawEvent::Key {
+                        index: slot as u8,
+                        pressed: false
+                    }
+                ),
+                Some(crate::pages::Action::OpenWebsite {
+                    url: "https://github.com/infamous-pattern/decksmith".into()
+                })
+            );
+            for page in 1..config.topology().0 {
+                assert!(!matches!(
+                    controls.resolve(
+                        page,
+                        &decksmith_core::RawEvent::Key {
+                            index: slot as u8,
+                            pressed: false
+                        }
+                    ),
+                    Some(crate::pages::Action::OpenWebsite { .. })
+                ));
+            }
+            if let Ok(path) = std::env::var("DECKSMITH_STARTER_ARTIFACTS") {
+                let name = if model == DeviceModel::Plus {
+                    "plus"
+                } else {
+                    "mk2"
+                };
+                for (i, key) in frame.keys.chunks_exact(stride).enumerate() {
+                    image::RgbImage::from_raw(u32::from(width), u32::from(height), key.to_vec())
+                        .unwrap()
+                        .save(format!("{path}/{name}-key-{i}.png"))
+                        .unwrap();
+                }
+            }
+        }
+    }
+
+    #[test]
     fn model_renderer_matches_legacy_plus_and_all_fifteen_mk2_surfaces() {
         let mut p = pair();
         let raw = p

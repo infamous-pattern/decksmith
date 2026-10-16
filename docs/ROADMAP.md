@@ -18,6 +18,14 @@ runtime source. The maintainer approved publication with documented limits on Oc
 Fedora installer/README promotion. V1 and experimental previews remain available.
 See the [final V1.5 release review](v1.5-release-review.md).
 
+**Before announcement — starter defaults update (proposed V1.5.1).** The maintainer
+requested Maker’s Mark as the installation default with Sans/Small/White labels,
+transparent key and label backgrounds, Bottom labels and 85% icons. Each supported
+model’s Home page gets a bottom-left Maker’s Mark link to the Decksmith GitHub
+repository. Existing saved profiles stay intact. Implemented locally; signing,
+targeted desktop review and publication are pending. See the
+[starter defaults checkpoint](checkpoints/2026-10-16-starter-defaults.md).
+
 **Linked navigation — explicitly deferred after V1.5 on October 16.** Future
 opt-in page pairs could let navigation keys or Plus swipes change a workspace on
 both devices and foreground-app rules select paired pages. Independent pages

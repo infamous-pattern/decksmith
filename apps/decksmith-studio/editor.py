@@ -17,6 +17,8 @@ from website_icon import fetch as fetch_website_icon
 
 LABEL_COLORS = {'default':'#f0e6d7','white':'#ffffff','black':'#000000','red':'#ff4646','orange':'#ff9b3c','yellow':'#ffe13c','green':'#5ae678','blue':'#5aaaff','purple':'#c382ff'}
 
+KEY_BACKGROUNDS=['default','transparent']+[name for name in LABEL_COLORS if name!='default']
+
 ACTIONS = ['system','none', 'go_to_page', 'volume_down', 'volume_up', 'mute_toggle', 'volume_adjust', 'next_page', 'previous_page', 'open_application', 'open_website', 'media_play_pause', 'media_previous', 'media_next', 'audio_adjust', 'audio_mute', 'audio_select', 'push_to_talk']
 ACTION_LABELS = ['System control','No action', 'Go to page', 'Volume down', 'Volume up', 'Mute output', 'Adjust volume', 'Next page', 'Previous page', 'Open application', 'Open website', 'Media · Play / Pause', 'Media · Previous track', 'Media · Next track', 'Audio · Adjust volume', 'Audio · Toggle mute', 'Audio · Select device', 'Microphone · Push to talk']
 
@@ -279,7 +281,7 @@ class Editor(Adw.ApplicationWindow):
         self.label_background.set_tooltip_text('Transparent shows the artwork behind the label.')
         self.field_errors={}
         self.add_field_error('label')
-        self.key_background=Adw.ComboRow(title='Key background',model=Gtk.StringList.new(['Transparent · page color']+[name.title() for name in LABEL_COLORS if name!='default']))
+        self.key_background=Adw.ComboRow(title='Key background',model=Gtk.StringList.new(['Theme','Transparent · page color']+[name.title() for name in LABEL_COLORS if name!='default']))
         self.key_background.set_tooltip_text('Transparent uses the page background; the physical display is opaque. Full-key artwork covers the background.')
         self.key_background.connect('notify::selected',self.form_changed);self.appearance.add_row(self.key_background)
         self.art = Adw.ComboRow(title='Artwork', model=Gtk.StringList.new(['Text only', "Maker’s Mark", 'Custom or automatic image']))
@@ -383,7 +385,7 @@ class Editor(Adw.ApplicationWindow):
             saved=base/'layout.json'
             if saved.exists():return json.loads(saved.read_text()),{'layout':'custom','connected':False}
             from panel import ROOT
-            return json.loads((ROOT/'config/audio.json').read_text()),{'layout':'audio','connected':False}
+            return json.loads((ROOT/'config/plus-default.json').read_text()),{'layout':'audio','connected':False}
 
     def cleanup(self):
         if self.closed:return
@@ -647,7 +649,7 @@ class Editor(Adw.ApplicationWindow):
         self.label_position.set_selected(['hidden','top','middle','bottom'].index(style['label_position']))
         self.label_color.set_selected(list(LABEL_COLORS).index(style['label_color']))
         self.label_background.set_active(style['label_background']=='transparent')
-        self.key_background.set_selected(list(LABEL_COLORS).index(style['background_color']))
+        self.key_background.set_selected(KEY_BACKGROUNDS.index(style['background_color']))
         self.art.set_selected({'makers_mark':1,'application_icon':2}.get(key.get('artwork'),0))
         self.action.set_selected(ACTIONS.index(key['action']['type']))
         self.destination.set_selected(key['action'].get('page',0))
@@ -692,7 +694,7 @@ class Editor(Adw.ApplicationWindow):
             button.set_sensitive(self.control_kind=='key' and self.edit_mode.get_active() and not self.pending and (operation!='paste' or self.draft.clipboard is not None))
         page = self.draft.data['pages'][self.page]
         r,g,b = page['background']
-        backgrounds=''.join(f'.deck-key.key-slot-{i} {{background-color: {LABEL_COLORS[key["background_color"]]};}}' for i,key in enumerate(page['keys']) if key.get('background_color'))
+        backgrounds=''.join(f'.deck-key.key-slot-{i} {{background-color: {LABEL_COLORS[key["background_color"]]};}}' for i,key in enumerate(page['keys']) if key.get('background_color') in LABEL_COLORS)
         style_css=(backgrounds+f'.deck-key {{padding: 0; min-width: 0; min-height: 0; background-color: rgb({r},{g},{b}); background-image: none; box-shadow: none; color: #f0e6d7; border: 2px solid transparent;}} .deck-key.selected-key {{border-color: @accent_color;}} .key-caption {{color: #f0e6d7; background: alpha(#000000,0.65); padding: 2px 4px; font-weight: bold;}}').encode()
         if getattr(self,'last_style_css',None)!=style_css:
             self.css.load_from_data(style_css);self.last_style_css=style_css
@@ -835,7 +837,7 @@ class Editor(Adw.ApplicationWindow):
         if sender is self.label_color:key['label_color']=list(LABEL_COLORS)[self.label_color.get_selected()]
         if sender is self.label_background:key['label_background']='transparent' if self.label_background.get_active() else 'dark'
         if sender is self.key_background:
-            background=list(LABEL_COLORS)[self.key_background.get_selected()]
+            background=KEY_BACKGROUNDS[self.key_background.get_selected()]
             if background=='default':key.pop('background_color',None)
             else:key['background_color']=background
         if self.art.get_selected(): key['artwork']={1:'makers_mark',2:'application_icon'}[self.art.get_selected()]

@@ -4,7 +4,7 @@ Uses a local fixture and never calls the daemon or writes a user layout.
 import json
 from pathlib import Path
 from panel import Panel, GLib
-from editor import Editor, ACTIONS
+from editor import Editor, ACTIONS, KEY_BACKGROUNDS
 import editor as editor_module
 editor_module.fetch_website_icon = lambda _url: None
 
@@ -183,7 +183,7 @@ def exercise():
         assert editor.draft.data['pages'][1]['keys'][5]=={'label':'EMPTY','label_position':'hidden','action':{'type':'none'}}
         editor.reset(None)
         assert not editor.draft.dirty and not editor.key_tools['paste'].get_sensitive()
-        editor.key_background.set_selected(7)
+        editor.key_background.set_selected(KEY_BACKGROUNDS.index('blue'))
         assert editor.draft.data['pages'][editor.page]['keys'][editor.key]['background_color']=='blue'
         from layout_package import encode,decode
         assert decode(encode(editor.draft.data)[0])==editor.draft.data

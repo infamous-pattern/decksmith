@@ -1,11 +1,11 @@
 """Native appearance defaults, independently editable from action mappings."""
 from gi.repository import Gtk,Adw,GLib
-from themes import PRESETS,STYLE_FIELDS,FONTS,SIZES,COLORS,set_theme,encode_theme,decode_theme
+from themes import PRESETS,STYLE_FIELDS,FONTS,SIZES,COLORS,BACKGROUNDS,preset_defaults,set_theme,encode_theme,decode_theme
 
 CHOICES={'font':(['Theme']+list(FONTS.values()),[None]+list(FONTS)),
          'size':(['Theme']+list(SIZES.values()),[None]+list(SIZES)),
          'label_color':(['Theme']+[k.title() for k in COLORS if k!='default'],[None]+[k for k in COLORS if k!='default']),
-         'background_color':(['Theme']+[k.title() for k in COLORS if k!='default'],[None]+[k for k in COLORS if k!='default']),
+         'background_color':(['Theme']+[('Transparent · page color' if k=='transparent' else k.title()) for k in BACKGROUNDS if k!='default'],[None]+[k for k in BACKGROUNDS if k!='default']),
          'label_position':(['Theme','Hidden','Top','Middle','Bottom'],[None,'hidden','top','middle','bottom']),
          'label_background':(['Theme','Dark','Transparent'],[None,'dark','transparent'])}
 LABELS={'font':'Font','size':'Text size','label_color':'Text color','background_color':'Background color','label_position':'Key label position','label_background':'Key label background'}
@@ -84,7 +84,7 @@ class ThemeControls(Gtk.Box):
         index=self.preset.get_selected();set_theme(self.owner.draft.data,list(PRESETS)[index-1] if index else None)
         self.defaults.set_sensitive(bool(index));self.rows.sync();self.changed()
     def reset_defaults(self,*_):
-        if self.owner.draft.data.get('theme') is not None:self.owner.draft.data['theme']['appearance']={};self.rows.sync();self.changed()
+        if self.owner.draft.data.get('theme') is not None:self.owner.draft.data['theme']['appearance']=preset_defaults(self.owner.draft.data['theme']['preset']);self.rows.sync();self.changed()
     def export_theme(self,*_):
         theme=self.owner.draft.data.get('theme')
         if theme is None:self.status.set_text('Choose a preset first.');return

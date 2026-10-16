@@ -136,7 +136,10 @@ def systemd_quote(path):return '"'+str(path).replace('\\','\\\\').replace('"','\
 def integrations(paths,release):
     root=paths.app/'current'
     unit=(release/'packaging/decksmith.service.in').read_text()
-    for name,path in [('DAEMON',root/'bin/decksmithd'),('CONFIG',root/'config/audio.json'),('ROOT',root)]:unit=unit.replace('@'+name+'@',systemd_quote(path))
+    # Older retained bundles still use audio.json; new installs use the branded starter.
+    starter=root/'config/plus-default.json'
+    if not (release/'config/plus-default.json').is_file():starter=root/'config/audio.json'
+    for name,path in [('DAEMON',root/'bin/decksmithd'),('CONFIG',starter),('ROOT',root)]:unit=unit.replace('@'+name+'@',systemd_quote(path))
     panel=str(root/'apps/decksmith-studio/panel.py').replace('\\','\\\\').replace('"','\\"').replace('%','%%')
     desktop=(release/'packaging/cc.senecal.Decksmith.Studio.desktop.in').read_text().replace('@PANEL@',panel).replace('@ICON@',str(root/'brand/decksmith-app.svg'))
     def wrapper(command):return ('#!/bin/sh\nexport PYTHONDONTWRITEBYTECODE=1\nexec '+command+' "$@"\n').encode()

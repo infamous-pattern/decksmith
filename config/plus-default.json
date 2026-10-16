@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "name": "HOME",
+      "background": [
+        105,
+        55,
+        25
+      ],
+      "keys": [
+        {
+          "label": "HOME",
+          "action": {
+            "type": "go_to_page",
+            "page": 0
+          }
+        },
+        {
+          "label": "WORK",
+          "action": {
+            "type": "go_to_page",
+            "page": 1
+          }
+        },
+        {
+          "label": "VOL DOWN",
+          "action": {
+            "type": "volume_down"
+          }
+        },
+        {
+          "label": "VOL UP",
+          "action": {
+            "type": "volume_up"
+          }
+        },
+        {
+          "label": "Decksmith",
+          "artwork": "makers_mark",
+          "action": {
+            "type": "open_website",
+            "url": "https://github.com/infamous-pattern/decksmith"
+          }
+        },
+        {
+          "label": "MUTE",
+          "action": {
+            "type": "mute_toggle"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        }
+      ],
+      "default": true
+    },
+    {
+      "name": "WORK",
+      "background": [
+        35,
+        65,
+        90
+      ],
+      "keys": [
+        {
+          "label": "HOME",
+          "action": {
+            "type": "go_to_page",
+            "page": 0
+          },
+          "artwork": "makers_mark"
+        },
+        {
+          "label": "WORK",
+          "action": {
+            "type": "go_to_page",
+            "page": 1
+          }
+        },
+        {
+          "label": "VOL DOWN",
+          "action": {
+            "type": "volume_down"
+          }
+        },
+        {
+          "label": "VOL UP",
+          "action": {
+            "type": "volume_up"
+          }
+        },
+        {
+          "label": "MUTE",
+          "action": {
+            "type": "mute_toggle"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        },
+        {
+          "label": "EMPTY",
+          "action": {
+            "type": "none"
+          }
+        }
+      ]
+    }
+  ],
+  "audio_dial": true,
+  "theme": {
+    "preset": "makers_mark",
+    "appearance": {
+      "font": "sans",
+      "size": "small",
+      "label_color": "white",
+      "background_color": "transparent",
+      "label_position": "bottom",
+      "label_background": "transparent",
+      "icon_size": 85
+    }
+  }
+}

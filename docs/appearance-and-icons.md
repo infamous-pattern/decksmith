@@ -120,3 +120,17 @@ See [the bundled license](../assets/icons/tabler/LICENSE) and
 Liberation Sans, Serif and Mono Bold are distributed under SIL OFL 1.1; see
 [font provenance](../assets/fonts/README.md) and its license. These asset licenses
 are separate from Decksmith’s Apache-2.0 original code license.
+
+
+## Maker’s Mark starter defaults (proposed V1.5.1)
+
+New installations and newly enrolled devices use Sans, Small, White text,
+Transparent · page color background, Bottom key labels, Transparent label
+background and 85% icons. The Home page’s bottom-left Maker’s Mark key opens the
+Decksmith GitHub repository. Existing saved profiles keep their settings.
+Selecting Maker’s Mark or resetting its shared defaults supplies these values;
+per-control overrides remain in effect until Reset to theme is chosen.
+
+Transparent key backgrounds inherit the page color; physical screens remain
+opaque. A transparent label background shows the artwork beneath the caption.
+Theme inheritance and explicit transparent key backgrounds are separate choices.

@@ -8,7 +8,13 @@ PRESETS={'makers_mark':("Maker’s Mark",[107,58,26],[30,34,39],[240,230,215],[9
 FONTS={'sans': 'Sans', 'serif': 'Serif', 'mono': 'Monospace', 'roboto': 'Roboto', 'open_sans': 'Open Sans', 'lato': 'Lato', 'montserrat': 'Montserrat', 'oswald': 'Oswald', 'raleway': 'Raleway', 'poppins': 'Poppins', 'nunito': 'Nunito', 'merriweather': 'Merriweather', 'source_sans3': 'Source Sans 3', 'viking_runes': 'Viking Runes (decorative)'}
 SIZES={'small':'Small','normal':'Normal','large':'Large'}
 COLORS={'default':'#f0e6d7','white':'#ffffff','black':'#000000','red':'#ff4646','orange':'#ff9b3c','yellow':'#ffe13c','green':'#5ae678','blue':'#5aaaff','purple':'#c382ff'}
-STYLE_FIELDS={'icon_size':range(10,101),'font':FONTS,'size':SIZES,'label_color':COLORS,'background_color':COLORS,
+BACKGROUNDS={**COLORS,'transparent':None}
+MAKERS_MARK_DEFAULTS={'font': 'sans', 'size': 'small', 'label_color': 'white', 'background_color': 'transparent', 'label_position': 'bottom', 'label_background': 'transparent', 'icon_size': 85}
+
+def preset_defaults(preset):
+    return deepcopy(MAKERS_MARK_DEFAULTS) if preset=='makers_mark' else {}
+
+STYLE_FIELDS={'icon_size':range(10,101),'font':FONTS,'size':SIZES,'label_color':COLORS,'background_color':BACKGROUNDS,
               'label_position':dict.fromkeys(('hidden','top','middle','bottom')),
               'label_background':dict.fromkeys(('dark','transparent'))}
 LEGACY=('label_position','label_color','background_color','label_background')
@@ -37,7 +43,7 @@ def effective(layout,control,page_background=None,dial=False):
     for layer in ((theme or {}).get('appearance',{}),{k:control[k] for k in LEGACY if k in control},control.get('appearance',{})):
         style.update({k:v for k,v in layer.items() if not (k in ('label_color','background_color') and v=='default')})
     bg=preset[2 if dial else 1] if theme else ([30,34,39] if dial else (page_background or preset[1]))
-    style['background']=bg if style['background_color']=='default' else rgb(style['background_color'])
+    style['background']=([30,34,39] if dial else (page_background or preset[1])) if style['background_color']=='transparent' else (bg if style['background_color']=='default' else rgb(style['background_color']))
     style['color']=preset[3] if style['label_color']=='default' else rgb(style['label_color'])
     style['accent']=preset[4]
     return style
@@ -48,7 +54,7 @@ def reset(control):
     for k in LEGACY:control.pop(k,None)
 def set_theme(layout,preset):
     if preset is None:layout.pop('theme',None)
-    else:layout['theme']={'preset':preset,'appearance':deepcopy(layout.get('theme',{}).get('appearance',{}))}
+    else:layout['theme']={'preset':preset,'appearance':{**preset_defaults(preset),**deepcopy(layout.get('theme',{}).get('appearance',{}))}}
 
 
 def encode_theme(theme):
