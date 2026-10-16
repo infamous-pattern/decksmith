@@ -3,8 +3,8 @@
 **Recommended: [Simplified Installer](install-decksmith.md)** — dependency setup,
 signed downloads and installation in one helper.
 
-**Alternative: [Manual Installation](v1-verified-installation.md)** — individual
-steps for the published Fedora `v1.0.0` downloads and provenance checks. This page also covers
+**Alternative: [Manual Installation](v1.5-verified-installation.md)** — individual
+steps for the published Fedora `v1.5.0` downloads and provenance checks. This page also covers
 dependencies, USB access, recovery and the retained preview installer. Its
 preview shortcut installs preview.3, not V1.
 
@@ -19,7 +19,7 @@ separate builds and verification. A fresh Fedora44 Workstation VM has passed
 was not part of that test. Debian 13 and Ubuntu 26.04 are included in V1 release
 testing through the [cross-distribution VM matrix](v1-release-scope.md#current-vm-test-matrix),
 but Fedora 44 remains the only supported V1 platform. Broad, supported
-GNOME/Wayland distribution compatibility is a V1.5 goal.
+GNOME/Wayland distribution compatibility remains separate from the focused V1.5 release.
 
 A [Debian 13 native build and compatibility checkpoint](debian-native-build.md)
 now resolves the Fedora binary's glibc mismatch and documents Debian dependencies
@@ -143,13 +143,21 @@ failure, use `systemctl --user reset-failed decksmith.service` and start again.
 For a new Fedora installation with inaccessible USB, inspect the optional
 `packaging/udev/70-decksmith-plus.rules` in the bundle. It grants active-session
 access only for the Stream Deck +. An administrator can install an appropriate
-rule and reload udev, then reconnect the device. The per-user installer does not
+rule and reload udev, then reconnect the device. For Plus and standard MK.2, use
+the [V1.5 active-session USB instructions](v1.5-verified-installation.md#optional-usb-access-for-plus-and-mk2).
+The per-user installer does not
 alter `/etc`, replace existing rules or claim access was tested when no device is
 available. The main panel now offers an explicit login-startup preference; the
 installer preserves the existing setting. The optional [GNOME panel menu](desktop-integration.md)
 is installed separately. [Auto-Lock](auto-lock.md) is available as an explicit preference.
 
 ## Backup and recovery
+
+**V1.5 downgrade:** retain the matching complete pre-upgrade configuration/device
+store and package. Manifest version 2 needs a complete earlier-store restoration;
+a binary-only rollback or merge of selected files is insufficient. Read the
+[V1.5 recovery requirements](v1.5-verified-installation.md#recovery-and-downgrade)
+before attempting a downgrade.
 
 ```sh
 decksmith-manage backup

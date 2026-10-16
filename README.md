@@ -2,24 +2,19 @@
 
 **Open Control, Forged for Linux.**
 
-Decksmith is a native Linux app for your Elgato Stream Deck +. Build pages of
+Decksmith is a native Linux app for Stream Deck + and the standard 15-key MK.2. Build pages of
 shortcuts, control application and device audio, and customize keys, dials and the
 touch strip through a GTK4/libadwaita editor. Background controls can start at
 login while the editor stays closed.
 
-**V1 is supported on Fedora Workstation 44, x86_64, GNOME/Wayland, with one
-Stream Deck +.** Debian, Ubuntu and COSMIC have separate experimental previews.
+**V1.5 supports Fedora Workstation 44, x86_64, GNOME/Wayland, with Stream Deck +
+and the standard 15-key MK.2, including both together.** Each device keeps its own
+layouts, pages and brightness. Debian, Ubuntu and COSMIC retain separate experimental previews.
 
 [Install](#install) · [User guide](docs/USER_GUIDE.md) ·
-[Release notes](docs/v1-release-notes.md) ·
+[Release notes](docs/v1.5-release-notes.md) ·
 [Report an issue](https://github.com/infamous-pattern/decksmith/issues) ·
 [Roadmap](docs/ROADMAP.md)
-
-**V1.5 candidate preparation:** the development build adds simultaneous Stream
-Deck + and 15-key MK.2 control, independent saved device layouts, a simpler editor
-and new dial gauges. Signed-candidate qualification is pending; the downloads
-below still provide V1 and its existing experimental previews. See the
-[V1.5 candidate scope and remaining checks](docs/v1.5-candidate.md).
 
 ![Decksmith Home with device preview and background-control settings](docs/images/decksmith-home.png?v=914df36b4fe4)
 
@@ -51,9 +46,8 @@ The [original V1 tour](https://www.youtube.com/watch?v=ZJG1n_8rGNY) is also avai
   blanks the entire device.
 
 Optional actions depend on the desktop's services. The Homebridge integration is
-**experimental**. Independent multiple devices and the 15-key Stream Deck MK.2
-are implemented in the V1.5 development build, pending signed-candidate
-qualification. General plugin support is deferred to V2. See the [roadmap](docs/ROADMAP.md).
+**experimental**. Independent multiple devices and the standard 15-key Stream Deck MK.2
+are included in V1.5. Navigation and app/page rules remain independent per device. General plugin support is deferred to V2. See the [roadmap](docs/ROADMAP.md).
 
 ## Downloads and compatibility
 
@@ -63,12 +57,14 @@ needed to run them.
 
 | System | Status | Download and installation details |
 |---|---|---|
-| Fedora Workstation 44, GNOME/Wayland | **Supported V1** | [v1.0.0](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) · [Verified guide](docs/v1-verified-installation.md) |
+| Fedora Workstation 44, GNOME/Wayland | **Supported V1.5** | [v1.5.0](https://github.com/infamous-pattern/decksmith/releases/tag/v1.5.0) · [Verified guide](docs/v1.5-verified-installation.md) |
 | Debian 13, GNOME/Wayland | Experimental native preview | [Debian preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-debian-preview.1) · [Guide and limits](docs/debian-preview-installation.md) |
 | Ubuntu 26.04, GNOME/Wayland | Experimental native preview | [Ubuntu preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1) · [Guide and limits](docs/ubuntu-preview-installation.md) |
 | Pop!_OS 24.04, COSMIC | Experimental preview; Ubuntu 24.04 library baseline | [COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1) · [Guide and limits](docs/popos-preview-installation.md) |
 | Fedora Workstation 45 Beta | Test environment | [Testing scope](docs/v1-release-scope.md); no separately supported release |
 | openSUSE Tumbleweed, GNOME/Wayland | Development test environment | [OS testing plan](docs/ROADMAP.md#os-testing-host-policy--october-10); no public package |
+
+[Retained Fedora V1 release](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) · [V1 manual guide](docs/v1-verified-installation.md).
 
 Preview VM checks do not establish physical USB/audio or lifecycle support on
 those platforms. COSMIC does not inherit GNOME-only integrations. Review the
@@ -83,10 +79,10 @@ The **inner blue arc** shows configured volume; the **outer arc** shows audio
 activity. Muted controls retain a red crossed-out icon and red **Muted** text;
 unmuted microphones show **Live** in green. Classic bars remain available.
 
-**Availability:** dual-arc gauges are in the development build and published
-COSMIC preview. The single-arc meter, with volume percentage on its right and
-unchanged assigned actions, is development-only. The original Fedora V1,
-Debian and Ubuntu downloads retain their earlier displays.
+**Availability:** V1.5 includes dual-arc gauges and a single-arc activity meter
+with volume percentage on its right, retaining assigned actions. The existing
+COSMIC preview includes dual-arc gauges. Retained V1, Debian and Ubuntu downloads
+keep their earlier displays.
 [All gauge styles and limitations](docs/audio-meters.md).
 
 ## Install
@@ -122,7 +118,7 @@ never starts or restarts background controls and never enables login startup.
 Prefer to install dependencies and download/verify the files yourself? Follow the
 matching step-by-step guide:
 
-- **[Fedora Workstation 44 — supported V1](docs/v1-verified-installation.md)**
+- **[Fedora Workstation 44 — supported V1.5](docs/v1.5-verified-installation.md)**
 - [Debian 13 — experimental](docs/debian-preview-installation.md)
 - [Ubuntu 26.04 — experimental](docs/ubuntu-preview-installation.md)
 - [Pop!_OS 24.04 COSMIC — experimental](docs/popos-preview-installation.md)
@@ -165,7 +161,7 @@ The percentage shows configured volume; the live meter shows signal activity.
 - [User guide](docs/USER_GUIDE.md) and [interface gallery](docs/interface-tour.md).
 - [Installation and recovery](docs/installation.md), [desktop integration](docs/desktop-integration.md)
   and [Auto-Lock](docs/auto-lock.md).
-- [V1 known limits](docs/v1-release-notes.md) and [qualification evidence](docs/v1-release-review.md).
+- [V1.5 known limits](docs/v1.5-release-notes.md) and [qualification evidence](docs/v1.5-release-review.md).
 - [Source-build prerequisites](docs/dependencies.md#building-from-source),
   [contributing](CONTRIBUTING.md) and [security reporting](SECURITY.md).
 - [V1.5 feature plan](docs/ROADMAP.md#v15-feature-plan--organized-october-8),

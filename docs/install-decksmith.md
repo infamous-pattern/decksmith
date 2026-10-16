@@ -16,7 +16,7 @@ sh scripts/install.sh
 On Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, read the corresponding
 [preview limits](../README.md#downloads-and-compatibility) and add `--experimental`.
 
-Fedora 44 selects `v1.0.0`. Each experimental OS selects its own published preview
+Fedora 44 selects `v1.5.0`. Each experimental OS selects its own published preview
 and archive. Fedora 45 Beta, openSUSE, other versions and other architectures are
 not automatically routed to a different OS's download. The helper stops and
 explains the limitation.
@@ -41,7 +41,7 @@ instead of the changing `main` branch.
 ## Manual Installation — alternative
 
 For individual dependency, download and verification steps, use the
-[Fedora](v1-verified-installation.md), [Debian](debian-preview-installation.md),
+[Fedora](v1.5-verified-installation.md), [Debian](debian-preview-installation.md),
 [Ubuntu](ubuntu-preview-installation.md) and [COSMIC](popos-preview-installation.md)
 guides.
 

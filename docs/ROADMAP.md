@@ -14,8 +14,9 @@ all ten server guests passed the storage migration checks and old duplicate copi
 were removed. Final review distinguishes exact-candidate repeats from earlier
 lifecycle/editor/accessibility/microphone acceptance carried forward on unchanged
 runtime source. The maintainer approved publication with documented limits on October 16.
-Fresh public-download verification and installer/README promotion remain.
-Preserve V1 and experimental previews. See the [final V1.5 release review](v1.5-release-review.md).
+**V1.5 is now published**, with all seven fresh public downloads verified before
+Fedora installer/README promotion. V1 and experimental previews remain available.
+See the [final V1.5 release review](v1.5-release-review.md).
 
 **Linked navigation — explicitly deferred after V1.5 on October 16.** Future
 opt-in page pairs could let navigation keys or Plus swipes change a workspace on

@@ -6,9 +6,9 @@ catalog, not guaranteed stock in every region. This is a support target and
 validation plan, not a statement that these devices already work with Decksmith
 or that Elgato certifies Linux. Implementation checkpoint: October 16, 2026.
 Stream Deck + is the Fedora 44 V1 hardware reference. The standard 15-key MK.2
-now has adapter/fixture, permanent-service and paired physical evidence for
-unreleased V1.5. Signed-candidate qualification is recorded in the
-[final V1.5 review](v1.5-release-review.md); publication was approved October 16, with delivery verification still required.
+now has adapter/fixture, permanent-service and paired physical qualification for
+V1.5, published October 16 with fresh public-download verification. The
+[final V1.5 review](v1.5-release-review.md) records coverage and limits.
 Only the Plus and standard 15-key MK.2 pair is physically qualified.
 
 ## Current physical device matrix
@@ -21,11 +21,11 @@ device-type numbers imply interchangeable HID protocols.
 | Device / variant | Controls to represent and validate | Planned coverage |
 |---|---|---|
 | [Stream Deck Mini](https://www.elgato.com/us/en/p/stream-deck-mini) | 6 LCD keys; no dials or touch strip | Key-only device phase; check legacy/revised USB identities |
-| [Stream Deck, Classic Keys / MK.2 family](https://www.elgato.com/us/en/p/stream-deck) | 15 LCD keys | V1.5 adapter/fixtures and initial paired physical checks passed for standard MK.2; production/lifecycle/release gates open; original-generation compatibility separate |
+| [Stream Deck, Classic Keys / MK.2 family](https://www.elgato.com/us/en/p/stream-deck) | 15 LCD keys | V1.5 qualified with a standard MK.2 plus a Plus on Fedora 44; original-generation and other variants remain separate |
 | [Stream Deck Scissor Keys](https://www.elgato.com/us/en/p/stream-deck-scissor-keys) | 15 LCD keys, different key mechanism | Separate variant input/identity check; do not infer equivalence from key count |
 | [Stream Deck XL](https://www.elgato.com/us/en/p/stream-deck-xl) | 32 LCD keys | Key-only phase; larger canvas, addressing and rendering load |
 | [Stream Deck Neo](https://www.elgato.com/us/en/p/stream-deck-neo) | 8 LCD keys, Infobar display, 2 capacitive Touch Points | Distinct display and paging controls; not a four-dial Plus strip |
-| [Stream Deck +](https://www.elgato.com/us/en/p/stream-deck-plus) | 8 LCD keys, 4 push/rotate dials, touch strip | Fedora 44 V1 reference; preserve regression coverage and complete V1.5 paired release gates |
+| [Stream Deck +](https://www.elgato.com/us/en/p/stream-deck-plus) | 8 LCD keys, 4 push/rotate dials, touch strip | Fedora 44 V1 reference; V1.5 qualified alone and paired with standard MK.2, with documented coverage limits |
 | [Stream Deck + XL](https://www.elgato.com/us/en/p/stream-deck-plus-xl) | 36 LCD keys, 6 push/rotate dials, touch strip | Generalize beyond eight keys/four dials; verify model-specific image/gesture geometry |
 | [Stream Deck Pedal](https://www.elgato.com/us/en/p/stream-deck-pedal) | 3 pedals; no LCD key images | Input-only editing, holds/releases and accessibility; no fabricated screen controls |
 | [Stream Deck Studio](https://www.elgato.com/us/en/p/stream-deck-studio) | 32 LCD keys, 2 push/rotate encoders with LED indicators/rings; USB-C and Ethernet interfaces | Included physical target; separate protocol/transport and LED feasibility gate, then physical certification |
