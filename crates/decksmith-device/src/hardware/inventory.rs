@@ -8,6 +8,9 @@ use decksmith_core::device_model::DeviceModel;
 use elgato_streamdeck::{StreamDeck, info::Kind};
 use std::sync::{Arc, Mutex};
 
+mod cache;
+pub use cache::InventoryCache;
+
 struct Locator {
     model: DeviceModel,
     identity: Option<PhysicalIdentity>,

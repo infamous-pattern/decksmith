@@ -2,6 +2,7 @@
 from gi.repository import Adw, Gtk, Gdk, Gio, GLib, Pango
 from i18n import gettext as tr
 from validation_announcements import ValidationAnnouncements
+from scroll_cues import ScrollCues
 
 SECTIONS=(('home',tr('Home'),'go-home-symbolic'),('pages',tr('Pages'),'view-list-symbolic'),
           ('keys',tr('Keys & Dials'),'input-dialpad-symbolic'),
@@ -58,7 +59,7 @@ class WorkspaceShell:
         self.validation_speech=ValidationAnnouncements(GLib.timeout_add,GLib.source_remove,self.announce_validation)
         self.save_reason.set_margin_start(22);self.save_reason.set_margin_end(22)
         self.save_reason.set_size_request(-1,30)
-        right.append(self.save_reason)
+        reason_slot=Gtk.Box(height_request=30);reason_slot.append(self.save_reason);right.append(reason_slot)
         self.banner=Adw.Banner();right.append(self.banner)
         self.stack=Gtk.Stack(vexpand=True,hexpand=True,hhomogeneous=True,vhomogeneous=True)
         self.stack.set_transition_type(Gtk.StackTransitionType.NONE)
@@ -67,7 +68,8 @@ class WorkspaceShell:
         self.preview_scroll=Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,min_content_width=598,hexpand=False,vexpand=True)
         self.preview_host=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=12,hexpand=True,valign=Gtk.Align.START)
         self.preview_host.add_css_class('ds-content');self.preview_scroll.set_child(self.preview_host)
-        self.columns.append(self.preview_scroll);right.append(self.columns);ed.body=self.stack
+        self.preview_scroll_host=ScrollCues(self.preview_scroll)
+        self.columns.append(self.preview_scroll_host);right.append(self.columns);ed.body=self.stack
         # Existing page list + settings get their own persistent section.
         pagebox=page_scroll.get_child()
         if isinstance(pagebox,Gtk.Viewport):pagebox=pagebox.get_child()
@@ -86,7 +88,7 @@ class WorkspaceShell:
         page_content.append(settings)
         pages_scroll=Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,hexpand=True,vexpand=True)
         pages_scroll.set_child(page_content);self.pages_scroll=pages_scroll
-        self.stack.add_named(pages_scroll,'pages')
+        self.stack.add_named(ScrollCues(pages_scroll),'pages')
         # Device and property controls retain their models and selections across tabs.
         left=ed.device_column.get_child();left.remove(mode_row)
         picker=Gtk.Box(spacing=10);picker.append(Gtk.Label(label='Page',xalign=0))
@@ -102,21 +104,29 @@ class WorkspaceShell:
         theme_button.set_tooltip_text('Device colors, fonts and shared defaults. App colors follow GNOME.')
         left.append(tools)
         self.editor_extras=(tools,ed.key_tools_row)
-        testrow=Gtk.Box(spacing=8);self.test=Gtk.Button(label='Test action',tooltip_text='Run the saved key action or dial press on the device. Save edits first.')
+        testrow=Gtk.Box(spacing=8);self.test_row=testrow;self.test=Gtk.Button(label='Test action',tooltip_text='Run the saved key action or dial press on the device. Save edits first.')
         self.test.connect('clicked',self.test_action);testrow.append(self.test)
-        self.test_note=Gtk.Label(label='Select to edit. Test action runs the saved control.',xalign=0,wrap=True,hexpand=True)
+        self.test_note=Gtk.Label(label='Select to edit. Test action runs the saved control.',xalign=0,wrap=False,hexpand=True,ellipsize=Pango.EllipsizeMode.END,max_width_chars=20)
         self.test_note.add_css_class('dim-label');testrow.append(self.test_note)
         # ScrolledWindow has a tiny natural height; explicitly give the editor
         # the remaining page space instead of clipping it to one row.
         preview_scroll.set_vexpand(True)
         key_outer=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=16);key_outer.add_css_class('ds-content');key_outer.add_css_class('section-keys')
-        self.context_heading=Gtk.Label(label=tr('Keys & Dials'),xalign=0,ellipsize=Pango.EllipsizeMode.END);self.context_heading.add_css_class('title-1');key_outer.append(self.context_heading);key_outer.append(preview_scroll)
+        self.context_heading=Gtk.Label(label=tr('Keys & Dials'),xalign=0,ellipsize=Pango.EllipsizeMode.END);self.context_heading.add_css_class('title-1');key_outer.append(self.context_heading)
+        # The assignment pane owns scrolling. A second outer scroller could
+        # hide its bottom cue and controls on shorter displays.
+        previous_viewport=preview_scroll.get_child()
+        if isinstance(previous_viewport,Gtk.Viewport):previous_viewport.set_child(None)
+        preview_scroll.set_child(None);ed.workspace.set_vexpand(True);ed.workspace.set_valign(Gtk.Align.FILL);key_outer.append(ed.workspace)
         ed.workspace.remove(ed.properties)
         property_content=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=12,hexpand=True,valign=Gtk.Align.START)
-        ed.property_column=Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,min_content_width=0,min_content_height=560,max_content_height=560,propagate_natural_width=False,propagate_natural_height=False,hexpand=True)
+        ed.property_column=Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,vscrollbar_policy=Gtk.PolicyType.AUTOMATIC,min_content_width=0,propagate_natural_width=False,propagate_natural_height=False,hexpand=True,vexpand=True)
         ed.property_column.set_child(property_content)
         testrow.set_halign(Gtk.Align.END)
-        property_content.append(testrow);property_content.append(ed.properties);ed.workspace.append(ed.property_column)
+        property_content.append(ed.properties)
+        ed.property_scroll_host=ScrollCues(ed.property_column);ed.workspace.append(ed.property_scroll_host)
+        # Testing belongs beside the device, separate from assignment editing.
+        self.preview_host.append(testrow)
         self.stack.add_named(key_outer,'keys')
         ed.workspace.remove(ed.device_column)
         self.preview_host.append(ed.device_column)
@@ -129,11 +139,16 @@ class WorkspaceShell:
         for child in children:box.remove(child)
         title=Gtk.Label(label='Your workspace',xalign=0);title.add_css_class('title-1');box.append(title)
         for child in children:box.append(child)
-        home.add_css_class('section-home');self.stack.add_named(home,'home')
-        self.stack.add_named(self.plugins(),'plugins')
-        self.stack.add_named(self.about(),'about')
+        home.add_css_class('section-home');self.stack.add_named(ScrollCues(home),'home')
+        if hasattr(owner,'device_row'):owner.device_row.set_visible(False)
+        if hasattr(owner,'editor_row'):owner.editor_row.set_visible(False)
+        plugin_page=self.plugins()
+        self.stack.add_named(ScrollCues(plugin_page) if isinstance(plugin_page,Gtk.ScrolledWindow) else plugin_page,'plugins')
+        self.stack.add_named(ScrollCues(self.about()),'about')
         outer.remove(ed.status)
-        ed.status.add_css_class('ds-footer');ed.status.set_margin_start(18);ed.status.set_margin_end(18);ed.status.set_margin_top(10);ed.status.set_margin_bottom(10);right.append(ed.status)
+        ed.status.connect('notify::label',lambda *_:(ed.status.set_visible(ed.status.get_text() not in ('No unsaved changes','Unsaved changes')),ed.status.set_tooltip_text(ed.status.get_text())))
+        footer=Gtk.Box(height_request=36);footer.append(ed.status);ed.status.set_ellipsize(Pango.EllipsizeMode.END);ed.status.set_lines(1)
+        ed.status.add_css_class('ds-footer');ed.status.set_margin_start(18);ed.status.set_margin_end(18);ed.status.set_margin_top(10);ed.status.set_margin_bottom(10);right.append(footer)
         owner.toasts.set_child(self.root);ed.set_content(owner.toasts)
         # Main-window responsive rule replaces the former editor-only breakpoint.
         if hasattr(owner,'install_device_picker'):owner.install_device_picker(self)
@@ -142,11 +157,12 @@ class WorkspaceShell:
     def arrange(self,compact):
         # Scale only on window-width changes, never on tab or control selection.
         self.compact=compact
-        self.preview_scroll.set_min_content_width(470 if compact else 598)
+        (self.ed.add_css_class if compact else self.ed.remove_css_class)('ds-compact')
+        self.preview_scroll.set_min_content_width(420 if compact else 598)
         self.ed.grid.set_column_spacing(16 if compact or self.ed.device_model=='mk2' else 28)
         self.ed.grid.set_row_spacing(14 if compact else 18)
         for key in self.ed.keys:
-            key.preview_size=68 if compact else 84 if self.ed.device_model=='mk2' else 102
+            key.preview_size=(56 if self.ed.device_model=='mk2' else 68) if compact else 84 if self.ed.device_model=='mk2' else 102
             key.get_layout_manager().layout_changed()
 
     def colors(self):
@@ -157,7 +173,12 @@ class WorkspaceShell:
         .decksmith-workspace .ds-nav:checked {box-shadow: inset 3px 0 @accent_color; font-weight: bold;}
         .decksmith-workspace .ds-nav:focus-visible {outline: 2px solid @accent_color; outline-offset: -4px;}
         .decksmith-workspace .ds-content {padding: 22px;}
+        .decksmith-workspace.ds-compact .ds-content {padding: 10px;}
         .decksmith-workspace .ds-footer {font-size: 12px;}
+        .decksmith-workspace .ds-scrollbar {min-width: 12px; padding: 0;}
+        .decksmith-workspace .ds-scrollbar range, .decksmith-workspace .ds-scrollbar trough {min-width: 12px; padding: 0; margin: 0;}
+        .decksmith-workspace .ds-scrollbar slider {min-width: 8px; min-height: 32px; margin: 2px; background: alpha(@window_fg_color,0.48);}
+        .decksmith-workspace .ds-scrollbar slider:hover {background: @accent_color;}
         '''
         for (name,_,_),color in zip(SECTIONS,colors):css+=f'.decksmith-workspace .section-{name} {{background-color: {color};}} .decksmith-workspace button.ds-nav.section-{name} {{background: {color}; color: @window_fg_color;}}'
         self.css.load_from_data(css.encode())
@@ -230,6 +251,7 @@ class WorkspaceShell:
         self.navigating=True
         self.section=name
         for widget in getattr(self,'editor_extras',()):widget.set_visible(name=='keys')
+        self.test_row.set_opacity(1 if name=='keys' else 0);self.test_row.set_sensitive(name=='keys')
         for key,b in self.nav.items():
             b.set_active(key==name)
             caption,label=self.nav_labels[key]
@@ -296,17 +318,20 @@ class WorkspaceShell:
             label=ed.draft.data['pages'][ed.page]['keys'][ed.key]['label'];control=f'Key {ed.key+1}'
         caption=control if label==control else f'{control} · {label}'
         self.context_heading.set_text(f'{names[ed.page]} › {caption}')
-        ed.form.set_title(f"Key {ed.key+1} · "+ed.draft.data['pages'][ed.page]['keys'][ed.key]['label'])
+        ed.form.set_title('Assignment')
         blocked=not self.can_control() or ed.pending or ed.draft.dirty or not getattr(ed.call,'actions_available',True)
         self.test.set_sensitive(not blocked)
-        self.test_note.set_text('Save and Apply before testing edited controls.' if ed.draft.dirty else 'Testing unavailable while the device is locked, disconnected or starting.' if not self.can_control() else 'Runs the selected saved key action or dial press.')
+        self.test_note.set_text('Save edits to test.' if ed.draft.dirty else 'Testing unavailable while the device is locked, disconnected or starting.' if not self.can_control() else '')
         if not getattr(ed.call,'actions_available',True):self.test_note.set_text('Test Action is unavailable in this experimental workspace. Saves apply only to the chosen device.' if getattr(ed.call,'connected_workspace',False) else 'Physical actions are not applied from this saved-profile workspace.' if getattr(ed.call,'workspace_only',False) else 'Live actions are unavailable in this virtual test. Page navigation and device settings are simulated.')
+        self.test.set_tooltip_text(self.test_note.get_text() or 'Run the selected saved key action or dial press.')
         reason=save_reason(ed.draft.dirty,getattr(ed,'layout_valid',False),ed.pending,
                            self.status,getattr(ed,'validation_error',None))
         enabled=reason is None
         ed.save_button.set_sensitive(enabled)
         text=reason or ('Ready to save profile · Ctrl+S' if getattr(ed.call,'workspace_only',False) else 'Ready to save and apply · Ctrl+S')
         self.save_reason.set_text(text);self.save_reason.set_tooltip_text(text)
+        # Ordinary save state appears once, in the fixed header.
+        self.save_reason.set_visible(bool(ed.draft.dirty and reason and not ed.pending))
         ed.save_button.set_tooltip_text(text)
         self.validation_speech.update(text if ed.draft.dirty and not ed.pending and not getattr(ed,'layout_valid',False) else None)
         from dial_model import effective
@@ -349,4 +374,7 @@ def save_reason(dirty,valid,pending,status,error=None):
     if status.get('workspace_only'):return None
     if not status.get('running',True):return 'Start Background controls on Home to save and apply. Your draft is kept.'
     if status.get('unavailable'):return 'Background controls are unavailable. Your draft is kept; retry after they reconnect.'
+    if status.get('mode')=='permanent-service':
+        if not status.get('connected'):return 'Connect this device to save and apply. Your draft is kept.'
+        if not status.get('input_ready') or not status.get('display_ready'):return 'Wait for this device to finish reconnecting. Your draft is kept.'
     return None

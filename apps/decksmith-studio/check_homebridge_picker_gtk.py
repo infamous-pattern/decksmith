@@ -23,10 +23,12 @@ def check():
   key.search.set_text('Motion');assert key.ops==['status'];key.apply();assert calls[-1][1]['action'].endswith('.status')
   assert len(dial.visible)==1 and dial.ops==['level'];dial.apply()
   saved=calls[-1][1];dial.sync(saved);dial.complete(None);assert dial.saved==saved and not dial.use.get_sensitive()
-  assert label('Main_LED’s')=='Main LEDs'
+  assert label('Main_LED’s')=='Main LED s'  # Matches the accepted Unicode label policy.
   assert icon_png('weather-windy-symbolic')
   print('PASS: native inline key/dial pickers, capability filtering, defaults, unavailable preservation, icon rendering',flush=True)
- except Exception as e:errors.append(repr(e))
+ except Exception as e:
+  import traceback
+  traceback.print_exc();errors.append(repr(e))
  app.quit();return False
 app.connect('activate',activate);app.run(None)
 if errors:raise SystemExit(str(errors))

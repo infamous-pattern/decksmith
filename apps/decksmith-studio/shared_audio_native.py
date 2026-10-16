@@ -54,6 +54,22 @@ def execute(action, source, output, *, snapshot=None, command=None,
     socket = socket or socket_identity
     target = action.get('target')
     audio.validate(target)
+    if action.get('type') == 'audio_select':
+        if set(action) != {'type','target'} or not target.startswith(('input:','output:')):
+            raise ValueError('Unsupported audio action')
+        server=socket()
+        kind,nodes=snapshot().nodes(target)
+        if len(nodes)!=1:raise ValueError('Audio target unavailable')
+        pin=identity(nodes[0]);name=nodes[0].get('name')
+        if not isinstance(name,str) or name != target.split(':',1)[1]:
+            raise ValueError('Audio target unavailable')
+        current=snapshot().nodes(target)[1]
+        if socket()!=server or len(current)!=1 or identity(current[0])!=pin:
+            raise ValueError('Audio target unavailable')
+        authorize(source,output)
+        try:command('set-default-sink' if kind=='sinks' else 'set-default-source',name)
+        except Exception as error:raise RuntimeError('Shared effect uncertain') from error
+        return
     fields = {'type', 'target', 'percent'} if action.get('type') == 'audio_adjust' else {'type', 'target'}
     if set(action) != fields or action.get('type') not in ('audio_adjust', 'audio_mute'):
         raise ValueError('Unsupported audio action')

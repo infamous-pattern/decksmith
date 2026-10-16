@@ -62,6 +62,32 @@ impl Compiled {
             media: None,
         })
     }
+    /// Ordinary built-ins retain the same allowlists as V1; the native provider
+    /// authorizes again after discovery, immediately before each effect.
+    pub fn builtin(action: Action) -> Result<Self> {
+        let target = match &action {
+            Action::OpenApplication { desktop_id }
+                if crate::launch::valid_application(desktop_id) =>
+            {
+                "builtin:launch"
+            }
+            Action::OpenWebsite { url } if crate::launch::valid_url(url) => "builtin:launch",
+            Action::System { command } if crate::system_actions::valid(command) => "builtin:system",
+            Action::AudioSelect { target }
+                if crate::audio_target::valid(target)
+                    && (target.starts_with("output:") || target.starts_with("input:")) =>
+            {
+                "audio:selection"
+            }
+            _ => return Err("unsupported_shared_builtin_action"),
+        };
+        Ok(Self {
+            target: TargetId::new(target)?,
+            action,
+            effect: Effect::Activate,
+            media: None,
+        })
+    }
     pub fn media(player: &str, command: &str) -> Result<Self> {
         if !crate::launch::valid_player(player)
             || !matches!(command, "play_pause" | "next" | "previous")
@@ -107,6 +133,52 @@ impl Compiled {
             media: None,
         })
     }
+    pub fn media_selector(player: &str, command: &str) -> Result<Self> {
+        if !(crate::launch::valid_player(player) || player == crate::saved_native::DEFAULT_MEDIA)
+            || !matches!(command, "play_pause" | "next" | "previous")
+        {
+            return Err("invalid_shared_media_action");
+        }
+        Ok(Self {
+            target: TargetId::new(&format!("media:{player}"))?,
+            action: Action::MediaTarget {
+                player: player.into(),
+                command: command.into(),
+            },
+            effect: if command == "play_pause" {
+                Effect::Toggle
+            } else {
+                Effect::Activate
+            },
+            media: None,
+        })
+    }
+    pub fn homebridge(action: Action) -> Result<Self> {
+        let Action::Plugin { binding, ticks } = &action else {
+            return Err("plugin_unsupported");
+        };
+        binding.validate()?;
+        if !binding.supported(*ticks != 0) || !(-100..=100).contains(ticks) {
+            return Err("plugin_unsupported");
+        }
+        let target = TargetId::new(&format!(
+            "homebridge:{}",
+            binding.settings["accessoryId"]
+                .as_str()
+                .ok_or("plugin_unsupported")?
+        ))?;
+        let effect = if *ticks == 0 {
+            Effect::Activate
+        } else {
+            Effect::Adjust(*ticks)
+        };
+        Ok(Self {
+            target,
+            action,
+            effect,
+            media: None,
+        })
+    }
     pub fn media_bound(
         session: crate::shared_native_media::Session,
         command: &str,
@@ -132,6 +204,10 @@ impl Compiled {
                     percent,
                 })
             }
+            (Action::Plugin { binding, .. }, Effect::Adjust(ticks)) => Ok(Action::Plugin {
+                binding: binding.clone(),
+                ticks,
+            }),
             (_, effect) if effect == self.effect => Ok(self.action.clone()),
             _ => Err("shared_payload_effect_mismatch"),
         }
@@ -266,6 +342,12 @@ impl Service {
         prune(&mut state, &self.authority);
         drop(state);
         self.shared.wake.notify_all();
+    }
+    /// Nonblocking barrier; revoked started requests retain their reservation
+    /// until the actual backend ended, even after their reply became stale.
+    pub fn quiet(&self) -> bool {
+        let state = self.shared.state.lock().unwrap();
+        state.dispatch.pending() == 0 && state.dispatch.inflight() == 0
     }
     /// Final current-scope check at consumer receipt, not only worker completion.
     pub fn poll(&self) -> Result<Option<Reply>> {
@@ -675,10 +757,58 @@ mod tests {
             })
             .is_err()
         );
+        assert!(
+            Compiled::saved_audio(Action::AudioMute {
+                target: "microphone".into()
+            })
+            .is_err(),
+            "A default-input alias cannot bypass shared microphone hold cancellation"
+        );
         assert!(Compiled::media("", "next").is_err());
         assert!(Compiled::media("org.mpris.MediaPlayer2.player", "shell").is_err());
         assert!(Compiled::media("org.mpris.MediaPlayer2.player", "next").is_ok());
         assert!(!format!("{:?}", adjust("private-device", 1)).contains("private-device"));
+    }
+    #[test]
+    fn ordinary_builtin_compilation_is_allowlisted_and_cannot_accept_plugins_or_shell_text() {
+        for action in [
+            Action::OpenApplication {
+                desktop_id: "org.example.App.desktop".into(),
+            },
+            Action::OpenWebsite {
+                url: "https://example.com/?a=1&b=2".into(),
+            },
+            Action::System {
+                command: "shutdown".into(),
+            },
+            Action::AudioSelect {
+                target: "output:speakers".into(),
+            },
+        ] {
+            assert!(Compiled::builtin(action).is_ok());
+        }
+        for action in [
+            Action::OpenApplication {
+                desktop_id: "../custom.desktop".into(),
+            },
+            Action::OpenWebsite {
+                url: "file:///tmp/example".into(),
+            },
+            Action::System {
+                command: "sh -c reboot".into(),
+            },
+            Action::AudioSelect {
+                target: "app:application.name=Browser".into(),
+            },
+            Action::AudioSelect {
+                target: "default_output".into(),
+            },
+            Action::PushToTalk {
+                target: "input:mic".into(),
+            },
+        ] {
+            assert!(Compiled::builtin(action).is_err());
+        }
     }
     #[test]
     fn independent_targets_execute_in_parallel_but_same_target_waits_for_completion() {

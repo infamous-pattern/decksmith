@@ -507,6 +507,387 @@ pub fn run(args: &[String]) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn real_host_gate_cancels_holds_draws_each_model_and_restores_own_pages() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-host-lock-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.runtime.host_lock(false, 10)?;
+            t.ready()?;
+            t.runtime.navigate(t.context(1)?, 1)?;
+            t.ready()?;
+            let original: Vec<_> = t
+                .probes
+                .iter()
+                .map(|probe| {
+                    probe
+                        .data
+                        .lock()
+                        .unwrap()
+                        .deck
+                        .key_image(0)
+                        .unwrap()
+                        .to_vec()
+                })
+                .collect();
+            t.key(0, 1, true)?;
+            t.key(1, 1, true)?;
+            t.until(|s| s.runtime.held() == 2 && !s.muted.load(Ordering::Acquire))?;
+            t.runtime.host_lock(true, 11)?;
+            t.until(|s| {
+                s.runtime.held() == 0
+                    && s.muted.load(Ordering::Acquire)
+                    && s.runtime
+                        .statuses()
+                        .iter()
+                        .all(|u| u.display_ready && !u.input_ready)
+            })?;
+            for (i, probe) in t.probes.iter().enumerate() {
+                let d = probe.data.lock().unwrap();
+                let first = d.deck.key_image(0).unwrap();
+                assert_eq!(
+                    first.len(),
+                    DeviceDescriptor::for_model([DeviceModel::Plus, DeviceModel::Mk2][i])
+                        .key_rgb_bytes()
+                );
+                assert!(first.iter().any(|b| *b != 0));
+                assert_ne!(first, original[i]);
+                for key in 1..d.deck.descriptor().key_count() {
+                    assert!(d.deck.key_image(key).unwrap().iter().all(|b| *b == 0));
+                }
+                if i == 0 {
+                    assert!(d.deck.touch_image().iter().all(|b| *b == 0));
+                }
+            }
+            // Reconnect while locked must paint Locked, never an ordinary page.
+            t.runtime.disconnect(t.ids[1])?;
+            t.probes[1] = Probe::new(DeviceModel::Mk2);
+            let d = discovery()?;
+            let rev = t.runtime.discover(discovery()?)?;
+            let end = Instant::now() + Duration::from_secs(5);
+            loop {
+                match t.runtime.attach(rev, &d, 1, Box::new(t.probes[1].clone())) {
+                    Ok(_) => break,
+                    Err("device_actor_unavailable") if Instant::now() < end => {
+                        t.tick()?;
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+            t.until(|s| {
+                s.runtime
+                    .statuses()
+                    .iter()
+                    .all(|u| u.display_ready && !u.input_ready)
+            })?;
+            assert!(
+                t.probes[1]
+                    .data
+                    .lock()
+                    .unwrap()
+                    .deck
+                    .key_image(0)
+                    .unwrap()
+                    .iter()
+                    .any(|b| *b != 0)
+            );
+            t.key(0, 1, false)?;
+            t.key(0, 0, true)?;
+            t.key(0, 0, false)?;
+            for _ in 0..20 {
+                t.tick()?;
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            t.runtime.host_lock(false, 12)?;
+            t.ready()?;
+            assert_eq!(t.audio.lock().unwrap().level, 50);
+            assert!(t.muted.load(Ordering::Acquire));
+            assert_eq!(
+                t.runtime
+                    .statuses()
+                    .iter()
+                    .find(|u| u.id == t.ids[1])
+                    .unwrap()
+                    .page,
+                Some(1)
+            );
+            for (i, probe) in t.probes.iter().enumerate() {
+                assert_eq!(
+                    probe.data.lock().unwrap().deck.key_image(0).unwrap(),
+                    original[i]
+                );
+            }
+            t.key(0, 0, true)?;
+            t.key(0, 0, false)?;
+            t.until(|s| s.audio.lock().unwrap().level == 51)?;
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
+    fn host_unlock_cannot_clear_manual_gate_and_short_lock_epoch_fences_old_context() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-host-epoch-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.runtime.host_lock(false, 10)?;
+            t.ready()?;
+            let before = t.context(0)?;
+            t.runtime.host_lock(false, 12)?;
+            t.ready()?;
+            assert_ne!(before.lock_epoch, t.context(0)?.lock_epoch);
+            assert_eq!(
+                t.runtime.key_feedback(before, &vec![7; 120 * 120 * 3]),
+                Err("stale_device_context")
+            );
+            t.runtime.gate(true, false)?;
+            t.runtime.host_lock(true, 13)?;
+            t.runtime.host_lock(false, 14)?;
+            t.until(|s| {
+                s.runtime
+                    .statuses()
+                    .iter()
+                    .all(|u| u.display_ready && !u.input_ready)
+            })?;
+            assert!(t.context(0).is_err());
+            assert_eq!(t.runtime.host_lock(false, 13), Err("stale_host_lock_epoch"));
+            t.runtime.gate(false, false)?;
+            t.ready()?;
+            t.key(1, 0, true)?;
+            t.key(1, 0, false)?;
+            t.until(|s| s.audio.lock().unwrap().level == 51)?;
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
+    fn host_lock_fences_waiting_action_and_late_usb_frame_without_blocking_partner() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-host-late-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.runtime.host_lock(false, 10)?;
+            t.ready()?;
+            *t.audio_wait.0.lock().unwrap() = true;
+            t.key(1, 0, true)?;
+            t.key(1, 0, false)?;
+            t.until(|s| s.audio_entered.load(Ordering::Acquire))?;
+            *t.probes[1].stall.0.lock().unwrap() = true;
+            t.runtime
+                .key_feedback(t.context(1)?, &vec![7; 72 * 72 * 3])?;
+            t.until(|s| s.probes[1].entered.load(Ordering::Acquire))?;
+            t.runtime.host_lock(true, 11)?;
+            t.until(|s| {
+                s.runtime
+                    .statuses()
+                    .iter()
+                    .any(|u| u.id == s.ids[0] && u.display_ready && !u.input_ready)
+            })?;
+            assert!(
+                t.runtime
+                    .statuses()
+                    .iter()
+                    .any(|u| u.id == t.ids[1] && !u.display_ready)
+            );
+            *t.audio_wait.0.lock().unwrap() = false;
+            t.audio_wait.1.notify_all();
+            t.probes[1].release();
+            t.until(|s| {
+                s.runtime
+                    .statuses()
+                    .iter()
+                    .all(|u| u.display_ready && !u.input_ready)
+            })?;
+            assert_ne!(
+                t.probes[1].data.lock().unwrap().deck.key_image(0).unwrap(),
+                vec![7; 72 * 72 * 3]
+            );
+            t.runtime.host_lock(false, 12)?;
+            t.ready()?;
+            // A fresh request queues behind the old target reservation. One
+            // successful effect proves the revoked waiting request never wrote.
+            t.key(0, 0, true)?;
+            t.key(0, 0, false)?;
+            t.until(|s| s.audio.lock().unwrap().writes == 1)?;
+            assert_eq!(t.audio.lock().unwrap().level, 51);
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
+    fn sleep_settlement_retires_old_handles_and_restores_each_saved_page() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-sleep-pair-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.runtime.host_sleep(false, 10)?;
+            t.ready()?;
+            t.runtime.navigate(t.context(1)?, 1)?;
+            t.ready()?;
+            t.key(0, 1, true)?;
+            t.key(1, 1, true)?;
+            t.until(|s| s.runtime.held() == 2 && !s.muted.load(Ordering::Acquire))?;
+            t.runtime.host_sleep(true, 11)?;
+            assert!(!t.runtime.ready_to_attach(t.ids[0]));
+            t.until(|s| s.runtime.sleep_ready())?;
+            assert!(t.probes.iter().all(Probe::blanked));
+            assert!(t.muted.load(Ordering::Acquire));
+            t.runtime.host_sleep(false, 12)?;
+            assert!(!t.runtime.ready_to_attach(t.ids[0]));
+            t.until(|s| {
+                s.runtime.ready_to_attach(s.ids[0]) && s.runtime.ready_to_attach(s.ids[1])
+            })?;
+            t.probes = [Probe::new(DeviceModel::Plus), Probe::new(DeviceModel::Mk2)];
+            let d = discovery()?;
+            let rev = t.runtime.discover(discovery()?)?;
+            for i in 0..2 {
+                t.runtime
+                    .attach(rev, &d, i as u8, Box::new(t.probes[i].clone()))?;
+            }
+            t.ready()?;
+            assert_eq!(
+                t.runtime
+                    .statuses()
+                    .iter()
+                    .find(|u| u.id == t.ids[1])
+                    .unwrap()
+                    .page,
+                Some(1)
+            );
+            assert!(t.runtime.statuses().iter().all(|u| u.connection == 2));
+            assert_eq!(t.runtime.held(), 0);
+            assert!(t.muted.load(Ordering::Acquire));
+            t.key(0, 0, true)?;
+            t.key(0, 0, false)?;
+            t.until(|s| s.audio.lock().unwrap().level == 51)?;
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
+    fn awake_partner_reopens_while_old_other_owner_is_still_retiring() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-sleep-isolation-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.runtime.host_sleep(false, 10)?;
+            t.ready()?;
+            *t.probes[1].stall.0.lock().unwrap() = true;
+            t.runtime
+                .key_feedback(t.context(1)?, &vec![7; 72 * 72 * 3])?;
+            t.until(|s| s.probes[1].entered.load(Ordering::Acquire))?;
+            t.runtime.host_sleep(true, 11)?;
+            assert!(!t.runtime.sleep_ready());
+            t.runtime.host_sleep(false, 12)?;
+            t.until(|s| s.runtime.ready_to_attach(s.ids[0]))?;
+            assert!(!t.runtime.ready_to_attach(t.ids[1]));
+            t.probes[0] = Probe::new(DeviceModel::Plus);
+            let d = discovery()?;
+            let rev = t.runtime.discover(discovery()?)?;
+            t.runtime
+                .attach(rev, &d, 0, Box::new(t.probes[0].clone()))?;
+            t.until(|s| {
+                s.runtime
+                    .statuses()
+                    .iter()
+                    .any(|u| u.id == s.ids[0] && u.input_ready && u.display_ready)
+            })?;
+            t.key(0, 0, true)?;
+            t.key(0, 0, false)?;
+            t.until(|s| s.audio.lock().unwrap().level == 51)?;
+            t.probes[1].release();
+            t.until(|s| s.runtime.ready_to_attach(s.ids[1]))?;
+            t.probes[1] = Probe::new(DeviceModel::Mk2);
+            t.runtime
+                .attach(rev, &d, 1, Box::new(t.probes[1].clone()))?;
+            t.ready()?;
+            assert!(t.runtime.sleep_errors().is_empty());
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
+    fn editor_test_routes_only_current_saved_non_hold_controls() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-test-action-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.ready()?;
+            let base = t.context(1)?;
+            let raw = String::from_utf8(layout(DeviceModel::Mk2)).unwrap();
+            assert_eq!(
+                t.runtime.test_control(base, &raw, 0, 1),
+                Err("test_push_to_talk_on_device")
+            );
+            assert_eq!(
+                t.runtime.test_control(base, &raw, 1, 0),
+                Err("save_and_select_page_first")
+            );
+            assert_eq!(
+                t.runtime.test_control(base, "{}", 0, 0),
+                Err("save_and_select_page_first")
+            );
+            t.runtime.test_control(base, &raw, 0, 0)?;
+            t.until(|s| s.audio.lock().unwrap().level == 51)?;
+            t.runtime.gate(true, false)?;
+            assert_eq!(
+                t.runtime.test_control(base, &raw, 0, 0),
+                Err("device_not_ready")
+            );
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
+    fn lifecycle_fence_cancels_pending_save_reservation_without_stranding_device() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-sleep-pending-save-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.ready()?;
+            let ticket = t.runtime.reserve_edit(t.context(0)?)?;
+            assert!(t.context(0).is_err());
+            t.runtime.host_lock(true, 10)?;
+            t.runtime.host_lock(false, 11)?;
+            t.ready()?;
+            assert_eq!(t.runtime.cancel_edit(ticket), Err("stale_profile_update"));
+            t.key(0, 0, true)?;
+            t.key(0, 0, false)?;
+            t.until(|s| s.audio.lock().unwrap().level == 51)?;
+            Ok(())
+        })();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
     fn prepared_live_save_cannot_change_a_partners_pinned_player() {
         let root = std::env::temp_dir().join(format!(
             "decksmith-partner-pin-{}",
@@ -751,7 +1132,7 @@ mod tests {
         check.unwrap();
     }
     #[test]
-    fn unsupported_provider_reports_error_and_never_changes_audio() {
+    fn unavailable_builtin_provider_reports_error_and_never_changes_audio() {
         let root = std::env::temp_dir().join(format!(
             "decksmith-unsupported-action-{}",
             random_device_id().unwrap()
@@ -780,7 +1161,7 @@ mod tests {
             let mut rejected = false;
             while !rejected && Instant::now() < end {
                 for f in t.runtime.tick() {
-                    if f.result == Err("shared_action_provider_not_connected") {
+                    if f.result == Err("fixture_target_unavailable") {
                         rejected = true;
                     } else {
                         f.result?;

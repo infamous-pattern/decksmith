@@ -42,6 +42,10 @@ mod native_media_lab;
 #[cfg(any(feature = "hardware", test))]
 mod pages;
 #[cfg(any(feature = "hardware", test))]
+mod permanent_control;
+#[cfg(any(feature = "hardware", test))]
+mod permanent_service;
+#[cfg(any(feature = "hardware", test))]
 mod physical_lab;
 mod plugin_binding;
 mod plugin_runtime;
@@ -57,6 +61,8 @@ mod saved_native;
 #[cfg(any(feature = "hardware", test))]
 mod session_lock;
 #[cfg(any(feature = "hardware", test))]
+mod shared_builtin;
+#[cfg(any(feature = "hardware", test))]
 pub mod shared_microphone;
 #[cfg(any(feature = "hardware", test))]
 mod shared_native_audio;
@@ -66,6 +72,8 @@ mod shared_native_media;
 mod shared_native_state;
 #[cfg(any(feature = "hardware", test))]
 pub mod shared_worker;
+#[cfg(any(feature = "hardware", test))]
+mod sleep_lifecycle;
 mod system_actions;
 mod theme;
 #[cfg(any(feature = "hardware", test))]
@@ -96,6 +104,42 @@ fn main() {
         .with_ansi(false)
         .init();
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    #[cfg(feature = "hardware")]
+    if let [mode, config, path, run] = args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+        && *mode == "--multi-device"
+        && *config == "--config"
+        && *run == "--run"
+    {
+        if let Err(code) = permanent_service::run(std::path::Path::new(path), None, None) {
+            tracing::error!(error_code = code, "Multi-device controls stopped");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(feature = "hardware")]
+    if let [mode, path, flag, seconds] = args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+        && *mode == "--multi-device-virtual"
+        && *flag == "--seconds"
+        && let Ok(seconds @ 1..=3600) = seconds.parse::<u64>()
+    {
+        if let Err(code) = permanent_service::run(
+            &runtime_paths::config("audio.json"),
+            Some(std::path::Path::new(path)),
+            Some(seconds),
+        ) {
+            tracing::error!(error_code = code, "Virtual multi-device service stopped");
+            std::process::exit(1);
+        }
+        return;
+    }
     #[cfg(feature = "hardware")]
     if args.first().is_some_and(|a| a == "--native-media-lab") {
         if let Err(code) = native_media_lab::run(&args) {

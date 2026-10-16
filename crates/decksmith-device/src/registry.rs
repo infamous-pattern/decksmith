@@ -182,6 +182,12 @@ impl Registry {
                 .iter()
                 .all(|r| other.get(r.id).is_some_and(|o| r.same_identity(o)))
     }
+    /// Compare one opaque device association without exposing its private serial.
+    /// History may predate enrollment of a partner or move with a restored store.
+    pub fn same_device_association(&self, other: &Self, id: DeviceId) -> bool {
+        self.get(id)
+            .is_some_and(|record| other.get(id).is_some_and(|old| record.same_identity(old)))
+    }
     pub fn revision(&self) -> u64 {
         self.revision
     }

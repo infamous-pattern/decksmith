@@ -267,6 +267,250 @@ fn exchange_at(
     }
 }
 
+/// A separate lane keeps optional Homebridge network/readback latency from
+/// delaying audio/media. Uncertain actions are quarantined, never replayed.
+#[cfg(any(feature = "hardware", test))]
+#[derive(Default)]
+pub(crate) struct HomebridgeBackend {
+    blocked: bool,
+    uncertain: Arc<AtomicBool>,
+}
+#[cfg(any(feature = "hardware", test))]
+impl HomebridgeBackend {
+    pub(crate) fn health(&self) -> Arc<AtomicBool> {
+        self.uncertain.clone()
+    }
+}
+#[cfg(any(feature = "hardware", test))]
+impl crate::shared_worker::Backend for HomebridgeBackend {
+    fn execute(
+        &mut self,
+        action: &Action,
+        fence: &crate::shared_worker::Fence,
+    ) -> Result<(), &'static str> {
+        if self.blocked {
+            return Err("plugin_recovery_required");
+        }
+        crate::shared_worker::Compiled::homebridge(action.clone())?;
+        let Action::Plugin { binding, ticks } = action else {
+            return Err("plugin_unsupported");
+        };
+        let mut remaining = *ticks;
+        loop {
+            let step = remaining.clamp(-20, 20);
+            let action = Action::Plugin {
+                binding: binding.clone(),
+                ticks: step,
+            };
+            let result = exchange_shared(&action, || fence.accepts());
+            if result == Err("plugin_unknown") {
+                self.blocked = true;
+                self.uncertain.store(true, Ordering::Release);
+            }
+            result?;
+            remaining -= step;
+            if remaining == 0 {
+                return Ok(());
+            }
+        }
+    }
+}
+
+/// Existing experimental Homebridge bridge only. Version 2 adds a late grant;
+/// older companions reject the envelope before any accessory action is issued.
+#[cfg(any(feature = "hardware", test))]
+pub(crate) fn exchange_shared(
+    action: &Action,
+    allowed: impl Fn() -> bool,
+) -> Result<(), &'static str> {
+    let path =
+        std::path::PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR").ok_or("plugin_unavailable")?)
+            .join("decksmith-plugin-lab.sock");
+    exchange_shared_at(action, &path, allowed)
+}
+#[cfg(any(feature = "hardware", test))]
+fn exchange_shared_at(
+    action: &Action,
+    path: &std::path::Path,
+    allowed: impl Fn() -> bool,
+) -> Result<(), &'static str> {
+    use std::os::unix::fs::FileTypeExt;
+    let Action::Plugin { binding, ticks } = action else {
+        return Err("plugin_unsupported");
+    };
+    binding.validate()?;
+    if !binding.supported(*ticks != 0) || !(-20..=20).contains(ticks) {
+        return Err("plugin_unsupported");
+    }
+    let meta = std::fs::symlink_metadata(path).map_err(|_| "plugin_unavailable")?;
+    if !meta.file_type().is_socket()
+        || meta.uid() != unsafe { libc::geteuid() }
+        || meta.mode() & 0o077 != 0
+    {
+        return Err("plugin_unavailable");
+    }
+    let mut stream = connect_bounded(path)?;
+    stream
+        .set_read_timeout(Some(Duration::from_millis(50)))
+        .map_err(|_| "plugin_unavailable")?;
+    stream
+        .set_write_timeout(Some(Duration::from_millis(100)))
+        .map_err(|_| "plugin_unavailable")?;
+    let payload =
+        serde_json::to_vec(&serde_json::json!({"bridge":2,"binding":binding,"ticks":ticks}))
+            .map_err(|_| "plugin_unsupported")?;
+    if !allowed() {
+        return Err("plugin_cancelled");
+    }
+    stream
+        .write_all(&payload)
+        .and_then(|_| stream.write_all(b"\n"))
+        .map_err(|_| "plugin_unavailable")?;
+    let started = Instant::now();
+    let mut buffer = Vec::new();
+    let mut granted = false;
+    loop {
+        if !allowed() {
+            return Err(if granted {
+                "plugin_unknown"
+            } else {
+                "plugin_cancelled"
+            });
+        }
+        if started.elapsed() > Duration::from_secs(5) {
+            return Err(if granted {
+                "plugin_unknown"
+            } else {
+                "plugin_unavailable"
+            });
+        }
+        let mut part = [0; 512];
+        match stream.read(&mut part) {
+            Ok(0) => {
+                return Err(if granted {
+                    "plugin_unknown"
+                } else {
+                    "plugin_unavailable"
+                });
+            }
+            Ok(n) => {
+                buffer.extend_from_slice(&part[..n]);
+                if buffer.len() > 8192 {
+                    return Err("plugin_unknown");
+                }
+                if buffer.contains(&b'\n') {
+                    let value: serde_json::Value =
+                        serde_json::from_slice(&buffer).map_err(|_| "plugin_unknown")?;
+                    buffer.clear();
+                    if value == serde_json::json!({"ready":true}) && !granted {
+                        let live = allowed();
+                        let response = if live {
+                            b"{\"decision\":\"apply\"}\n".as_slice()
+                        } else {
+                            b"{\"decision\":\"abort\"}\n".as_slice()
+                        };
+                        granted = live;
+                        stream.write_all(response).map_err(|_| "plugin_unknown")?;
+                        if !live {
+                            return Err("plugin_cancelled");
+                        }
+                    } else if (value == serde_json::json!({"ok":true}) && granted)
+                        || (value == serde_json::json!({"ok":true,"effect":false}) && !granted)
+                    {
+                        return Ok(());
+                    } else if value == serde_json::json!({"ok":false}) {
+                        return Err("plugin_failed");
+                    } else {
+                        return Err("plugin_unknown");
+                    }
+                }
+            }
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) => {}
+            Err(_) => {
+                return Err(if granted {
+                    "plugin_unknown"
+                } else {
+                    "plugin_unavailable"
+                });
+            }
+        }
+    }
+}
+#[cfg(any(feature = "hardware", test))]
+fn connect_bounded(path: &std::path::Path) -> Result<UnixStream, &'static str> {
+    use std::os::{
+        fd::{AsRawFd, FromRawFd, OwnedFd},
+        unix::ffi::OsStrExt,
+    };
+    let bytes = path.as_os_str().as_bytes();
+    let mut address: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+    if bytes.contains(&0) || bytes.len() >= address.sun_path.len() {
+        return Err("plugin_unavailable");
+    }
+    address.sun_family = libc::AF_UNIX as _;
+    for (slot, byte) in address.sun_path.iter_mut().zip(bytes) {
+        *slot = *byte as _;
+    }
+    let fd = unsafe {
+        libc::socket(
+            libc::AF_UNIX,
+            libc::SOCK_STREAM | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
+            0,
+        )
+    };
+    if fd < 0 {
+        return Err("plugin_unavailable");
+    }
+    let fd = unsafe { OwnedFd::from_raw_fd(fd) };
+    let result = unsafe {
+        libc::connect(
+            fd.as_raw_fd(),
+            &address as *const _ as *const libc::sockaddr,
+            std::mem::size_of_val(&address) as _,
+        )
+    };
+    if result != 0 {
+        if !matches!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::EINPROGRESS) | Some(libc::EAGAIN)
+        ) {
+            return Err("plugin_unavailable");
+        }
+        let mut poll = libc::pollfd {
+            fd: fd.as_raw_fd(),
+            events: libc::POLLOUT,
+            revents: 0,
+        };
+        if unsafe { libc::poll(&mut poll, 1, 100) } != 1 {
+            return Err("plugin_unavailable");
+        }
+        let mut error = 0i32;
+        let mut len = std::mem::size_of_val(&error) as libc::socklen_t;
+        if unsafe {
+            libc::getsockopt(
+                fd.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_ERROR,
+                &mut error as *mut _ as *mut libc::c_void,
+                &mut len,
+            )
+        } != 0
+            || error != 0
+        {
+            return Err("plugin_unavailable");
+        }
+    }
+    let stream = UnixStream::from(fd);
+    stream
+        .set_nonblocking(false)
+        .map_err(|_| "plugin_unavailable")?;
+    Ok(stream)
+}
+
 static DISPLAY_EPOCH: AtomicU64 = AtomicU64::new(1);
 pub fn invalidate() {
     DISPLAY_EPOCH.fetch_add(1, Ordering::AcqRel);
@@ -336,6 +580,8 @@ fn snapshot_at(path: &std::path::Path) -> Option<std::sync::Arc<Snapshot>> {
         let mut hash = std::collections::hash_map::DefaultHasher::new();
         value["accessories"].to_string().hash(&mut hash);
         value["catalog_ready"].to_string().hash(&mut hash);
+        value["actual"].to_string().hash(&mut hash);
+        value["ready"].to_string().hash(&mut hash);
         let result = std::sync::Arc::new(Snapshot {
             key,
             value,
@@ -350,6 +596,66 @@ fn snapshot() -> Option<std::sync::Arc<Snapshot>> {
         .join("decksmith-plugin-state.json");
     snapshot_at(&path)
 }
+/// Background private-state observer; the input coordinator polls only memory.
+#[cfg(any(feature = "hardware", test))]
+type ObservationShared = Arc<(Mutex<(bool, Option<u64>)>, std::sync::Condvar)>;
+#[cfg(any(feature = "hardware", test))]
+pub(crate) struct Observer {
+    shared: ObservationShared,
+    thread: Option<std::thread::JoinHandle<()>>,
+    shown: Option<Option<u64>>,
+}
+#[cfg(any(feature = "hardware", test))]
+impl Observer {
+    pub fn start() -> Result<Self, &'static str> {
+        let shared = Arc::new((Mutex::new((false, None)), std::sync::Condvar::new()));
+        let owner = shared.clone();
+        let thread = std::thread::Builder::new()
+            .name("decksmith-homebridge-observer".into())
+            .spawn(move || {
+                loop {
+                    let revision = snapshot().map(|s| s.revision);
+                    let mut state = owner.0.lock().unwrap();
+                    if state.0 {
+                        return;
+                    }
+                    state.1 = revision;
+                    let (state, _) = owner
+                        .1
+                        .wait_timeout(state, Duration::from_millis(500))
+                        .unwrap();
+                    if state.0 {
+                        return;
+                    }
+                }
+            })
+            .map_err(|_| "plugin_observer_spawn_failed")?;
+        Ok(Self {
+            shared,
+            thread: Some(thread),
+            shown: None,
+        })
+    }
+    pub fn snapshot(&mut self) -> Option<Option<u64>> {
+        let current = self.shared.0.lock().unwrap().1;
+        if self.shown == Some(current) {
+            return None;
+        }
+        self.shown = Some(current);
+        Some(current)
+    }
+}
+#[cfg(any(feature = "hardware", test))]
+impl Drop for Observer {
+    fn drop(&mut self) {
+        self.shared.0.lock().unwrap().0 = true;
+        self.shared.1.notify_all();
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
 pub fn state() -> Option<State> {
     let snapshot = snapshot()?;
     let v = &snapshot.value;
@@ -584,5 +890,62 @@ mod tests {
         let old = DISPLAY_EPOCH.load(Ordering::Acquire);
         invalidate();
         assert_ne!(old, DISPLAY_EPOCH.load(Ordering::Acquire));
+    }
+    #[test]
+    fn shared_bridge_never_falls_back_and_rechecks_after_discovery() {
+        for mode in ["apply", "stale", "old", "readonly"] {
+            let root = std::env::temp_dir().join(format!(
+                "decksmith-shared-hb-{}-{}",
+                std::process::id(),
+                mode
+            ));
+            std::fs::create_dir_all(&root).unwrap();
+            let path = root.join("bridge.sock");
+            let listener = UnixListener::bind(&path).unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+            let allowed = Arc::new(AtomicBool::new(true));
+            let live = allowed.clone();
+            let task = std::thread::spawn(move || {
+                use std::io::{BufRead, BufReader};
+                let (mut peer, _) = listener.accept().unwrap();
+                peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                let mut reader = BufReader::new(peer.try_clone().unwrap());
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                let payload: serde_json::Value = serde_json::from_str(&line).unwrap();
+                assert_eq!(payload["bridge"], 2);
+                if mode == "old" {
+                    peer.write_all(b"{\"ok\":false}\n").unwrap();
+                    return;
+                }
+                if mode == "readonly" {
+                    peer.write_all(b"{\"ok\":true,\"effect\":false}\n").unwrap();
+                    return;
+                }
+                if mode == "stale" {
+                    live.store(false, Ordering::Release);
+                }
+                peer.write_all(b"{\"ready\":true}\n").unwrap();
+                line.clear();
+                let bytes = reader.read_line(&mut line).unwrap();
+                if mode == "stale" {
+                    assert!(bytes == 0 || line == "{\"decision\":\"abort\"}\n");
+                } else {
+                    assert_eq!(line, "{\"decision\":\"apply\"}\n");
+                    peer.write_all(b"{\"ok\":true}\n").unwrap();
+                }
+            });
+            let result = exchange_shared_at(&action(), &path, || allowed.load(Ordering::Acquire));
+            assert_eq!(
+                result,
+                match mode {
+                    "stale" => Err("plugin_cancelled"),
+                    "old" => Err("plugin_failed"),
+                    _ => Ok(()),
+                }
+            );
+            task.join().unwrap();
+            std::fs::remove_dir_all(root).unwrap();
+        }
     }
 }

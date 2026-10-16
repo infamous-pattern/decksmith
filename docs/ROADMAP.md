@@ -1,23 +1,212 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 14, 2026. The v0.4 product
+This is the implementation roadmap, updated October 16, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
 
-## Next session — Wednesday, October 14
+## Current work — Friday, October 16
 
-1. **Impeccable guidance adopted.** The user approved retaining
-   [Impeccable](https://github.com/pbakaus/impeccable) in the project toolbox and
-   using its design ideas
-   for clarity, spacing, long labels, unavailable states and accessibility. Its
-   web detector and mobile native audit do not directly qualify GTK/libadwaita.
-   Preserve the accepted layout, GNOME theme and performance budget; no tools or
-   hooks were installed. See the [toolbox assessment](research-toolbox.md).
-2. **Resume multi-device integration and testing.** Continue from the
-   [connected execution checkpoint](checkpoints/2026-10-13-connected-execution.md):
-   connect the remaining native action providers and feedback, then qualify the
-   new pipeline on the physical Plus and MK.2 before changing the daily build.
+Finalize version 1.5.0 from the accepted paired development build, then qualify
+the exact signed candidate before requesting publication. Preserve V1 downloads
+and the existing experimental platform scope until release approval. The current
+desktop stays on its qualified development build until a guarded candidate
+installation is prepared. See the [V1.5 candidate review](v1.5-candidate.md).
+
+**Linked navigation — explicitly deferred after V1.5 on October 16.** Future
+opt-in page pairs could let navigation keys or Plus swipes change a workspace on
+both devices and foreground-app rules select paired pages. Independent pages
+remain the V1.5 behavior. Pairing, disconnected-device catch-up and interaction
+with per-device application rules require separate design and qualification.
+
+The October 15 record below preserves the implementation and qualification history.
+
+**Release scope decision — October 15:** target Friday, October 16, end of day
+Eastern for a **tested multi-device V1.5**, conditional on the gates below passing.
+The user chose this focused release over retaining the full feature list. Include
+simultaneous Plus/15-key MK.2 support, the accepted simplified native editor and
+gauges, and preservation of existing saved layouts, assignments and controls.
+Unfinished gestures, Dial Stacks/Action Wheel, Now Playing, wallpaper and sticky
+keys remain follow-up work; they must not delay or be advertised in this release.
+Broader OS support remains independently qualified; existing previews do not
+become supported platforms through this deadline.
+
+**Plugins move to V2 by user decision on October 15.** General plugin hosting,
+management, compatibility/catalog work and the plugin-provider system-monitor
+track are deferred together. Preserve existing experimental Homebridge bindings
+and settings; explicitly verify or document their paired-runtime behavior before
+promotion. Deferral must not silently erase or substitute saved actions.
+
+**Daily desktop builds — requested October 15:** keep the user's desktop on the
+latest qualified build for real-time feedback. Preserve the previous package and
+configuration backup, protect unsaved editor work, verify service/device recovery
+after installation and document remaining limits. A timed development lab or a
+passing build alone is not a production update. Do not install an incomplete
+paired runtime over working daily controls merely to advance the revision.
+
+Release gates: built-in app/web/system/audio/media behavior; independent saved
+profiles and migration/rollback; lock, suspend, hot-plug, quit/stop blanking and
+start-at-login for both devices; native editor/device parity and accessibility;
+bounded shared subscriptions/queues plus idle/loaded CPU and memory; fresh
+installer and artifact/security verification. Record exact build/evidence and
+remaining limits. A missed gate changes the date or scope explicitly, not the
+reported outcome.
+
+1. **Simplified native editor — installed and user accepted.** On October 15,
+   the user confirmed stable key/dial editing, reachable expanded controls and
+   clear scroll markers, plus the normal physical Plus page and controls after
+   installation. The later permanent multi-device development update now runs
+   both Decks; desktop keyboard/Orca acceptance is recorded on the recovery build.
+   See the [interface checkpoint](checkpoints/2026-10-15-simplified-native-editor.md).
+2. **Resume multi-device lifecycle integration and qualification.** Saved meters,
+   shared native microphone policy, System sounds meter isolation and held-device
+   USB recovery passed their bounded checks on October 14. The opt-in paired
+   lock slice passed physical Plus/MK.2 lock, locked-input rejection and locked
+   reconnect checks on October 15, with normal controls restored afterward.
+   Persistent startup, identity-safe reopen, the normal saved-device editor and
+   provider integration are now implemented and installed as a local development
+   build. Exact Plus migration, independent MK.2 defaults, restart persistence,
+   native editor and rollback passed automated checks. Physical acceptance of
+   this permanent build and controlled resource/lifecycle qualification remain.
+   See the [permanent-service checkpoint](checkpoints/2026-10-15-permanent-multi-device-service.md)
+   and the
+   [latest microphone/recovery checkpoint](checkpoints/2026-10-14-native-shared-microphones.md).
+   The [October 15 lock/action checkpoint](checkpoints/2026-10-15-paired-lock-and-builtins.md)
+   records the accepted physical lock slice and guarded built-ins. Built-in native
+   action acceptance and permanent-build suspend remain separate gates; local
+   development activation is not a V1.5 release declaration.
+
+**AI-server follow-up — October 15:** extended synthetic reconnect/lifecycle,
+packaged two-device save/restart endurance, artifact and offline companion tests
+passed. Two items need review before their corresponding release gates close:
+bounded Previous Layout recovery beyond 64 history archives, and a separate
+receipt-backed rebuild of the historical Homebridge companion with updated
+advisory-affected dependencies and remapped builder paths. No current exploit
+path was demonstrated; the app dependency query had no matches. Keep desktop
+controls unchanged during the user's interview; physical suspend remains deferred.
+See the [permanent-service checkpoint](checkpoints/2026-10-15-permanent-multi-device-service.md)
+for evidence, retained data and limits. Fedora 44/45 package and native two-device
+editor checks also passed, with original guest state restored and all VMs off.
+VM preview emoji font coverage and a pre-existing default/no-hardware build
+configuration gap remain documented follow-ups; neither caused saved-label loss
+or a regression in the installed hardware-enabled build.
+
+**Recovery/dependency fixes installed — October 15:** both server findings now
+have tested development builds. The profile store retains one verified predecessor per
+device; a copy of the exact 84-archive failure store passed recovery, migration,
+restore/undo and restart without changing its backups. A separately rebuilt,
+path-remapped/stripped Homebridge companion passed 46 current integration/protocol
+tests and updated-version advisory queries. The guarded desktop update passed
+with a verified whole-store backup, and the user accepted live Homebridge/native
+controls on both Decks. No public release was published. Pair any downgrade with
+its matching complete device-store backup because the new manifest is version 2;
+a binary-only downgrade or merge restore is insufficient. Next qualify the
+remaining paired lifecycle/editor/resource gates. Updated-build physical
+suspend/resume also passed, with both sessions ready and without errors afterward;
+bidirectional USB isolation/reconnection also passed, with the connected partner
+remaining ready and each removed device recovering. Both-device quit blanking
+and normal relaunch also passed with clean service exits and restored controls.
+Start-at-login acceptance also passed: both Decks started automatically while the
+editor stayed closed, and post-login checks found both sessions ready. Next finish
+permanent editor/accessibility and controlled resources. See the
+[recovery and companion checkpoint](checkpoints/2026-10-15-layout-recovery-and-companion.md).
+
+**Permanent editor follow-up — October 15:** keyboard navigation and Orca were
+user-accepted for both device views on the recovery build. Paired physical label
+save/Restore previous checks passed on the installed emoji follow-up build,
+including correct checkmark/music-symbol rendering, unchanged partner layouts,
+retained actions/artwork and exact original-layout cleanup. The caption renderer
+now bundles a monochrome fallback; full-color/compound emoji shaping remains
+outside this fix. The icon-only Layout options menu below the device preview
+proved hard to discover and needs a clearer visible label in later UI cleanup.
+Controlled quiet/loaded resources and final release qualification remain. See the
+[emoji and paired-editor checkpoint](checkpoints/2026-10-15-emoji-caption-fallback.md).
+
+**Paired resource observation — October 15:** a five-minute paused-desktop
+sample completed with both devices stable, no restarts or layout changes, and
+steady 51.34 MiB daemon RSS. Daemon CPU averaged 5.737% of one core; both services
+with helpers/companion averaged 8.073%. Two lingering speech-dispatcher playback
+streams were documented with user acceptance, so this is not clean-idle evidence
+or a matched V1 comparison. The later loaded interaction and clean-idle observations are recorded below;
+resource regression review and final release gates remain open. See the
+[resource checkpoint](checkpoints/2026-10-15-paired-resources.md).
+
+**Paired loaded interaction — October 15:** the installed build completed a
+ten-minute saved-layout test with both physical Decks; the user accepted ordinary/
+quicker dial turns, page changes and audio/media controls with correct displays.
+Both sessions and process identities stayed stable, no services restarted, and
+saved layouts were unchanged. Daemon CPU averaged 5.205% of one core (7.905%
+combined services); daemon RSS stayed at 51.59 MiB. Brave was active throughout
+sampled points, with additional Chromium/speech streams documented. This closes
+that finite loaded interaction check, not clean-idle/regression review or final
+release qualification. See the [resource checkpoint](checkpoints/2026-10-15-paired-resources.md).
+
+**Development package review — October 15:** exact installed app/companion
+integrity, isolated package provenance/ELF hardening and paired staged backup
+restore passed. The exact-version advisory query returned no matches across 277
+distinct versions. Latest-package installer/native two-device checks passed in
+Fedora 44/45 beta test clones; original disks/definitions were unchanged and all
+server guests are off. Fedora45 baseline cleanup hit a start limit; fresh-boot
+file/autostart verification and graceful ACPI shutdown resolved the fixture issue,
+with original failures retained. No runtime code or desktop service change was
+made during those package checks. The subsequently authorized clean-idle
+measurement completed, with speech services restored afterward. Server space is tight
+(about 19 GiB free, 227.81 GiB retained test backups); full-copy jobs need capacity
+review. Final source/version/signing/publication remain separate. See the
+[review and evidence limits](checkpoints/2026-10-15-release-review.md).
+
+**Clean paired idle — October 15:** after an authorized temporary speech-service/
+socket pause, 300.001 seconds and 61 points completed with no playback streams,
+stable devices/services and unchanged layouts. Speech running/enablement states
+were restored and accessibility settings were unchanged. Daemon CPU averaged
+5.757% of one core (8.005% combined services), with flat 51.59 MiB daemon RSS.
+The below-1% milestone is not met. Clean-idle collection is complete; resource
+regression review against the differently configured historical V1 reference
+remains explicit, alongside final source/version/signing/publication gates. See
+the [resource checkpoint](checkpoints/2026-10-15-paired-resources.md).
+
+**Discovery optimization — October 15:** the development update
+`1.0.0-dev-discovery-d5e84a632d77` is installed after 341 Rust tests, strict
+Clippy and isolated AI-server package/paired-backup checks. The discovery worker
+uses a bounded Linux topology cache with 30-second full refresh, immediate
+change/error fallback and unchanged per-open identity checks. Normal physical
+controls and bidirectional USB isolation/recovery passed on both Decks. The
+new clean five-minute sample averaged 6.181% combined CPU of one core versus
+8.005% before (22.79% lower), with flat 42.61 MiB daemon RSS, stable services
+and unchanged layouts. Speech services were restored. The combined 5% target
+is not met; the main coordinator remains the largest measured daemon cost.
+No coordinator polling change was made. The sequential comparison has different
+service ages/history and is not historical V1 regression equivalence. See the [discovery checkpoint](checkpoints/2026-10-15-hardware-discovery-optimization.md).
+
+**Coordinator optimization — October 15:** development package
+`1.0.0-dev-coordinator-42ddae185374` is installed after 342 regression tests,
+strict Clippy and isolated package/paired-backup checks. Unchanged authority
+snapshots no longer rebuild the map and wake action providers. Input polling,
+explicit revocation, microphone maintenance and the hardware-discovery cache
+are retained. Physical controls/Homebridge and bidirectional USB recovery passed.
+The clean five-minute sample averaged 2.497% combined CPU of one core
+(0.897% daemon), 59.60% lower than the preceding discovery build;
+daemon RSS averaged 45.38 MiB. Both services/devices/layouts stayed stable
+and the speech pause was restored. The combined 5% target was met in this
+finite quiet sample; this is not a workload-independent guarantee. See the
+[coordinator checkpoint](checkpoints/2026-10-15-coordinator-optimization.md).
+
+**Optimized loaded qualification — October 15:** the same coordinator package
+completed ten minutes/121 points with Brave active throughout and the user
+accepting both physical Decks' pages, audio/media keys, ordinary/quicker dials
+and correct labels/icons/meters. Combined CPU averaged 4.507% of one core
+(2.007% daemon), with flat 45.63 MiB daemon RSS, stable handles/threads,
+no restarts and unchanged layouts. Speech dummy/brief corked Chromium streams
+are documented; this is a finite saved-layout workload, not a four-target soak
+or matched comparison with earlier builds. Current development idle/loaded
+qualification is complete; final signed candidate admission remains separate.
+See the [coordinator checkpoint](checkpoints/2026-10-15-coordinator-optimization.md).
+
+**Design guidance:** Impeccable remains adopted for clarity, spacing, long labels,
+unavailable states and accessibility. Adapt its ideas to native GTK/libadwaita;
+its web detector and mobile audit do not qualify Decksmith's desktop interface.
+Preserve the accepted layout, GNOME theme and performance budget. No tools or
+hooks were installed. See the [toolbox assessment](research-toolbox.md).
 
 **October 14 physical diagnostic checkpoint:** the new connected runtime passed
 two timed Plus/MK.2 hardware windows using a shared simulated level/mute target.
@@ -359,7 +548,110 @@ accepted checkpoints remain in the related sections linked below. These are
 planned tasks, not features in published V1 or a calendar promise. Earlier dated
 next-step lists describe their historical checkpoint; use this overview to resume.
 
-### Appearance and artwork
+### Interface clarity and editing — approved October 14
+
+Reduce repeated information and competing controls as V1.5 adds devices and
+features. The interactive simplified Keys & Dials mock-up was approved on
+October 15. Its native GTK/libadwaita implementation passed automated qualification and is
+installed locally for review. Remaining desktop acceptance is tracked in the
+[interface checkpoint](checkpoints/2026-10-15-simplified-native-editor.md).
+
+- **One device selector:** keep Choose Device in the persistent header with the
+  selected Deck's name and connection state. Remove the duplicate Home selector.
+  Keep navigation stable, preserve each device's drafts, and make the device being
+  edited unambiguous.
+- **Focused Home:** lead with connection, Background controls and brightness;
+  retain Start Decksmith at login and Auto-Lock here. Put profile history and
+  archiving inside a secondary inline Manage profiles section.
+- **Assignment first:** organize key editing as Label → Action → Target. Retain
+  Transparent label background directly beneath Label. Show only the relevant
+  action fields, extending the editor's existing conditional visibility rather
+  than duplicating controls.
+- **One searchable action chooser:** group Applications, Audio, Media, System,
+  Navigation and available plugin actions. Include Homebridge when its integration
+  is available, with its experimental status clear. Avoid separate competing
+  built-in/plugin assignment flows and expose no unfinished installation features.
+- **Compact dial editing:** use one Assignment block for label, turn action,
+  target and press action. Keep gauge style easy to find; expand less common
+  behavior and detailed styling inline. Preserve shared/page-specific scope,
+  press/hold semantics and the accepted gauge/mute/Live presentation.
+- **Appearance by expansion:** retain the existing inline Appearance expander,
+  with a concise summary such as “Page theme · Automatic icon.” Detailed fonts,
+  colors and sizing remain available without adding a separate window. Preserve
+  theme inheritance, custom artwork and explicit overrides.
+- **One save action and status:** retain one fixed Save and Apply button and one
+  authoritative saved/unsaved indicator. Remove repeated healthy-state messages.
+  Put actionable validation beside the affected field; clarify any necessary
+  distinction between saved edits and immediately applied device settings.
+- **Stable native layout:** preserve left-side editing/right-side device preview,
+  GNOME appearance, subtle section colors, visible keyboard focus and consistent
+  spacing. Reserve stronger emphasis for selection, warnings and the primary
+  action. Expanders, tab/key/dial changes and background updates must not shift
+  window geometry, steal focus or reset typed text. Keep motion lightweight and
+  purposeful; do not add glass effects or automatically rearranging navigation.
+
+**Visible scrolling — added October 15:** whenever controls extend beyond the
+visible app area, show a persistent, clearly contrasting scrollbar rather than
+relying on hover-only/auto-hiding overlay bars. Add unobtrusive “More settings
+below/above” cues that reflect the actual scroll position and disappear when the
+content fits. Keep the Save action outside the scrolling editor, reserve scrollbar
+space to prevent sideways shifts, and support wheel, trackpad and keyboard access.
+Apply this consistently to overflowing settings, page/plugin panels and previews;
+never leave clipped controls without a visible route to reach them. Check expanded
+Appearance, long action results, small windows, enlarged text and both themes.
+The native implementation reserves a scrollbar gutter, shows actual-position
+above/below cues and does not add a polling timer. All-panel desktop keyboard/Orca
+acceptance remains pending; automated native layout checks are separate evidence.
+
+Mock-up review covers three tasks: assign an application key, configure an audio
+volume dial, and switch between Plus and MK.2 without losing edits. Include saved,
+unsaved, invalid-field and disconnected-device states. Show the MK.2's applicable
+key controls without dial settings. Use representative window sizes and long/emoji
+labels. Native acceptance then checks keyboard/Orca, light/dark and enlarged text,
+preview parity, draft retention and idle/active CPU and memory against the baseline.
+A mock-up is design review, not physical-device or performance qualification.
+
+References reviewed October 14: [Unico Connect](https://unicoconnect.com/blogs/ui-ux-design-trends-2025)
+for calm hierarchy and purposeful feedback;
+[Sphinx](https://sphinxjsc.com/blog/app-design-for-2026-trends-techniques-and-tools)
+for task-focused screens, clear primary actions and predictable performance;
+[Fuselab](https://fuselabcreative.com/ui-ux-design-trends-2026-modern-ui-trends-ux-trends-guide/)
+for stable navigation and preferences. Apply these selectively with the adopted
+[Impeccable guidance](research-toolbox.md#impeccable--design-guidance-adopted-october-14),
+using existing GTK/libadwaita components rather than adding a runtime/framework.
+
+
+### Reference-derived improvements — approved October 15
+
+[Deck-Switch and Deckhand](research-toolbox.md#deck-switch-and-deckhand--reference-repositories-adopted-october-15)
+remain design/architecture references, not dependencies or copied implementations.
+Apply only changes that support the focused release; the remaining ideas below
+stay in their feature tracks.
+
+- **Capability and failure clarity:** explain missing software, permissions or
+  session support inline, preserve unavailable assignments, and refresh on actual
+  provider/session changes. Keep failures scoped to device/profile/page/control,
+  clear them on success or reassignment, and avoid healthy-state pop-ups. Any
+  optional notifications should replace duplicates rather than stack.
+- **Efficient observation:** share cached audio/system observations across devices,
+  react to meaningful events and avoid identical USB writes. Measure our actual
+  idle/interactive workloads; another project's CPU claim is not our benchmark.
+- **Explicit copy tools — follow-up:** offer Copy to page/device with compatible
+  key geometry, overflow/unsupported-control/navigation warnings, atomic save and
+  undo. Keep new MK.2 defaults and each device's later layout independent; copying
+  is opt-in. Retain one selected-device view rather than adopting a dense canvas.
+- **Dial Stack clarity — deferred follow-up:** use a named list and clear active
+  target, while retaining the approved tap-to-cycle behavior and existing
+  push-to-talk/press semantics. Do not replace these with long-push cycling.
+- **V2 native plugin fields:** localized schema-driven labels/help, conditional
+  settings and supported key/dial capabilities inside the existing native editor.
+  Retain process isolation; do not adopt in-process plugin loading.
+- **V2 monitors:** one cached, modest-rate sampler per source with shared visible
+  subscriptions; coalesce expensive GPU queries and stop unnecessary hidden work.
+  Multi-action delays/cancellation, network decks and animated backgrounds remain
+  separate follow-up ideas, outside tomorrow's release scope.
+
+### Appearance and artwork — unfinished work deferred October 15
 
 - **Website-artwork refresh polish:** automatic icons follow URL changes while
   preserving custom images and labels.
@@ -368,7 +660,7 @@ next-step lists describe their historical checkpoint; use this overview to resum
 - Work within the existing native Page Appearance/editor and shared preview/device
   renderer. See [appearance requirements](#4-appearance-presets-and-local-icon-library--implemented-september-14).
 
-### Audio, media and dial controls
+### Audio, media and dial controls — gauges retained; unfinished extras deferred October 15
 
 - **Now Playing:** touch-strip track/artist, optional artwork and playback progress
   through the existing Linux media integration.
@@ -383,7 +675,7 @@ next-step lists describe their historical checkpoint; use this overview to resum
   preserve audio mute, push-to-talk and page overrides. See
   [media and dial requirements](#now-playing-dial-action-wheels-and-dial-stacks--v15-targets-added-october-8).
 
-### Pages and shared actions
+### Pages and shared actions — unfinished extras deferred October 15
 
 - **Key press gestures:** finish independent Single press, Double press and Hold
   assignments in the integrated key editor and daemon. Reuse the existing core
@@ -402,12 +694,12 @@ next-step lists describe their historical checkpoint; use this overview to resum
   one device must not interrupt another. See
   [multi-device requirements](#simultaneous-multiple-device-support--clarified-september-13).
 - **Initial mixed-device acceptance:** Stream Deck + together with the user's
-  incoming 15-key MK.2. Complete MK.2 geometry, key rendering/input, brightness and
+  connected 15-key MK.2. Complete MK.2 geometry, key rendering/input, brightness and
   recovery prerequisites for this pair; qualify each model before advertising
   support. Simulate two identical devices as well as mixed models, and track the
   additional physical identical-model check separately.
 
-### Plugins and integrations
+### Plugins and integrations — moved to V2 on October 15
 
 - **Native host foundations:** versioned contracts and saved settings, isolated
   processes, bounded dispatch, permissions, cancellation and recovery.
@@ -416,14 +708,14 @@ next-step lists describe their historical checkpoint; use this overview to resum
 - **Built-in system monitors:** ship local system-information displays with
   Decksmith, including CPU, memory, storage, network and uptime; expose available
   hardware temperatures/GPU metrics with clear fallbacks. No third-party plugin
-  download is required. See [system monitor requirements](#built-in-system-monitors--v15-target).
+  download is required. See [system monitor requirements](#built-in-system-monitors--v2-target).
 - **Dependency diagnostics:** actionable missing/incompatible-provider information
   while retaining unavailable assignments and settings.
 - **Compatibility:** native host first, then the verified OpenAction subset and
   catalog; separately qualify compatible Linux-native/Node.js Stream Deck plugins.
 - **Optional feasibility only:** Spotify-specific and AI controls after the native
-  host; neither is a V1.5 release blocker. See [plugin foundations](#plugin-architecture-foundations--remaining-production-work)
-  and [plugin delivery](#plugin-support--v15-target).
+  host; neither is core V1.5 release work. See [plugin foundations](#plugin-architecture-foundations--remaining-production-work)
+  and [plugin delivery](#plugin-support--v2-target).
 
 ### GNOME/Wayland compatibility and installation
 
@@ -546,9 +838,8 @@ V1 qualification covered sustained core/audio/device reliability, human-paced
 accessibility review, clean installation and migration/rollback across builds,
 security and release-artifact verification, and the documented candidate matrix.
 Its accepted coverage and limits are recorded in the release review. Advanced profiles/workspaces, workflows, SQLite migration, panoramic
-canvases, general HTTP/MQTT and RPM packaging are post-V1 product goals. Plugins
-and broad GNOME/Wayland distribution compatibility target V1.5; full five-language
-localization targets V2. The earlier broader v0.4 V1 list must not be used to
+canvases, general HTTP/MQTT and RPM packaging are post-V1 product goals. Broad GNOME/Wayland distribution compatibility remains a separately qualified
+post-V1 goal; plugin delivery and full five-language localization target V2. The earlier broader v0.4 V1 list must not be used to
 claim these features are already implemented.
 
 ### Post-V1 performance milestone — approved October 5
@@ -565,7 +856,8 @@ security and release checks. See the
 Profile remaining periodic work, remove unnecessary queries/encoding and verify
 idle and interactive improvements together. Keep full-service costs visible and
 preserve control responsiveness, safety checks and recovery. Broad GNOME/Wayland
-compatibility and plugin delivery remain V1.5 goals; localization remains V2.
+compatibility remains independently tracked; plugin delivery and localization
+now target V2.
 
 **V1.5 supporting performance work — added October 8:** retain asynchronous,
 cached installed-app discovery and event-driven audio inventory updates. Measure
@@ -601,7 +893,7 @@ See the [release review](v1-release-review.md) and [protocol](input-latency.md).
 3. **Follow-on editor improvements.** Evaluate searchable navigation/actions,
    artwork drag-and-drop and optional compact spacing after the V1 polish pass.
    These are planned candidates, not requirements to expand before reliability
-   acceptance. General plugin delivery stays V1.5; five-language localization V2.
+   acceptance. General plugin delivery and five-language localization now target V2.
 
 ### Reliability checkpoint — September 22
 
@@ -667,7 +959,7 @@ be undone automatically. See the lab handoff for evidence and remaining acceptan
 
 The September 17 architecture priority remains: complete the necessary contract,
 saved-layout and lifecycle foundations before dependent feature work. Plugin
-delivery remains V1.5; the limited managed experiment does not close the general
+delivery now targets V2; the limited managed experiment does not close the general
 host gates below. Use the current V1.5 feature overview to resume; the September 22
 sequence records an earlier reliability checkpoint.
 
@@ -702,7 +994,7 @@ focused tests for any necessary compatibility changes, no regression in built-in
 controls or preview parity, and no material idle/active resource regression.
 The managed OpenHomeB experiment below implements a limited execution path.
 General plugin runtime/installation, Node.js bridging and WebKit settings remain
-V1.5 work; the experiment does not establish general compatibility.
+V2 work; the experiment does not establish general compatibility.
 
 ## Native workspace redesign — implemented September 17
 
@@ -753,11 +1045,11 @@ Older backup credentials are not purged. Failure and cancellation checks pass.
 
 Next: enforceable permission boundaries and sustained resource acceptance. This is not general plugin compatibility or an OS sandbox.
 
-### Plugin support — V1.5 target
+### Plugin support — V2 target
 
-User decision, September 17: plugin delivery targets **V1.5**, after V1 stability,
-performance and core-device acceptance. This supersedes the original baseline's
-V1 plugin target; it is a release milestone, not a promised calendar date.
+User decision, October 15: plugin delivery moves to **V2**, superseding the
+September 17 V1.5 target and original V1 baseline. Complete core multi-device
+reliability first; this is a release milestone, not a promised calendar date.
 
 Deliver the native plugin foundation first:
 
@@ -765,7 +1057,7 @@ Deliver the native plugin foundation first:
 - Separate plugin processes with bounded communication, crash/hang recovery and
   clear diagnostics; built-in controls must continue working after plugin failure.
 - Manifest/runtime validation, local installation, enable/disable and removal.
-- **V1.5 dependency diagnostics — added October 8:** imported layouts must identify
+- **V2 plugin dependency diagnostics — added October 8, retargeted October 15:** imported layouts must identify
   the required provider/action, required versus installed version, missing runtime
   or unsupported platform, and an actionable next step. Preserve unavailable
   assignments/settings through editing, save and export; never execute an
@@ -777,7 +1069,7 @@ Deliver the native plugin foundation first:
 - At least one reference plugin and developer documentation, with acceptance for
   installation/removal, missing dependencies, crashes, restarts and resource use.
 
-#### Built-in system monitors — V1.5 target
+#### Built-in system monitors — V2 target
 
 User request, October 8: include system-information capabilities with Decksmith
 and organize them in the Plugins section as built-in providers. These ship with
@@ -817,9 +1109,9 @@ interface/mount changes, missing sensors, permissions, stale data, import/export
 long/emoji labels and preview parity. Use all four Linux test VMs for supported
 basic metrics, then physical key/touch-strip readability and representative host
 sensors. Measure idle/loaded CPU and memory with several monitors active before
-release. These capabilities are planned for V1.5, not present in published V1.
+release. These capabilities are planned for V2, not present in published V1.
 
-**OpenAction is the first V1.5 compatibility target.** This means implementing
+**OpenAction is the first V2 plugin compatibility target.** This means implementing
 Decksmith's host-side adapter, not embedding the marketplace website or assuming
 that the plugin-author SDK supplies a host. Follow this delivery order:
 
@@ -830,7 +1122,7 @@ that the plugin-author SDK supplies a host. Follow this delivery order:
    compatibility claims. Verify plugin versions, settings UI, missing runtimes,
    device feedback, failure recovery and resource use.
 3. After the host passes those checks, add OpenAction catalog browsing within the
-   Plugins tab as a follow-on V1.5 target. Decksmith manages installation and
+   Plugins tab as a follow-on V2 target. Decksmith manages installation and
    settings; local package installation remains available independently of the
    catalog. Show **Tested**, **Untested** or **Unsupported** per plugin/version,
    with reasons. Catalog membership alone does not establish Linux compatibility.
@@ -849,7 +1141,7 @@ References for the next review (recheck upstream versions when implementation st
 - [Official plugin registry](https://github.com/OpenActionAPI/plugins)
 - [Machine-readable catalog](https://openactionapi.github.io/plugins/catalogue.json)
 
-V1.5 also targets an explicitly documented, tested compatibility subset for open,
+V2 also targets an explicitly documented, tested plugin compatibility subset for open,
 unprotected Stream Deck plugins: Linux-native executables first, then compatible
 Node.js plugins. Compatibility requires its own bridge and isolated WebKitGTK
 settings support where needed; ship only verified combinations and explain
@@ -860,7 +1152,7 @@ A Decksmith-owned marketplace/catalog, Windows plugins through Wine, and broader
 are later work, not V1.5 release requirements. DRM bypass remains out of scope.
 Full five-language localization remains scheduled separately for V2.
 
-**Optional V1.5 integration feasibility — added October 8:**
+**Optional V2 integration feasibility — added October 8, retargeted October 15:**
 
 - **Spotify:** assess library, playlist, search and queue controls through the
   official Web API, with explicit authorization, secure token storage, account
@@ -874,7 +1166,7 @@ Full five-language localization remains scheduled separately for V2.
   delivery commitment; do not automate approvals or execute commands from status
   data. Follow the same native-host permission and resource boundaries.
 
-These are follow-on candidates after the native host, not V1.5 release blockers.
+These are follow-on candidates after the native host, not core V1.5 release work.
 References: [ChatGPT/Codex plugin requirements](https://marketplace.elgato.com/product/chatgpt-codex-fb6a7052-2b1a-4500-ba2a-13996edf0b47)
 and [SDK 3 changes](https://docs.elgato.com/streamdeck/sdk/releases/upgrading/v3/).
 Recheck service requirements and supported protocols when implementation starts.
@@ -965,6 +1257,9 @@ from the optional master mixer. Validate icon and label readability on the physi
 touch strip, including long names, unavailable artwork, and all four active panels.
 
 ### Now Playing, dial action wheels and Dial Stacks — V1.5 targets, added October 8
+
+**October 15 scope update:** unfinished delivery is deferred from the focused
+multi-device V1.5 release. Requirements below remain the follow-up specification.
 
 **Now Playing:** add an optional touch-strip presentation with track title, artist,
 artwork and playback progress where the selected MPRIS player exposes them. Use
@@ -1241,6 +1536,9 @@ of existing requirements, grouped with profiles/context and shared controls.
 
 ### Key single-press, double-press and hold — V1.5 target, added October 9
 
+**October 15 scope update:** unfinished delivery is deferred from the focused
+multi-device V1.5 release. Requirements below remain the follow-up specification.
+
 Provide separate **Single press**, **Double press** and **Hold** action assignments
 for each key within the integrated editor. Single press and push-to-talk work
 today; the core resolver already contains short/double/long-press and repeat
@@ -1319,7 +1617,7 @@ strip. Native provider resolution, live API/startup/roster integration and physi
 paired qualification remain activation gates; installed V1 stays unchanged.
 
 **V1.5 release requirement — confirmed October 9:** deliver simultaneous device
-control, initially qualified with Stream Deck + and the user's incoming MK.2.
+control, initially qualified with Stream Deck + and the user's MK.2.
 This supersedes the earlier separately scoped multi-device milestone. Complete
 the MK.2 adapter/geometry and physical acceptance needed for that pair; broader
 model certification remains independently tracked in the hardware matrix.

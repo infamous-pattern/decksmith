@@ -281,6 +281,13 @@ impl Pool {
             })
             .collect()
     }
+    /// Retiring owners retain the identity slot until reap confirms they ended.
+    pub fn available(&self, id: DeviceId) -> bool {
+        !self.owners.contains_key(&id)
+    }
+    pub fn outstanding(&self) -> usize {
+        self.owners.len()
+    }
     pub fn stop(&self) {
         for o in self.owners.values() {
             let mut s = o.shared.state.lock().unwrap();

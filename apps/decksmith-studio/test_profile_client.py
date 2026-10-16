@@ -57,3 +57,25 @@ class ProfileClientTests(unittest.TestCase):
         from workspace_shell import save_reason
         self.assertIsNone(save_reason(True,True,False,{'workspace_only':True,'running':False,'connected':False}))
         self.assertIsNotNone(save_reason(True,False,False,{'workspace_only':True,'running':False}))
+
+class PermanentClientTests(unittest.TestCase):
+    def test_permanent_test_and_previous_backup_keep_explicit_owner(self):
+        from gi.repository import GLib
+        calls=[]
+        def transport(method,args=None):
+            calls.append((method,args.unpack() if args is not None else ()))
+            if method=='GetProfile':return (json.dumps({'id':'a'*32,'token':{'revision':3},'layout':{}}),)
+            return ('{}',)
+        transport.permanent=True
+        c=DeviceClient({'id':'a'*32,'model':'mk2','name':'Desk','brightness':50},transport)
+        self.assertTrue(c.actions_available)
+        with self.assertRaises(ValueError):c('TestControl',GLib.Variant('(syy)',('{}',0,14)))
+        c('GetLayout');c('TestControl',GLib.Variant('(syy)',('{}',0,14)));c('GetPreviousLayout')
+        self.assertEqual(calls[-2][0],'TestControl');self.assertEqual(calls[-2][1],('a'*32,'{"revision":3}','{}',0,14))
+        self.assertEqual(calls[-1],('GetPreviousProfile',('a'*32,)))
+    def test_permanent_discovery_requires_both_mode_and_version(self):
+        from profile_client import permanent_available
+        from unittest.mock import patch
+        for value,expected in [({'mode':'connected-workspace','api_version':2},False),({'mode':'permanent-service','api_version':1},False),({'mode':'permanent-service','api_version':2},True)]:
+            with patch('profile_client.permanent_transport',return_value=(json.dumps(value),)):
+                self.assertEqual(permanent_available(),expected)

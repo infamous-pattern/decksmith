@@ -199,9 +199,12 @@ requirements below. The supported V1 must provide:
 The original v0.4 list included advanced profile/workflow, storage, capability,
 appearance and packaging features not yet implemented. Their deferrals are mapped
 in the linked plan; they must not be described as V1 capabilities. General plugin
-delivery moved to **V1.5** by the user on September 17, 2026. Broad GNOME/Wayland
-distribution compatibility is also a **V1.5 goal** as of September 23. The plugin
-requirements for that milestone are:
+delivery now targets **V2** by user decision on October 15, superseding the
+September 17 V1.5 plan. The focused V1.5 delivery prioritizes tested simultaneous
+Plus/MK.2 control and accepted interface work; unfinished extras and broader OS
+support retain their separate qualification tracks. See the current
+[release scope decision](ROADMAP.md#current-work--friday-october-16). The V2
+plugin requirements are:
 
 - plugin architecture
 - dynamic capability-provider API for native integrations/plugins

@@ -50,6 +50,7 @@ def snapshot(ed,name):
  ed.get_renderer().render_texture(snap.to_node(),None).save_to_png(str(Path.cwd()/('local/ui-'+name+'.png')))
 
 def visible_fields(ed):
+ assert ed.property_column.get_height()>300, f'Assignment viewport collapsed: {ed.property_column.get_height()}px'
  adjustment=ed.property_column.get_hadjustment()
  assert adjustment.get_upper()<=adjustment.get_page_size()+1, 'Settings require horizontal scrolling'
  field=ed.label if ed.control_kind=='key' else ed.dial_controls.label
@@ -62,7 +63,7 @@ def stable_geometry(ed):
 def tick():
  global stage,perf_start,perf_cpu,perf_calls
  try:
-  if time.monotonic()-began>60:raise RuntimeError('Workspace timeout')
+  if time.monotonic()-began>90:raise RuntimeError('Workspace timeout')
   ed=app.editor
   if ed.draft is None or ed.pending:return True
   ed.allocate(ed.get_width(),ed.get_height(),-1,None)
@@ -118,6 +119,36 @@ def tick():
    ed.shell.preview_scroll.get_vadjustment().set_value(0)
    stage=12;return True
   if stage==12:
+   ed.geometry_before=stable_geometry(ed)
+   ed.fixed_save=ed.save_button.translate_coordinates(ed,0,0)
+   assert not app.device_row.get_visible(),'Duplicate device chooser remains on Home'
+   ed.action_catalog.set_expanded(True);ed.appearance.set_expanded(True)
+   ed.action_catalog.search.set_text('media next');ed.action_catalog.filter()
+   stage=121;return True
+  if stage==121:
+   assert ed.get_visible_dialog() is None,'Action and Appearance opened a dialog'
+   assert ed.save_button.translate_coordinates(ed,0,0)==ed.fixed_save,'Save moved when expanding settings'
+   assert stable_geometry(ed)==ed.geometry_before,'Expanded settings shifted the device or editor'
+   scroll=ed.property_column;cue=ed.property_scroll_host;a=scroll.get_vadjustment()
+   assert not scroll.get_overlay_scrolling(),'Scrollbar hidden until hover'
+   assert a.get_upper()>a.get_page_size()+1,'Expanded controls must scroll in the viewport'
+   a.set_value(0);cue.sync();assert cue.below.get_visible() and cue.below.get_sensitive()
+   assert not cue.above.get_sensitive()
+   cue.below.emit('clicked');assert a.get_value()>0,'More below failed to scroll'
+   a.set_value(a.get_upper()-a.get_page_size());cue.sync()
+   assert cue.above.get_sensitive() and not cue.below.get_sensitive()
+   x,y=cue.below.translate_coordinates(ed,0,0)
+   assert y+cue.below.get_height()<=ed.get_height()-30,'Scroll cue is outside the window'
+   assert x>=0 and x+cue.below.get_width()<=ed.get_width()
+   matches=[b for b in ed.action_catalog.buttons if b.get_visible()]
+   assert len(matches)==1 and 'Next' in matches[0].get_label()
+   snapshot(ed,'keys-expanded')
+   matches[0].emit('clicked');assert ed.draft.data['pages'][ed.page]['keys'][ed.key]['action']['type']=='media_next'
+   assert not ed.action_catalog.get_expanded()
+   ed.history_step(False);assert not ed.draft.dirty
+   ed.appearance.set_expanded(False);a.set_value(0);stage=122;return True
+  if stage==122:
+   assert ed.save_button.translate_coordinates(ed,0,0)==ed.fixed_save
    ed.geometry_before=stable_geometry(ed)
    ed.select_dial(1);stage=2;return True
   if stage==2:

@@ -7,7 +7,7 @@ StartLimitBurst=3
 
 [Service]
 Type=exec
-ExecStart=@DAEMON@ --config @CONFIG@ --exclusive --run
+ExecStart=@DAEMON@ --multi-device --config @CONFIG@ --run
 Environment=PYTHONDONTWRITEBYTECODE=1
 Restart=on-failure
 RestartSec=2

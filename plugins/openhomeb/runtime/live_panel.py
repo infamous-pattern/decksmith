@@ -228,7 +228,7 @@ class LivePanel:
         self.command_task = asyncio.create_task(self.perform(name))
         return {'ok': True}
 
-    async def perform(self, name, hardware_ticks=None):
+    async def perform(self, name, hardware_ticks=None, authorize=None):
         if self.connection_config.get('removed'):return False
         started=time.monotonic()
         trace={'command':name,'ticks':hardware_ticks}
@@ -264,6 +264,7 @@ class LivePanel:
             trace['before']=dict(self.actual)
             if name in ('on', 'off'):
                 expected = name == 'on'
+                if authorize is not None:await authorize()
                 if not await self.host.input(name, 'keyUp', self.host.epoch):
                     raise RuntimeError('action failed')
                 context = name
@@ -276,6 +277,7 @@ class LivePanel:
                 expected = max(0, min(100, self.actual['brightness'] + ticks))
                 trace['expected']=expected
                 context = 'brightness'
+                if authorize is not None:await authorize()
                 if not await self.host.input(context, 'dialRotate', self.host.epoch, ticks=ticks):
                     raise RuntimeError('input rejected')
                 async with asyncio.timeout(8):

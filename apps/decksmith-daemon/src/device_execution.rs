@@ -102,6 +102,8 @@ pub struct Runtime {
     io: actor::Pool,
     renders: device_render::Pool,
     actions: shared_worker::Service,
+    homebridge_actions: Option<shared_worker::Service>,
+    homebridge_uncertain: Option<Arc<std::sync::atomic::AtomicBool>>,
     mics: Option<shared_microphone::Service>,
     mic_fatal_reported: bool,
     mirror: Arc<RwLock<View>>,
@@ -114,9 +116,12 @@ pub struct Runtime {
     stopped: bool,
     media_bindings: Option<BTreeMap<String, crate::shared_native_media::Session>>,
     native_plan: Option<crate::saved_native::Plan>,
+    native_uncertain: Option<Arc<std::sync::atomic::AtomicBool>>,
     native_observer: Option<crate::shared_native_state::Observer>,
     native_states: Vec<(String, Option<crate::audio::State>)>,
     native_contexts: BTreeMap<DeviceId, DeviceContext>,
+    system_states: crate::system_actions::States,
+    system_contexts: BTreeMap<DeviceId, Option<u8>>,
     native_meter: Option<crate::meter::Worker>,
     native_meter_targets: Vec<String>,
     native_meter_epoch: u64,
@@ -124,6 +129,16 @@ pub struct Runtime {
     edits: BTreeMap<DeviceId, EditTicket>,
     edit_epoch: u64,
     gate_state: (bool, bool),
+    manual_gate: (bool, bool),
+    host_locked: bool,
+    host_sleeping: bool,
+    host_sleep_epoch: Option<u64>,
+    reopen_after: Option<Instant>,
+    retired_errors: BTreeMap<DeviceId, decksmith_device::DeviceError>,
+    dynamic_media: bool,
+    host_lock_epoch: Option<u64>,
+    gated_frames: BTreeMap<DeviceId, Arc<crate::profile_control::Frame>>,
+    gated_painted: BTreeMap<DeviceId, u64>,
 }
 impl Runtime {
     pub fn start(
@@ -157,6 +172,22 @@ impl Runtime {
             layouts.insert(*id, Arc::from(catalog.profile(*id)?.document().bytes()));
             touch.insert(*id, TouchState::default());
         }
+        let mut model_frames: Vec<(
+            decksmith_core::device_model::DeviceModel,
+            Arc<crate::profile_control::Frame>,
+        )> = Vec::new();
+        let mut gated_frames = BTreeMap::new();
+        for unit in catalog.summaries() {
+            let frame = match model_frames.iter().find(|(model, _)| *model == unit.model) {
+                Some((_, frame)) => frame.clone(),
+                None => {
+                    let frame = Arc::new(crate::session_lock::model_frame(unit.model));
+                    model_frames.push((unit.model, frame.clone()));
+                    frame
+                }
+            };
+            gated_frames.insert(unit.id, frame);
+        }
         Ok(Self {
             controls,
             catalog,
@@ -166,6 +197,8 @@ impl Runtime {
             io: actor::Pool::default(),
             renders,
             actions,
+            homebridge_actions: None,
+            homebridge_uncertain: None,
             mics,
             mic_fatal_reported: false,
             mirror,
@@ -178,9 +211,12 @@ impl Runtime {
             stopped: false,
             media_bindings: None,
             native_plan: None,
+            native_uncertain: None,
             native_observer: None,
             native_states: Vec::new(),
             native_contexts: BTreeMap::new(),
+            system_states: Default::default(),
+            system_contexts: BTreeMap::new(),
             native_meter: None,
             native_meter_targets: Vec::new(),
             native_meter_epoch: 1,
@@ -188,6 +224,16 @@ impl Runtime {
             edits: BTreeMap::new(),
             edit_epoch: 1,
             gate_state: (false, false),
+            manual_gate: (false, false),
+            host_locked: false,
+            host_sleeping: false,
+            host_sleep_epoch: None,
+            reopen_after: None,
+            retired_errors: BTreeMap::new(),
+            dynamic_media: false,
+            host_lock_epoch: None,
+            gated_frames,
+            gated_painted: BTreeMap::new(),
         })
     }
     /// Prepared off the input coordinator. Exactly one native executor serializes
@@ -198,6 +244,7 @@ impl Runtime {
         bindings: Vec<crate::shared_native_media::Session>,
     ) -> Result<Self> {
         let plan = crate::saved_native::Plan::from_catalog(&catalog)?;
+        let uncertain = backend.health();
         if bindings.iter().any(|s| !plan.media.contains(&s.selector)) {
             return Err("native_media_payload_mismatch");
         }
@@ -208,6 +255,7 @@ impl Runtime {
         let mut runtime = Self::start(catalog, vec![Box::new(backend)], Some(microphones))?;
         runtime.bind_native_media(bindings)?;
         runtime.native_plan = Some(plan);
+        runtime.native_uncertain = Some(uncertain);
         runtime.native_observer = observer;
         runtime.native_meter = Some(crate::meter::Worker::start_shared());
         Ok(runtime)
@@ -321,6 +369,7 @@ impl Runtime {
         self.native_plan = Some(prepared.plan);
         self.media_bindings = Some(prepared.bindings);
         self.native_contexts.remove(&id);
+        self.system_contexts.remove(&id);
         self.edits.remove(&id);
         self.touch.get_mut(&id).unwrap().levels.clear();
         self.next_meter = Instant::now();
@@ -373,9 +422,10 @@ impl Runtime {
                     s.input_ready = false;
                     s.error = Some("profile_update_pending".into());
                 }
-                if self.dirty.contains(&s.id)
-                    || self.strip_dirty.contains(&s.id)
-                    || self.render_pending.contains(&s.id)
+                if !(self.gate_state.0 || self.gate_state.1)
+                    && (self.dirty.contains(&s.id)
+                        || self.strip_dirty.contains(&s.id)
+                        || self.render_pending.contains(&s.id))
                 {
                     s.display_ready = false;
                 }
@@ -384,46 +434,86 @@ impl Runtime {
             .collect()
     }
     fn revoke(&mut self, id: DeviceId) {
+        // Connection/page/desktop fences cancel any old edit reservation too.
+        // reserve_edit installs its new ticket only after this revocation.
+        self.edits.remove(&id);
+        self.gated_painted.remove(&id);
         self.mirror.write().unwrap().entries.remove(&id);
         self.renders.invalidate(id);
         self.render_pending.remove(&id);
         self.painted.remove(&id);
         self.dirty.insert(id);
         self.actions.invalidate();
+        if let Some(actions) = &self.homebridge_actions {
+            actions.invalidate();
+        }
         if let Some(m) = &self.mics {
             let _ = m.invalidate();
         }
     }
     fn sync(&mut self) {
-        let mut view = self.mirror.write().unwrap();
-        view.entries.clear();
-        for status in self.statuses() {
-            if self.edits.contains_key(&status.id) {
-                continue;
-            }
-            if let (Ok(context), Some(lease)) = (
-                self.controls
-                    .manager()
-                    .context(status.id, ControlAddress::Key(0)),
-                self.leases.get(&status.id),
-            ) {
-                let epoch = lease.epoch();
-                if lease.accepts(epoch) {
-                    view.entries.insert(
-                        status.id,
-                        Entry {
-                            context,
-                            lease: lease.clone(),
-                            epoch,
-                            model: status.model,
-                        },
-                    );
+        // Build a small candidate view without holding the authority lock while
+        // reading device readiness. Live lease checks remain independent, so a
+        // device failure rejects effects even before this coordinator observes it.
+        let next: Vec<_> = self
+            .statuses()
+            .into_iter()
+            .filter_map(|status| {
+                if self.edits.contains_key(&status.id) {
+                    return None;
                 }
+                let context = self
+                    .controls
+                    .manager()
+                    .context(status.id, ControlAddress::Key(0))
+                    .ok()?;
+                let lease = self.leases.get(&status.id)?;
+                let epoch = lease.epoch();
+                lease
+                    .accepts(epoch)
+                    .then_some((status.id, context, lease, epoch, status.model))
+            })
+            .collect();
+        let mut view = self.mirror.write().unwrap();
+        if view.entries.len() == next.len()
+            && next.iter().all(|(id, context, _, epoch, model)| {
+                view.entries.get(id).is_some_and(|old| {
+                    old.context == *context && old.epoch == *epoch && old.model == *model
+                })
+            })
+        {
+            // No fence changed: do not rebuild the map or wake idle providers.
+            // Connection generations distinguish replacement leases. Explicit
+            // revocation paths still invalidate immediately, even before sync.
+            self.holds.retain(|_, token| view.accepts(&token.scope));
+            drop(view);
+            // Preserve the existing microphone maintenance cadence, including
+            // a lease failure racing the unchanged-view check above.
+            if let Some(m) = &self.mics {
+                let _ = m.invalidate();
             }
+            return;
         }
+        view.entries = next
+            .into_iter()
+            .map(|(id, context, lease, epoch, model)| {
+                (
+                    id,
+                    Entry {
+                        context,
+                        lease: lease.clone(),
+                        epoch,
+                        model,
+                    },
+                )
+            })
+            .collect();
         self.holds.retain(|_, token| view.accepts(&token.scope));
         drop(view);
         self.actions.invalidate();
+        if let Some(actions) = &self.homebridge_actions {
+            actions.invalidate();
+        }
         if let Some(m) = &self.mics {
             let _ = m.invalidate();
         }
@@ -465,6 +555,13 @@ impl Runtime {
             .controls
             .manager()
             .attachment_target(revision, discovery, slot)?;
+        if self.gate_state.1
+            || self
+                .reopen_after
+                .is_some_and(|deadline| Instant::now() < deadline)
+        {
+            return Err("device_resuming");
+        }
         let model = self.catalog.profile(id)?.document().model();
         if device.descriptor().model() != model {
             return Err("device_model_mismatch");
@@ -495,8 +592,121 @@ impl Runtime {
         self.sync();
         result
     }
+    pub(crate) fn enable_homebridge(&mut self) -> Result<()> {
+        if self.homebridge_actions.is_some() {
+            return Ok(());
+        }
+        let view = self.mirror.clone();
+        let authority: Authority = Arc::new(move |scope| view.read().unwrap().accepts(scope));
+        let ids: Vec<_> = self.layouts.keys().copied().collect();
+        let backend = crate::plugin_runtime::HomebridgeBackend::default();
+        self.homebridge_uncertain = Some(backend.health());
+        self.homebridge_actions = Some(shared_worker::Service::start(
+            self.instance(),
+            &ids,
+            authority,
+            vec![Box::new(backend)],
+        )?);
+        Ok(())
+    }
+    pub(crate) fn enable_dynamic_media(&mut self) {
+        self.dynamic_media = true;
+    }
+    /// Observe an owned logind preparation generation. Unknown state is passed
+    /// as blocked. Detach old handles even after a short complete sleep cycle.
+    pub(crate) fn host_sleep(&mut self, blocked: bool, epoch: u64) -> Result<()> {
+        if self.host_sleep_epoch.is_some_and(|old| epoch < old) {
+            return Err("stale_host_sleep_epoch");
+        }
+        let changed = self.host_sleep_epoch != Some(epoch);
+        let had_observation = self.host_sleep_epoch.is_some();
+        let was_blocked = self.host_sleeping;
+        let had_connection = self.statuses().iter().any(|unit| unit.connection > 0);
+        if !changed && blocked == was_blocked {
+            return Ok(());
+        }
+        self.host_sleeping = blocked;
+        self.host_sleep_epoch = Some(epoch);
+        self.apply_gate(true)?;
+        if blocked || changed && had_observation {
+            if blocked && !was_blocked {
+                self.retired_errors.clear();
+            }
+            let ids: Vec<_> = self
+                .statuses()
+                .into_iter()
+                .filter(|unit| unit.connected)
+                .map(|unit| unit.id)
+                .collect();
+            for id in ids {
+                self.disconnect(id)?;
+            }
+            self.reopen_after = had_connection.then(|| Instant::now() + Duration::from_secs(2));
+        }
+        if !blocked && was_blocked {
+            self.reopen_after = had_connection.then(|| Instant::now() + Duration::from_secs(2));
+        }
+        Ok(())
+    }
+    /// Actual guardian acknowledgement plus finished target reservations and
+    /// retired USB writers; no blocking join runs on this coordinator.
+    pub(crate) fn sleep_ready(&self) -> bool {
+        self.host_sleeping
+            && self.io.outstanding() == 0
+            && self.retired_errors.is_empty()
+            && self
+                .native_uncertain
+                .as_ref()
+                .is_none_or(|flag| !flag.load(std::sync::atomic::Ordering::Acquire))
+            && self
+                .homebridge_uncertain
+                .as_ref()
+                .is_none_or(|flag| !flag.load(std::sync::atomic::Ordering::Acquire))
+            && self.actions.quiet()
+            && self
+                .homebridge_actions
+                .as_ref()
+                .is_none_or(|actions| actions.quiet())
+            && self.mics.as_ref().is_none_or(|mic| mic.quiet())
+    }
+    pub(crate) fn sleep_errors(&self) -> Vec<(DeviceId, String)> {
+        self.retired_errors
+            .iter()
+            .map(|(id, error)| (*id, error.to_string()))
+            .collect()
+    }
+    /// One missing or retiring unit cannot prevent a healthy partner reopening.
+    pub(crate) fn ready_to_attach(&self, id: DeviceId) -> bool {
+        !self.gate_state.1
+            && self
+                .reopen_after
+                .is_none_or(|deadline| Instant::now() >= deadline)
+            && self.io.available(id)
+    }
     pub fn gate(&mut self, locked: bool, suspended: bool) -> Result<()> {
-        if self.gate_state == (locked, suspended) {
+        self.manual_gate = (locked, suspended);
+        self.apply_gate(false)
+    }
+    /// Host observations cannot clear an independent/manual safety gate. Epochs
+    /// retain a brief lock/unlock even when the coordinator sees only unlocked.
+    pub(crate) fn host_lock(&mut self, locked: bool, epoch: u64) -> Result<()> {
+        if self
+            .host_lock_epoch
+            .is_some_and(|previous| epoch < previous)
+        {
+            return Err("stale_host_lock_epoch");
+        }
+        let changed = self.host_lock_epoch != Some(epoch);
+        self.host_locked = locked;
+        self.host_lock_epoch = Some(epoch);
+        self.apply_gate(changed)
+    }
+    fn apply_gate(&mut self, force: bool) -> Result<()> {
+        let state = (
+            self.manual_gate.0 || self.host_locked,
+            self.manual_gate.1 || self.host_sleeping,
+        );
+        if !force && self.gate_state == state {
             return Ok(());
         }
         self.edit_epoch = self
@@ -507,13 +717,43 @@ impl Runtime {
         for id in ids {
             self.revoke(id);
         }
-        let result = self.controls.gate(locked, suspended);
-        if result.is_ok() {
-            self.gate_state = (locked, suspended);
-            self.next_meter = Instant::now();
-        }
+        self.controls.fence_gate(state.0, state.1)?;
+        // Reservations cannot survive a desktop lifecycle fence. A worker that
+        // already published reports apply failure; it must never keep the
+        // recovered physical session disabled or revive the stale ticket.
+        self.edits.clear();
+        self.gate_state = state;
+        self.gated_painted.clear();
+        self.next_meter = Instant::now();
         self.sync();
-        result
+        Ok(())
+    }
+    fn paint_gated(&mut self) {
+        if !self.gate_state.0 && !self.gate_state.1 {
+            return;
+        }
+        for status in self.controls.manager().statuses() {
+            let Some(lease) = self.leases.get(&status.id) else {
+                continue;
+            };
+            let epoch = lease.epoch();
+            if !status.connected
+                || !lease.accepts(epoch)
+                || self.gated_painted.get(&status.id) == Some(&epoch)
+            {
+                continue;
+            }
+            let Some(frame) = self.gated_frames.get(&status.id) else {
+                continue;
+            };
+            if self
+                .controls
+                .paint_gated(status.id, &frame.keys, frame.touch.as_deref())
+                .is_ok()
+            {
+                self.gated_painted.insert(status.id, epoch);
+            }
+        }
     }
     pub fn foreground(&mut self, revision: u64) -> Result<()> {
         let previous = self.mirror.read().unwrap().foreground;
@@ -555,10 +795,135 @@ impl Runtime {
         self.catalog = catalog;
         self.native_plan = plan;
         self.native_contexts.remove(&id);
+        self.system_contexts.remove(&id);
         self.touch.get_mut(&id).unwrap().levels.clear();
         self.next_meter = Instant::now();
         self.sync();
         Ok(())
+    }
+    /// A saved, currently visible control only; never execute draft JSON or arm
+    /// a physical press. The caller's exact context is checked again by routing.
+    pub(crate) fn test_control(
+        &mut self,
+        context: DeviceContext,
+        raw: &str,
+        page: u8,
+        slot: u8,
+    ) -> Result<()> {
+        if raw.len() > crate::layout_document::LIMIT {
+            return Err("layout_too_large");
+        }
+        let unit = self
+            .statuses()
+            .into_iter()
+            .find(|unit| unit.id == context.device)
+            .ok_or("unknown_device")?;
+        if !unit.input_ready || !unit.display_ready {
+            return Err("device_not_ready");
+        }
+        let profile = self.catalog.profile(context.device)?;
+        let descriptor = profile.document().descriptor();
+        let event = if slot < descriptor.key_count() {
+            RawEvent::Key {
+                index: slot,
+                pressed: false,
+            }
+        } else if descriptor.model() == decksmith_core::device_model::DeviceModel::Plus
+            && (8..12).contains(&slot)
+        {
+            RawEvent::DialPush {
+                index: slot - 8,
+                pressed: false,
+            }
+        } else {
+            return Err("invalid_control");
+        };
+        let current = DeviceContext {
+            control: event.control(),
+            ..context
+        };
+        if self.context(context.device, event.control())? != current || unit.page != Some(page) {
+            return Err("save_and_select_page_first");
+        }
+        let supplied: serde_json::Value =
+            serde_json::from_str(raw).map_err(|_| "invalid_config")?;
+        let saved: serde_json::Value =
+            serde_json::from_slice(profile.document().bytes()).map_err(|_| "invalid_config")?;
+        if supplied != saved {
+            return Err("save_and_select_page_first");
+        }
+        let received = decksmith_device::manager::ReceivedInput {
+            context: current,
+            input: decksmith_core::InputEvent {
+                timestamp_ms: 0,
+                event,
+            },
+            received_at: None,
+        };
+        match self.controls.resolve(&received)? {
+            Some(Action::PushToTalk { .. }) => return Err("test_push_to_talk_on_device"),
+            None | Some(Action::None) => return Err("no_action_assigned"),
+            _ => {}
+        }
+        self.route(received).map(|_| ())
+    }
+    pub(crate) fn refresh_plugin_display(&mut self) {
+        let Some(plan) = &self.native_plan else {
+            return;
+        };
+        for unit in self.controls.manager().statuses() {
+            if unit.connected
+                && unit
+                    .page
+                    .and_then(|page| {
+                        plan.pages
+                            .get(&unit.id)
+                            .and_then(|pages| pages.get(usize::from(page)))
+                    })
+                    .is_some_and(|page| page.homebridge)
+            {
+                self.dirty.insert(unit.id);
+            }
+        }
+    }
+    pub(crate) fn update_system(&mut self, states: crate::system_actions::States) {
+        if self.system_states != states {
+            self.system_states = states;
+            self.system_contexts.clear();
+            self.sync_system();
+        }
+    }
+    fn sync_system(&mut self) {
+        let Some(plan) = &self.native_plan else {
+            return;
+        };
+        for unit in self.controls.manager().statuses() {
+            if self.system_contexts.get(&unit.id) == Some(&unit.page) {
+                continue;
+            }
+            self.system_contexts.insert(unit.id, unit.page);
+            let state = unit
+                .page
+                .and_then(|page| {
+                    plan.pages
+                        .get(&unit.id)
+                        .and_then(|pages| pages.get(usize::from(page)))
+                })
+                .map(|page| {
+                    self.system_states
+                        .iter()
+                        .filter(|(command, _)| page.system.contains(*command))
+                        .map(|(command, state)| (command.clone(), state.clone()))
+                        .collect()
+                })
+                .unwrap_or_default();
+            if let Some(touch) = self.touch.get_mut(&unit.id)
+                && touch.system != state
+            {
+                touch.system = state;
+                self.dirty.insert(unit.id);
+            }
+        }
     }
     pub fn update_touch(&mut self, id: DeviceId, state: TouchState) -> Result<()> {
         if state.targets.len() > 32 || state.levels.len() > 32 || state.feedback.len() > 32 {
@@ -654,16 +1019,41 @@ impl Runtime {
                 };
                 Ok(None)
             }
+            plugin @ Action::Plugin { .. } => self
+                .homebridge_actions
+                .as_ref()
+                .ok_or("homebridge_unavailable")?
+                .submit(
+                    self.scope(event.context),
+                    Compiled::homebridge(plugin)?,
+                    event.received_at,
+                )
+                .map(Some),
+            builtin @ (Action::OpenApplication { .. }
+            | Action::OpenWebsite { .. }
+            | Action::System { .. }
+            | Action::AudioSelect { .. }) => self
+                .actions
+                .submit(
+                    self.scope(event.context),
+                    Compiled::builtin(builtin)?,
+                    event.received_at,
+                )
+                .map(Some),
             Action::MediaTarget { player, command } => self
                 .actions
                 .submit(
                     self.scope(event.context),
-                    match &self.media_bindings {
-                        Some(bindings) => Compiled::media_bound(
-                            bindings.get(&player).ok_or("media_unavailable")?.clone(),
-                            &command,
-                        )?,
-                        None => Compiled::media(&player, &command)?,
+                    if self.dynamic_media {
+                        Compiled::media_selector(&player, &command)?
+                    } else {
+                        match &self.media_bindings {
+                            Some(bindings) => Compiled::media_bound(
+                                bindings.get(&player).ok_or("media_unavailable")?.clone(),
+                                &command,
+                            )?,
+                            None => Compiled::media(&player, &command)?,
+                        }
                     },
                     event.received_at,
                 )
@@ -694,7 +1084,12 @@ impl Runtime {
         if self.stopped {
             return Vec::new();
         }
-        self.io.reap();
+        for (id, outcome) in self.io.reap() {
+            if let Err(error) = outcome {
+                self.retired_errors.insert(id, error);
+            }
+        }
+        self.paint_gated();
         let events = self.controls.poll_round();
         self.sync();
         let mut feedback = Vec::new();
@@ -708,6 +1103,7 @@ impl Runtime {
             }
         }
         self.sync();
+        self.sync_system();
         self.poll_native_meters();
         if let Some(plan) = &self.native_plan {
             let changed = self
@@ -812,6 +1208,14 @@ impl Runtime {
                 scope: reply.completion.scope,
                 result: reply.completion.result,
             });
+        }
+        if let Some(actions) = &self.homebridge_actions {
+            while let Ok(Some(reply)) = actions.poll() {
+                feedback.push(Feedback {
+                    scope: reply.completion.scope,
+                    result: reply.completion.result,
+                });
+            }
         }
         for reply in self.renders.poll() {
             self.render_pending.remove(&reply.scope.device.device);
@@ -943,6 +1347,9 @@ impl Runtime {
         self.stopped = true;
         self.mirror.write().unwrap().entries.clear();
         self.actions.stop();
+        if let Some(actions) = &self.homebridge_actions {
+            actions.stop();
+        }
         if let Some(m) = &self.mics {
             let _ = m.stop();
         }
@@ -952,6 +1359,9 @@ impl Runtime {
         // Effects must settle before the caller reports/starts restoration. A
         // late native timeout still records its uncertainty after scope revoke.
         self.actions.quiesce();
+        if let Some(actions) = &mut self.homebridge_actions {
+            actions.quiesce();
+        }
         if let Some(mics) = self.mics.take() {
             mics.join();
         }
@@ -977,6 +1387,104 @@ mod meter_tests {
         fn execute(&mut self, _: &crate::pages::Action, _: &shared_worker::Fence) -> Result<()> {
             Err("fixture_no_effects")
         }
+    }
+    #[test]
+    fn cached_system_and_plugin_feedback_follow_page_without_new_observer_sample() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-provider-display-{}",
+            random_device_id().unwrap()
+        ));
+        let store = Store::create(&root).unwrap();
+        let id = random_device_id().unwrap();
+        let discovery = Discovery::new(vec![Candidate::new(
+            0,
+            DeviceModel::Plus,
+            Some("display-fixture"),
+        )])
+        .unwrap();
+        store
+            .enroll(0, &discovery, 0, Enrollment::new(id, "Display", 50, None))
+            .unwrap();
+        let keys = |command: &str, plugin: bool| {
+            (0..8).map(|index| {
+            if index==0 {serde_json::json!({"label":"System","action":{"type":"system","command":command}})}
+            else if index==1&&plugin {serde_json::json!({"label":"Accessory","action":{"type":"none"},"plugin":{"provider":"com.infamous-pattern.openhomeb","action":"com.infamous-pattern.openhomeb.status","schema":2,"settings":{"accessoryId":"a".repeat(64)}}})}
+            else {serde_json::json!({"label":"Empty","action":{"type":"none"}})}
+        }).collect::<Vec<_>>()
+        };
+        let layout = serde_json::json!({"version":2,"model":"plus","pages":[{"name":"One","background":[30,34,39],"keys":keys("dnd",false)},{"name":"Two","background":[30,34,39],"keys":keys("bluetooth",true)}]});
+        store
+            .save_profile(
+                id,
+                1,
+                &serde_json::to_vec(&layout).unwrap(),
+                0,
+                "Display",
+                50,
+            )
+            .unwrap();
+        let catalog = store.load().unwrap();
+        let plan = crate::saved_native::Plan::from_catalog(&catalog).unwrap();
+        let mut runtime = Runtime::start(catalog, vec![Box::new(NoEffects)], None).unwrap();
+        runtime.native_plan = Some(plan);
+        runtime.touch.get_mut(&id).unwrap().audio = Some(None);
+        let states = [
+            (
+                "dnd".into(),
+                crate::system_actions::State {
+                    available: true,
+                    active: true,
+                    text: "On".into(),
+                },
+            ),
+            (
+                "bluetooth".into(),
+                crate::system_actions::State {
+                    available: true,
+                    active: false,
+                    text: "Off".into(),
+                },
+            ),
+        ]
+        .into_iter()
+        .collect();
+        runtime.update_system(states);
+        assert_eq!(runtime.touch[&id].system.len(), 1);
+        assert!(runtime.touch[&id].system["dnd"].active);
+        assert_eq!(runtime.touch[&id].audio, Some(None));
+        runtime.dirty.clear();
+        runtime.refresh_plugin_display();
+        assert!(runtime.dirty.is_empty());
+        let revision = runtime
+            .discover(Discovery::new(discovery.candidates().to_vec()).unwrap())
+            .unwrap();
+        runtime
+            .attach(
+                revision,
+                &discovery,
+                0,
+                Box::new(VirtualDeck::new(DeviceModel::Plus)),
+            )
+            .unwrap();
+        let end = Instant::now() + Duration::from_secs(5);
+        while !runtime.statuses()[0].input_ready || !runtime.statuses()[0].display_ready {
+            assert!(Instant::now() < end);
+            runtime.tick();
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        runtime
+            .navigate(runtime.context(id, ControlAddress::Key(0)).unwrap(), 1)
+            .unwrap();
+        runtime.tick();
+        assert_eq!(runtime.touch[&id].system.len(), 1);
+        assert!(!runtime.touch[&id].system["bluetooth"].active);
+        assert!(!runtime.touch[&id].system.contains_key("dnd"));
+        runtime.dirty.clear();
+        runtime.refresh_plugin_display();
+        assert!(runtime.dirty.contains(&id));
+        runtime.stop();
+        drop(runtime);
+        let _ = std::fs::remove_dir_all(root);
     }
     #[test]
     fn saved_meter_pipeline_routes_pages_and_disconnects_without_partner_or_key_repaint() {
@@ -1123,3 +1631,6 @@ mod meter_tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[cfg(test)]
+mod coordinator_tests;

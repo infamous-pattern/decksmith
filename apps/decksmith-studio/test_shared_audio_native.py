@@ -88,3 +88,26 @@ class SharedAudioTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class SharedAudioSelectionTests(unittest.TestCase):
+    def test_exact_device_selection_uses_grant_after_fresh_identity(self):
+        from unittest.mock import Mock
+        n=node();n['name']='speakers'
+        snapshot=Mock();snapshot.return_value.nodes.return_value=('sinks',[n])
+        writes=Mock();output=io.StringIO()
+        shared.execute({'type':'audio_select','target':'output:speakers'},io.StringIO('{"decision":"apply"}\n'),output,snapshot=snapshot,command=writes,socket=lambda:(1,2))
+        writes.assert_called_once_with('set-default-sink','speakers')
+        self.assertEqual(output.getvalue().count('ready'),1)
+
+    def test_missing_ambiguous_replaced_or_stale_selection_does_not_change_default(self):
+        from unittest.mock import Mock
+        n=node();n['name']='speakers';replacement=dict(n,properties={'object.serial':'99'})
+        for inventory,decision in [([[],[]],'apply'),([[n,n],[n]],'apply'),([[n],[replacement]],'apply'),([[n],[n]],'abort')]:
+            snapshot=Mock();snapshot.return_value.nodes.side_effect=[('sinks',nodes) for nodes in inventory]
+            writes=Mock()
+            with self.assertRaises(ValueError):
+                shared.execute({'type':'audio_select','target':'output:speakers'},io.StringIO(json_line(decision)),io.StringIO(),snapshot=snapshot,command=writes,socket=lambda:(1,2))
+            writes.assert_not_called()
+
+
+def json_line(decision):return __import__('json').dumps({'decision':decision})+'\n'

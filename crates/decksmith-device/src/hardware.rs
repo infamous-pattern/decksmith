@@ -15,7 +15,7 @@ use std::{
 };
 
 mod inventory;
-pub use inventory::{HardwareOwner, Inventory};
+pub use inventory::{HardwareOwner, Inventory, InventoryCache};
 
 #[derive(Debug, Serialize)]
 pub struct HardwareInfo {

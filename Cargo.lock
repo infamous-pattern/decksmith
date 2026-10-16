@@ -284,14 +284,14 @@ dependencies = [
 
 [[package]]
 name = "decksmith-core"
-version = "1.0.0"
+version = "1.5.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "decksmith-device"
-version = "1.0.0"
+version = "1.5.0"
 dependencies = [
  "decksmith-core",
  "elgato-streamdeck",
@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "decksmithctl"
-version = "1.0.0"
+version = "1.5.0"
 dependencies = [
  "decksmith-core",
  "decksmith-device",
@@ -316,7 +316,7 @@ dependencies = [
 
 [[package]]
 name = "decksmithd"
-version = "1.0.0"
+version = "1.5.0"
 dependencies = [
  "async-channel",
  "async-io",

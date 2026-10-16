@@ -31,12 +31,15 @@ pub(crate) struct Connection {
 }
 impl Connection {
     pub(crate) fn start(mode: &str) -> Result<Self, &'static str> {
+        Self::start_helper("audio_targets.py", &[mode])
+    }
+    pub(crate) fn start_helper(helper: &str, args: &[&str]) -> Result<Self, &'static str> {
         use std::io::{BufRead, BufReader};
         use std::os::unix::process::CommandExt;
         let mut child = Command::new("/usr/bin/python3")
             .arg("-B")
-            .arg(crate::runtime_paths::helper("audio_targets.py"))
-            .arg(mode)
+            .arg(crate::runtime_paths::helper(helper))
+            .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

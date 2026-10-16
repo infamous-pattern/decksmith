@@ -27,6 +27,8 @@ pub struct Page {
     pub media: BTreeSet<String>,
     pub key_audio: BTreeSet<String>,
     pub meters: BTreeSet<String>,
+    pub system: BTreeSet<String>,
+    pub homebridge: bool,
 }
 impl Page {
     pub fn action(&mut self, action: Action) {
@@ -36,6 +38,12 @@ impl Page {
             | Action::AudioSelect { target }
             | Action::PushToTalk { target } => {
                 self.audio.insert(target);
+            }
+            Action::System { command } => {
+                self.system.insert(command);
+            }
+            Action::Plugin { .. } => {
+                self.homebridge = true;
             }
             Action::MediaTarget { player, .. } => {
                 self.media.insert(player);
@@ -49,6 +57,7 @@ pub struct Plan {
     pub pages: BTreeMap<DeviceId, Vec<Page>>,
     pub audio: Vec<String>,
     pub media: Vec<String>,
+    pub system: Vec<String>,
 }
 impl Plan {
     /// Only connected touch-capable devices' current pages request peaks. Keys,
@@ -76,6 +85,7 @@ impl Plan {
         let mut plan = Self::default();
         let mut audio = BTreeSet::new();
         let mut media = BTreeSet::new();
+        let mut system = BTreeSet::new();
         for summary in catalog.summaries() {
             let config =
                 crate::pages::Config::parse(catalog.profile(summary.id)?.document().bytes())?;
@@ -83,6 +93,7 @@ impl Plan {
             for page in &pages {
                 audio.extend(page.audio.iter().cloned());
                 media.extend(page.media.iter().cloned());
+                system.extend(page.system.iter().cloned());
             }
             plan.pages.insert(summary.id, pages);
         }
@@ -91,6 +102,7 @@ impl Plan {
         }
         plan.audio = audio.into_iter().collect();
         plan.media = media.into_iter().collect();
+        plan.system = system.into_iter().collect();
         Ok(plan)
     }
 }

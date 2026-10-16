@@ -4,6 +4,7 @@ gi.require_version('Gtk', '4.0');gi.require_version('Adw', '1')
 from gi.repository import Adw, Gtk, GLib
 import plugin_lab_page as module
 import time
+from scroll_cues import ScrollCues
 
 calls = []
 class FakeClient:
@@ -20,10 +21,10 @@ module.LabClient = FakeClient
 app = Adw.Application(application_id='cc.senecal.Decksmith.PluginLabCheck')
 errors = [];stage = 0;started = time.monotonic()
 def activate(app):
-    global window, stack, page
+    global window, stack, page, scrolling
     window = Adw.ApplicationWindow(application=app, title='Plugin integration check', default_width=900, default_height=720)
     stack = Gtk.Stack();window.set_content(stack)
-    page = module.PluginLabPage('/unused');stack.add_named(page,'plugins')
+    page = module.PluginLabPage('/unused');scrolling=ScrollCues(page);stack.add_named(scrolling,'plugins')
     stack.add_named(Gtk.Label(label='Other page'),'other');window.present()
     GLib.timeout_add(100, tick)
 def tick():
@@ -33,6 +34,7 @@ def tick():
         if stage==0:
             if page.pending or page.state is None:return True
             assert page.health.get_subtitle()=='Connected'
+            assert scrolling.handlers and not page.get_overlay_scrolling()
             assert page.count.get_subtitle()=='61'
             assert page.toggle.get_label()=='Disable'
             page.toggle.emit('clicked');stage=1
@@ -44,10 +46,12 @@ def tick():
         elif stage==2:
             if time.monotonic()-hidden_at<1.5:return True
             assert page.timer is None and len(calls)==hidden_count
+            assert not scrolling.handlers,'Hidden plugin panel retained scroll listeners'
             stack.set_visible_child_name('plugins');stage=3
         else:
             if page.pending:return True
             assert len(calls)>hidden_count
+            assert scrolling.handlers,'Scroll listeners did not reconnect'
             for status in ('device_unavailable','unconfirmed','disconnected'):
                 value=dict(page.state,connection=status,enabled=True)
                 page.complete(value);assert page.health.get_subtitle()==module.STATUS[status][0]

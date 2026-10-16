@@ -1,14 +1,30 @@
 # Decksmith user guide
 
-This guide describes the current Fedora/Stream Deck + development build. The
-v0.4 architecture documents include future features as well as implemented ones.
+This guide describes the Fedora V1.5 candidate interface for Stream Deck + and
+the 15-key Stream Deck MK.2. Candidate qualification is pending; existing public
+V1 and experimental preview downloads have their earlier interfaces. The v0.4
+architecture documents include future features as well as implemented ones.
 
 ## Workspace navigation
 
 **Home** contains device, startup, Auto-Lock and brightness controls. **Pages**
 organizes pages. **Keys & Dials** edits controls. **About** contains the guide,
-project and support links. Choose Device shows the current Stream Deck +; this
-version controls one device at a time. Section colors follow GNOME light/dark mode.
+project and support links. The device chooser selects which saved device you are
+editing; background controls keep both connected Decks running. Section colors
+follow GNOME light/dark mode.
+
+Each Deck has its own pages, assignments and brightness. Selecting a device in
+the editor does not change the other Deck's page. A new MK.2 starts with its own
+default pages; it does not copy or resize the Plus layout. The MK.2 preview has
+15 keys and no dials or touch strip. Page keys and Plus swipes navigate only the
+device used; linked navigation is not part of V1.5. Foreground-app assignments
+are resolved independently for each device.
+
+On Home, apply brightness/device settings to the selected Deck. Start/Stop
+background controls, login startup and Auto-Lock manage the shared service.
+Stopping or quitting blanks both Decks; closing just the editor leaves them
+running. A disconnected Deck retains its saved profile while the partner keeps
+working. Save or discard each device's pending changes before closing.
 
 Selecting a preview control only edits it. **Test action** explicitly runs the
 saved key action or dial press; save edits first. Test push-to-talk holds on the
@@ -24,9 +40,11 @@ make the physical display transparent. See [workspace behavior](workspace-ui.md)
 1. Open **Decksmith** from the application menu.
 2. Start **Background controls** if they are stopped. Keep OpenDeck closed while
    Decksmith owns the Stream Deck.
-3. Choose **Keys & Dials**. The editor follows the device's current page. Use
+3. Select the intended device, then choose **Keys & Dials**. The editor follows
+   that device's current page. Use
    **Pages** to organize pages and application assignments.
-4. Select a key to edit its label, action, and appearance. Expand **Appearance**
+4. Select a key to edit its label. Expand **Action** to choose its behavior and
+   **Appearance**
    for artwork, text placement/color, transparency, and background color.
 5. Choose **Save and Apply** to send the draft to the device.
 
@@ -51,8 +69,10 @@ targets that the device is not yet monitoring show -- until the layout is applie
 Invalid drafts retain the last valid touch-strip image with a clear status note;
 Save and Apply stays disabled until the draft is valid.
 Clicking an image section still selects its dial; it does not execute its action.
-The bar fill shows live signal activity; the numerical percentage shows configured
-volume. See [Live audio meters](audio-meters.md) for details.
+The configured volume and live signal activity are separate values. Choose Dual-arc
+gauge, Single-arc meter or Classic bar under Appearance. The single-arc audio
+meter keeps the volume percentage to its right and retains assigned actions.
+See [Live audio meters](audio-meters.md) for details.
 Dial settings start as shared defaults across pages. Select a dial, then choose
 **Customize for this page** to change only that page. The editor shows **This page**
 for an override; **Use shared settings** removes it and restores the latest shared
@@ -129,8 +149,10 @@ Assign **Microphone · Push to talk** to a key and select a named microphone.
 To mirror it on a dial, choose **Dial press → Push to talk** and the same microphone
 as its Audio target. Rotation can adjust microphone volume or have No action.
 
-Hold a key or dial down to unmute; release to mute. If both hold the same mic,
-it remains open until the last hold ends. The matching touch-strip section shows
+Hold a key or dial down to unmute; release to mute. Holds on either Deck can
+share the same microphone: it remains open until the last valid hold ends, then
+returns to Muted. Pressing Mute cancels all active holds; those original held
+controls cannot reopen it until released and freshly pressed. The matching touch-strip section shows
 **Muted / Live**. A push-to-talk key's marker uses green for live, gray for muted,
 and amber for unavailable.
 
@@ -140,7 +162,8 @@ not change the initial mute state. Check the displayed state before a call.
 These controls affect Fedora's microphone source; the calling app's own mute
 button is separate.
 
-Page/layout changes and disconnects cancel holds. The microphone guard also
+Page/layout changes and disconnects cancel holds belonging to that device; a
+valid hold on the other Deck remains active. The microphone guard also
 attempts to mute on lost heartbeats or background-process shutdown. An audio
 service or operating-system failure can prevent that operation; the displayed
 state comes from the audio service rather than assuming success.

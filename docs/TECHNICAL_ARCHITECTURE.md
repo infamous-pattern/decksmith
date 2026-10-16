@@ -1313,12 +1313,13 @@ The native contract is optimized for Linux and can evolve deliberately.
 
 The compatibility contract emulates documented Stream Deck host behavior only where useful and lawful.
 
-September 17 planning update: OpenAction is the first compatibility target for
-V1.5. Evaluate its protocol against the native contract during the next architecture
+October 15 scope update: plugin delivery moves to V2. OpenAction remains the
+first plugin compatibility target for V2, superseding the September 17 V1.5 plan.
+Evaluate its protocol against the native contract during the next architecture
 review, before freezing interfaces. The host adapter and a tested plugin subset
 precede optional external catalog browsing. Preserve Decksmith's native settings
 and execution boundaries; neither catalog membership nor SDK compatibility alone
-establishes that a plugin works on Linux. See the [V1.5 delivery sequence](ROADMAP.md#plugin-support--v15-target).
+establishes that a plugin works on Linux. See the [V2 delivery sequence](ROADMAP.md#plugin-support--v2-target).
 This is planned architecture, not implemented plugin support.
 
 ### 16.2 Native provider contract

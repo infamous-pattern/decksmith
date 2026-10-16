@@ -32,6 +32,7 @@ enum Operation {
     Apply(EditTicket, Catalog, Box<PreparedEdit>),
     Select(Catalog),
     Page(DeviceContext, u8),
+    Test(DeviceContext, String, u8, u8),
 }
 enum Reply {
     Ticket(EditTicket),
@@ -100,6 +101,17 @@ impl Link {
     pub fn select(&self, catalog: Catalog, cancelled: Arc<AtomicBool>) -> Result<()> {
         self.call(Operation::Select(catalog), cancelled).map(|_| ())
     }
+    pub fn test_control(
+        &self,
+        context: DeviceContext,
+        raw: String,
+        page: u8,
+        slot: u8,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<()> {
+        self.call(Operation::Test(context, raw, page, slot), cancelled)
+            .map(|_| ())
+    }
     pub fn page(&self, context: DeviceContext, page: u8, cancelled: Arc<AtomicBool>) -> Result<()> {
         self.call(Operation::Page(context, page), cancelled)
             .map(|_| ())
@@ -115,6 +127,12 @@ pub(crate) struct Service {
 }
 impl Service {
     pub fn start(store: Store, runtime: &Runtime, native: bool) -> Result<Self> {
+        Self::start_mode(store, runtime, native, false)
+    }
+    pub fn start_permanent(store: Store, runtime: &Runtime, native: bool) -> Result<Self> {
+        Self::start_mode(store, runtime, native, true)
+    }
+    fn start_mode(store: Store, runtime: &Runtime, native: bool, permanent: bool) -> Result<Self> {
         let (queue, incoming) = mpsc::sync_channel(8);
         let view = Arc::new(Mutex::new(Arc::new(snapshot(
             runtime,
@@ -126,7 +144,7 @@ impl Service {
         };
         let stop = Arc::new(AtomicBool::new(false));
         let (connection, thread) =
-            crate::profile_control::start_connected(store, link, native, stop.clone())?;
+            crate::profile_control::start_connected(store, link, native, stop.clone(), permanent)?;
         Ok(Self {
             incoming,
             view,
@@ -152,6 +170,9 @@ impl Service {
                     Operation::Select(catalog) => {
                         runtime.apply_selection(catalog).map(|_| Reply::Done)
                     }
+                    Operation::Test(context, raw, page, slot) => runtime
+                        .test_control(context, &raw, page, slot)
+                        .map(|_| Reply::Done),
                     Operation::Page(context, page) => {
                         runtime.navigate(context, page).map(|_| Reply::Done)
                     }
@@ -161,6 +182,12 @@ impl Service {
             self.publish(runtime);
             let _ = request.answer.try_send(result);
         }
+    }
+    /// Revoke requests immediately; never wait for an in-flight disk/preview
+    /// task before the coordinator fences effects and blanks physical displays.
+    pub fn stop_accepting(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        self.connection = None;
     }
     pub fn publish(&mut self, runtime: &Runtime) {
         if Instant::now() < self.next_publish {
@@ -203,8 +230,7 @@ fn snapshot(runtime: &Runtime, catalog: Arc<Catalog>) -> View {
 }
 impl Drop for Service {
     fn drop(&mut self) {
-        self.stop.store(true, Ordering::Release);
-        self.connection = None;
+        self.stop_accepting();
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }

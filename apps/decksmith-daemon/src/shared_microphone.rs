@@ -140,6 +140,15 @@ impl Service {
             thread: Some(thread),
         })
     }
+    /// A cancelled hold is not a completed mute. Muted targets leave `states`
+    /// only after the guardian reported mute and a successful owned child exit.
+    pub fn quiet(&self) -> bool {
+        let state = self.shared.state.lock().unwrap();
+        state.holds.states().is_empty()
+            && state.manual.is_empty()
+            && state.blocked.is_empty()
+            && state.fatal.is_none()
+    }
     pub fn held(&self) -> usize {
         self.shared.state.lock().unwrap().holds.held()
     }
@@ -1098,6 +1107,51 @@ mod tests {
             let sequence = state.retry_sequence;
             state.retry_requests.insert(target, sequence);
         }
+    }
+    #[test]
+    fn sleep_quiet_waits_for_actual_mute_and_owned_guardian_exit() {
+        let revision = Arc::new(AtomicU64::new(1));
+        let read = revision.clone();
+        let authority: Authority =
+            Arc::new(move |scope| scope.device.binding == read.load(Ordering::Acquire));
+        let trace = Arc::new(Mutex::new(Trace::default()));
+        let service = Service::start(
+            id(99),
+            &[id(1), id(2)],
+            authority,
+            Box::new(FakeFactory(trace.clone())),
+        )
+        .unwrap();
+        service
+            .acquire(token(1, 1, 1), Microphone::named("input:mic").unwrap())
+            .unwrap();
+        let end = Instant::now() + Duration::from_secs(3);
+        while trace.lock().unwrap().guards.is_empty() {
+            assert!(Instant::now() < end);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let guard = trace.lock().unwrap().guards[0].clone();
+        guard.lock().unwrap().delayed = true;
+        revision.store(2, Ordering::Release);
+        service.invalidate().unwrap();
+        assert_eq!(service.held(), 0);
+        assert!(!service.quiet());
+        while !guard.lock().unwrap().closed {
+            assert!(Instant::now() < end);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        guard.lock().unwrap().event.muted = true;
+        std::thread::sleep(Duration::from_millis(30));
+        assert!(
+            !service.quiet(),
+            "mute acknowledgement without owned child exit is insufficient"
+        );
+        guard.lock().unwrap().event.exited = Some(true);
+        while !service.quiet() {
+            assert!(Instant::now() < end);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        service.join();
     }
     #[test]
     fn plus_and_mk2_overlap_share_one_guardian_until_the_last_release() {

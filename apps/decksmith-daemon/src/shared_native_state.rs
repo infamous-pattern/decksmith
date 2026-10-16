@@ -208,3 +208,223 @@ mod tests {
         );
     }
 }
+
+/// System capability/status reads stay off the input/render owners. Commands are
+/// deduplicated and allowlisted; configuration is a bounded in-memory handoff.
+pub(crate) struct SystemObserver {
+    shared: Arc<SystemShared>,
+    thread: Option<JoinHandle<()>>,
+    commands: Vec<String>,
+    epoch: u64,
+    shown: Option<crate::system_actions::States>,
+}
+struct SystemShared {
+    control: Mutex<SystemControl>,
+    wake: Condvar,
+    latest: Mutex<Option<(u64, Instant, crate::system_actions::States)>>,
+}
+struct SystemControl {
+    stop: bool,
+    epoch: u64,
+    commands: Vec<String>,
+}
+fn commands(mut values: Vec<String>) -> Result<Vec<String>> {
+    values.sort();
+    values.dedup();
+    if values.len() > 12 || values.iter().any(|s| !crate::system_actions::valid(s)) {
+        return Err("invalid_system_commands");
+    }
+    Ok(values)
+}
+impl SystemObserver {
+    pub fn start(values: Vec<String>) -> Result<Self> {
+        let commands = commands(values)?;
+        let shared = Arc::new(SystemShared {
+            control: Mutex::new(SystemControl {
+                stop: false,
+                epoch: 1,
+                commands: commands.clone(),
+            }),
+            wake: Condvar::new(),
+            latest: Mutex::new(None),
+        });
+        let owner = shared.clone();
+        let thread = std::thread::Builder::new()
+            .name("decksmith-system-observer".into())
+            .spawn(move || {
+                let mut reader = crate::system_actions::Client::default();
+                loop {
+                    let (epoch, wanted) = {
+                        let mut control = owner.control.lock().unwrap();
+                        while !control.stop && control.commands.is_empty() {
+                            control = owner.wake.wait(control).unwrap();
+                        }
+                        if control.stop {
+                            return;
+                        }
+                        (control.epoch, control.commands.clone())
+                    };
+                    let started = Instant::now();
+                    let mut states = reader.read(&wanted);
+                    if started.elapsed() > Duration::from_secs(8) {
+                        states.clear();
+                    }
+                    *owner.latest.lock().unwrap() = Some((epoch, Instant::now(), states));
+                    let control = owner.control.lock().unwrap();
+                    if control.stop {
+                        return;
+                    }
+                    if control.epoch == epoch {
+                        let _ = owner
+                            .wake
+                            .wait_timeout(control, Duration::from_secs(2))
+                            .unwrap();
+                    }
+                }
+            })
+            .map_err(|_| "system_observer_spawn_failed")?;
+        Ok(Self {
+            shared,
+            thread: Some(thread),
+            commands,
+            epoch: 1,
+            shown: None,
+        })
+    }
+    pub fn configure(&mut self, values: Vec<String>) -> Result<()> {
+        let wanted = commands(values)?;
+        if wanted == self.commands {
+            return Ok(());
+        }
+        self.epoch = self
+            .epoch
+            .checked_add(1)
+            .ok_or("system_observer_epoch_exhausted")?;
+        let mut control = self.shared.control.lock().unwrap();
+        if control.stop {
+            return Err("system_observer_stopped");
+        }
+        control.epoch = self.epoch;
+        control.commands = wanted.clone();
+        self.commands = wanted;
+        self.shown = None;
+        self.shared.wake.notify_all();
+        Ok(())
+    }
+    pub fn snapshot(&mut self) -> Option<crate::system_actions::States> {
+        let latest = self.shared.latest.lock().unwrap();
+        let states = latest
+            .as_ref()
+            .filter(|(epoch, at, _)| *epoch == self.epoch && at.elapsed() < Duration::from_secs(4))
+            .map(|(_, _, v)| v);
+        let current: crate::system_actions::States = self
+            .commands
+            .iter()
+            .map(|command| {
+                (
+                    command.clone(),
+                    states.and_then(|v| v.get(command)).cloned().unwrap_or(
+                        crate::system_actions::State {
+                            text: "Unavailable".into(),
+                            ..Default::default()
+                        },
+                    ),
+                )
+            })
+            .collect();
+        if self.shown.as_ref() == Some(&current) {
+            return None;
+        }
+        self.shown = Some(current.clone());
+        Some(current)
+    }
+}
+impl Drop for SystemObserver {
+    fn drop(&mut self) {
+        self.shared.control.lock().unwrap().stop = true;
+        self.shared.wake.notify_all();
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+#[cfg(test)]
+mod system_tests {
+    use super::*;
+    #[test]
+    fn system_observation_is_epoch_scoped_fresh_and_reports_missing_without_io() {
+        let mut observer = SystemObserver {
+            commands: vec!["dnd".into()],
+            epoch: 1,
+            shown: None,
+            thread: None,
+            shared: Arc::new(SystemShared {
+                control: Mutex::new(SystemControl {
+                    stop: false,
+                    epoch: 1,
+                    commands: vec!["dnd".into()],
+                }),
+                wake: Condvar::new(),
+                latest: Mutex::new(Some((
+                    1,
+                    Instant::now(),
+                    [(
+                        "dnd".into(),
+                        crate::system_actions::State {
+                            available: true,
+                            active: true,
+                            text: "On".into(),
+                        },
+                    )]
+                    .into_iter()
+                    .collect(),
+                ))),
+            }),
+        };
+        assert!(observer.snapshot().unwrap()["dnd"].active);
+        assert!(observer.snapshot().is_none());
+        observer.configure(vec!["bluetooth".into()]).unwrap();
+        assert!(!observer.snapshot().unwrap()["bluetooth"].available);
+        *observer.shared.latest.lock().unwrap() = Some((
+            1,
+            Instant::now(),
+            [(
+                "bluetooth".into(),
+                crate::system_actions::State {
+                    available: true,
+                    active: true,
+                    text: "On".into(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        ));
+        assert!(
+            observer.snapshot().is_none(),
+            "Late reply cannot populate new command epoch"
+        );
+        *observer.shared.latest.lock().unwrap() = Some((
+            2,
+            Instant::now(),
+            [(
+                "bluetooth".into(),
+                crate::system_actions::State {
+                    available: true,
+                    active: true,
+                    text: "On".into(),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        ));
+        assert!(observer.snapshot().unwrap()["bluetooth"].available);
+        *observer.shared.latest.lock().unwrap() = Some((
+            2,
+            Instant::now() - Duration::from_secs(5),
+            crate::system_actions::States::new(),
+        ));
+        assert!(!observer.snapshot().unwrap()["bluetooth"].available);
+        assert!(observer.configure(vec!["run_shell".into()]).is_err());
+    }
+}

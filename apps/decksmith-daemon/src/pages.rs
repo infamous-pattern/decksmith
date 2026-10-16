@@ -356,6 +356,7 @@ impl ModelControls {
                 }
                 if let Some(dials) = &page.dials {
                     for dial in dials {
+                        providers.homebridge |= dial.plugin.is_some();
                         providers.action(dial.press.clone());
                         if dial.plugin.is_none()
                             && (matches!(dial.rotation, Rotation::Volume)

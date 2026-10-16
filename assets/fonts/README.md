@@ -24,3 +24,9 @@ approximation during rendering. It is decorative lettering, not an Old Norse
 translation or historically exact transliteration. Saved labels remain unchanged;
 numbers and spaces remain readable. The same conversion is used for hardware and
 editor previews.
+
+Noto Emoji is bundled unmodified from a pinned Google Fonts revision as a missing-
+glyph fallback. Its OFL 1.1 license is retained in `LICENSE-notoemoji.txt`, and
+`font-sources.json` records both font and license hashes. It renders monochrome
+emoji/symbol outlines using the label color; ordinary letters retain the selected
+font. This renderer does not provide full-color emoji or joined-sequence shaping.

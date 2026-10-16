@@ -55,6 +55,10 @@ class HardwareBridge:
             raw=await asyncio.wait_for(reader.readline(),1)
             if len(raw)>8192 or not raw.endswith(b'\n'):raise ValueError()
             data=json.loads(raw)
+            shared=isinstance(data,dict) and data.get('bridge')==2
+            if shared:
+                if set(data)!={'bridge','binding','ticks'}:raise ValueError()
+                data={key:value for key,value in data.items() if key!='bridge'}
             generic=isinstance(data,dict) and isinstance(data.get('binding'),dict) and data['binding'].get('schema')==2
             if generic:
                 from accessory_actions import decode,perform
@@ -67,8 +71,21 @@ class HardwareBridge:
             if not (self.panel.assigned_ready() if generic else self.panel.snapshot()['ready']):
                 rejection='not_ready';raise ValueError()
             self.panel.busy=True
-            operation=asyncio.create_task(perform(self.panel,data['binding'],data['ticks']) if generic else self.panel.perform(name,ticks))
-            closed=asyncio.create_task(reader.read(1))
+            granted=asyncio.Event()
+            async def authorize():
+                writer.write(b'{"ready":true}\n');await writer.drain()
+                raw=await asyncio.wait_for(reader.readline(),1)
+                if len(raw)>128 or raw!=b'{"decision":"apply"}\n':raise ValueError('Input cancelled')
+                granted.set()
+            if shared:
+                operation=asyncio.create_task(perform(self.panel,data['binding'],data['ticks'],authorize=authorize) if generic else self.panel.perform(name,ticks,authorize=authorize))
+                async def disconnected():
+                    await granted.wait()
+                    return await reader.read(1)
+                closed=asyncio.create_task(disconnected())
+            else:
+                operation=asyncio.create_task(perform(self.panel,data['binding'],data['ticks']) if generic else self.panel.perform(name,ticks))
+                closed=asyncio.create_task(reader.read(1))
             done,_=await asyncio.wait([operation,closed],timeout=4.5,return_when=asyncio.FIRST_COMPLETED)
             if operation not in done or closed in done:
                 logging.getLogger(__name__).warning('homebridge_bridge_cancelled reason=%s',
@@ -81,7 +98,9 @@ class HardwareBridge:
                 return
             completed = await operation
             success = completed is True and (not self.panel.manual_recovery if generic else not self.panel.recovery_required)
-            writer.write(json.dumps({'ok':success}).encode()+b'\n')
+            reply={'ok':success}
+            if shared and success and not granted.is_set():reply['effect']=False
+            writer.write(json.dumps(reply).encode()+b'\n')
             await writer.drain()
         except (ValueError,KeyError,TypeError,asyncio.TimeoutError,ConnectionError):
             logging.getLogger(__name__).warning('homebridge_bridge_rejected reason=%s',rejection)

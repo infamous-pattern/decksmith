@@ -62,3 +62,29 @@ class AccessoryBridgeTests(unittest.IsolatedAsyncioTestCase):
   for value in ('SECRET_TOKEN','private-server',binding('toggle')['settings']['accessoryId']):
    self.assertNotIn(value,str(logs.output))
   self.assertEqual(Path(self.bridge.path).stat().st_mode&0o777,0o600)
+
+class SharedAccessoryBridgeTests(AccessoryBridgeTests):
+ async def test_versioned_grant_after_discovery_and_abort_never_writes(self):
+  r,w=await asyncio.open_unix_connection(self.bridge.path)
+  data=dict(self.payload(),bridge=2)
+  w.write(json.dumps(data).encode()+b'\n');await w.drain()
+  self.assertEqual(json.loads(await asyncio.wait_for(r.readline(),2)),{'ready':True})
+  self.assertEqual(self.p.host.writes,[])
+  w.write(b'{"decision":"abort"}\n');await w.drain()
+  self.assertEqual(json.loads(await asyncio.wait_for(r.readline(),2)),{'ok':False})
+  self.assertEqual(self.p.host.writes,[])
+  w.close();await w.wait_closed()
+ async def test_versioned_apply_dispatches_once_and_confirms(self):
+  r,w=await asyncio.open_unix_connection(self.bridge.path)
+  w.write(json.dumps(dict(self.payload(),bridge=2)).encode()+b'\n');await w.drain()
+  self.assertEqual(json.loads(await asyncio.wait_for(r.readline(),2)),{'ready':True})
+  self.assertEqual(self.p.host.writes,[])
+  w.write(b'{"decision":"apply"}\n');await w.drain()
+  self.assertEqual(json.loads(await asyncio.wait_for(r.readline(),2)),{'ok':True})
+  self.assertEqual(len(self.p.host.writes),1)
+  w.close();await w.wait_closed()
+ async def test_versioned_readonly_status_never_requests_write_grant(self):
+  self.p.catalog.raw['type']='MotionSensor'
+  self.p.catalog.raw['serviceCharacteristics']=[{'type':'MotionDetected','format':'bool','value':True,'perms':['pr']}]
+  self.assertEqual(await self.request({'bridge':2,'binding':binding('status'),'ticks':0}),{'ok':True,'effect':False})
+  self.assertEqual(self.p.host.writes,[])

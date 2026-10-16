@@ -14,6 +14,12 @@ def exercise():
   assert key['label']=='Office Socket' and key['plugin']['schema']==2
   editor.label.set_text('My Socket');assert key['label']=='My Socket' and key['plugin']['schema']==2
   editor.draft.validate()
+  assert editor.homebridge.get_visible() and 'Homebridge' in editor.action_catalog.get_subtitle()
+  # Re-selecting No action must replace a plugin even when the hidden
+  # built-in model already holds No action (and emits no selection change).
+  editor.choose_builtin_action(0);assert 'plugin' not in key
+  assert not editor.homebridge.get_visible()
+  editor.assign_homebridge(item,binding(item,'toggle'))
   editor.touch_buttons[0].emit('clicked')
   fan={**item,'name':'Ceiling Fan','kind':'Fan','operations':['toggle','on','off','level','status']}
   editor.dial_controls.assign_homebridge(fan,binding(fan,'level'))

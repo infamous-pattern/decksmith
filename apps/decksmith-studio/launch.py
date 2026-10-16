@@ -1,11 +1,24 @@
 """Desktop launch helper, called with an action and one literal argument."""
-import sys
+import sys,os
 from urllib.parse import urlsplit
 import gi
 gi.require_version('Gio', '2.0')
-from gi.repository import Gio
+from gi.repository import Gio,GLib
 
-def launch(kind, value, player=None):
+def independent_child(*_):
+    try:os.setsid()
+    except OSError:os._exit(126)  # Do not exec in our helper's group if isolation fails.
+
+
+def detached_launch(app,uris):
+    # A user-launched application must outlive our bounded helper. GIO still
+    # expands the desktop entry; only the child's session differs from legacy.
+    if not hasattr(app,'launch_uris_as_manager'):raise ValueError('Application unavailable')
+    return app.launch_uris_as_manager(uris,None,GLib.SpawnFlags.SEARCH_PATH,
+                                     independent_child,(),None,None)
+
+
+def launch(kind, value, player=None, *, authorize=None):
     if kind == 'media':
         from media import execute
         execute(value,target=player)
@@ -15,12 +28,26 @@ def launch(kind, value, player=None):
         app = Gio.DesktopAppInfo.new(value)
         if app is None or not app.should_show():
             raise ValueError('Application unavailable')
-        if not app.launch([], None):raise RuntimeError('Launch request failed')
+        if authorize is None:
+            success=app.launch([],None)
+        else:
+            if not hasattr(app,'launch_uris_as_manager'):raise ValueError('Application unavailable')
+            authorize()
+            success=detached_launch(app,[])
+        if not success:raise RuntimeError('Launch request failed')
     elif kind == 'website':
         url = urlsplit(value)
         if url.scheme not in ('http','https') or not url.hostname or any(c.isspace() for c in value):
             raise ValueError('Enter an http or https URL')
-        if not Gio.AppInfo.launch_default_for_uri(value, None):raise RuntimeError('Launch request failed')
+        # Resolve the handler before granting the URI launch; no discovery after
+        # the grant. Keep the normal path's default-handler behavior.
+        if authorize is None:
+            if not Gio.AppInfo.launch_default_for_uri(value, None):raise RuntimeError('Launch request failed')
+        else:
+            app = Gio.AppInfo.get_default_for_uri_scheme(url.scheme)
+            if app is None or not hasattr(app,'launch_uris_as_manager'):raise ValueError('Application unavailable')
+            authorize()
+            if not detached_launch(app,[value]):raise RuntimeError('Launch request failed')
     else:
         raise ValueError('Unknown launch action')
 

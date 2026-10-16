@@ -105,6 +105,7 @@ enum Mode {
     VirtualLab,
     SavedWorkspace,
     ConnectedWorkspace,
+    PermanentService,
 }
 impl Mode {
     fn name(self) -> &'static str {
@@ -112,6 +113,7 @@ impl Mode {
             Self::VirtualLab => "virtual-lab",
             Self::SavedWorkspace => "saved-workspace",
             Self::ConnectedWorkspace => "connected-workspace",
+            Self::PermanentService => "permanent-service",
         }
     }
 }
@@ -222,7 +224,7 @@ impl Host {
             || self.controls.manager().statuses(),
             |link| link.view().sessions.clone(),
         );
-        Ok(serde_json::json!({"api_version":2,"mode":self.mode.name(),"runtime":self.runtime,"generation":self.catalog.generation,"selected":self.catalog.selected,"devices":self.catalog.summaries(),"sessions":sessions,"history":self.store.history_status()?,"discovery":{"available":self.discovery_available,"revision":self.discovery_revision,"candidates":candidates},"actions_available":false,"live_profiles":self.live.is_some(),"native_actions":self.native,"legacy_import_prepared":self.import_plus.is_some()}).to_string())
+        Ok(serde_json::json!({"api_version":2,"mode":self.mode.name(),"runtime":self.runtime,"generation":self.catalog.generation,"selected":self.catalog.selected,"devices":self.catalog.summaries(),"sessions":sessions,"history":self.store.history_status()?,"discovery":{"available":self.discovery_available,"revision":self.discovery_revision,"candidates":candidates},"actions_available":self.mode == Mode::PermanentService,"live_profiles":self.live.is_some(),"native_actions":self.native,"legacy_import_prepared":self.import_plus.is_some()}).to_string())
     }
     fn profile(&self, id: DeviceId) -> Result<String> {
         let p = self.catalog.profile(id)?;
@@ -281,6 +283,19 @@ impl Host {
             .frame(page, brightness)?;
         self.controls
             .paint(context, &frame.keys, frame.touch.as_deref())
+    }
+    fn test_control(
+        &self,
+        id: DeviceId,
+        token: Token,
+        raw: &str,
+        page: u8,
+        slot: u8,
+    ) -> Result<String> {
+        let context = self.check(id, &token)?;
+        let live = self.live.as_ref().ok_or("live_controls_unavailable")?;
+        live.test_control(context, raw.into(), page, slot, self.cancelled.clone())?;
+        Ok("{}".into())
     }
     fn archive(&mut self, expected: u64) -> Result<String> {
         serde_json::to_string(&self.store.archive_sibling(expected, 8)?)
@@ -355,7 +370,7 @@ impl Host {
             .filter(|s| !bindings.iter().any(|b| &b.selector == *s) && !protected.contains(*s))
             .cloned()
             .collect();
-        if self.native && !new.is_empty() {
+        if self.native && self.mode != Mode::PermanentService && !new.is_empty() {
             bindings.extend(
                 crate::shared_native_media::NativeBackend::connect()?.resolve_media(&new, None)?,
             );
@@ -394,6 +409,9 @@ impl Host {
         self.profile(id)
     }
     fn select(&mut self, id: DeviceId, expected: u64) -> Result<String> {
+        if self.mode == Mode::PermanentService {
+            self.store.ensure_daily_capacity()?;
+        }
         self.store.select(expected, id)?;
         self.catalog = self.store.load()?;
         if let Some(live) = &self.live {
@@ -412,7 +430,10 @@ impl Host {
         brightness: u8,
     ) -> Result<String> {
         self.check_token(id, &token)?;
-        if self.mode == Mode::ConnectedWorkspace {
+        if self.mode == Mode::PermanentService {
+            self.store.ensure_daily_capacity()?;
+        }
+        if matches!(self.mode, Mode::ConnectedWorkspace | Mode::PermanentService) {
             return self.save_connected(id, token, bytes, page, name, brightness);
         }
         if self.mode == Mode::SavedWorkspace
@@ -576,6 +597,8 @@ enum Operation {
     Save(DeviceId, Token, String, u8, String, u8),
     Page(DeviceId, Token, u8),
     Preview(DeviceId, String, u8, bool),
+    Previous(DeviceId),
+    Test(DeviceId, Token, String, u8, u8),
 }
 enum Reply {
     Text(String),
@@ -648,6 +671,29 @@ impl Api {
     }
     async fn get_profile(&self, device: &str) -> zbus::fdo::Result<String> {
         self.text(Operation::Profile(id(device)?)).await
+    }
+    async fn get_previous_profile(&self, device: &str) -> zbus::fdo::Result<String> {
+        self.text(Operation::Previous(id(device)?)).await
+    }
+    async fn test_control(
+        &self,
+        device: &str,
+        revision: &str,
+        raw: &str,
+        page: u8,
+        slot: u8,
+    ) -> zbus::fdo::Result<String> {
+        if raw.len() > LIMIT {
+            return Err(zbus::fdo::Error::InvalidArgs("layout_too_large".into()));
+        }
+        self.text(Operation::Test(
+            id(device)?,
+            token(revision)?,
+            raw.into(),
+            page,
+            slot,
+        ))
+        .await
     }
     async fn archive_history(&self, generation: u64) -> zbus::fdo::Result<String> {
         self.text(Operation::Archive(generation)).await
@@ -731,6 +777,19 @@ impl WorkspaceApi {
     async fn get_profile(&self, device: &str) -> zbus::fdo::Result<String> {
         self.0.get_profile(device).await
     }
+    async fn get_previous_profile(&self, device: &str) -> zbus::fdo::Result<String> {
+        self.0.get_previous_profile(device).await
+    }
+    async fn test_control(
+        &self,
+        device: &str,
+        revision: &str,
+        raw: &str,
+        page: u8,
+        slot: u8,
+    ) -> zbus::fdo::Result<String> {
+        self.0.test_control(device, revision, raw, page, slot).await
+    }
     async fn select_device(&self, device: &str, generation: u64) -> zbus::fdo::Result<String> {
         self.0.select_device(device, generation).await
     }
@@ -805,6 +864,10 @@ impl WorkspaceApi {
 fn execute(host: &mut Host, op: Operation) -> Result<Reply> {
     match op {
         Operation::Devices => host.devices().map(Reply::Text),
+        Operation::Previous(id) => String::from_utf8(host.store.previous_profile_layout(id)?)
+            .map(Reply::Text)
+            .map_err(|_| "invalid_profile_history"),
+        Operation::Test(id, t, raw, p, s) => host.test_control(id, t, &raw, p, s).map(Reply::Text),
         Operation::Enroll(r, d, g, s, n, b, i) => {
             host.enroll(r, d, g, s, &n, b, i).map(Reply::Text)
         }
@@ -822,6 +885,7 @@ pub(crate) fn start_connected(
     link: crate::live_profiles::Link,
     native: bool,
     stop: Arc<AtomicBool>,
+    permanent: bool,
 ) -> Result<(zbus::blocking::Connection, std::thread::JoinHandle<()>)> {
     let (queue, incoming) = mpsc::sync_channel::<Request>(8);
     // No name replacement or service auto-activation; this cannot adopt V1 or
@@ -851,7 +915,11 @@ pub(crate) fn start_connected(
                     return;
                 }
             };
-            host.mode = Mode::ConnectedWorkspace;
+            host.mode = if permanent {
+                Mode::PermanentService
+            } else {
+                Mode::ConnectedWorkspace
+            };
             host.runtime = link.view().runtime;
             host.live = Some(link);
             host.native = native;

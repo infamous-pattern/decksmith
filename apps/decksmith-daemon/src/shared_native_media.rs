@@ -234,7 +234,11 @@ impl Bus for NativeBus {
 pub struct NativeBackend {
     audio: NamedAudioBackend,
     saved_audio: crate::shared_native_audio::Client,
-    bus: NativeBus,
+    builtin: crate::shared_builtin::Client,
+    blocked_builtin: bool,
+    bus: Option<NativeBus>,
+    daily: bool,
+    preferred: Option<Session>,
     blocked_audio: BTreeSet<String>,
     blocked_media: BTreeSet<String>,
     uncertain: Arc<AtomicBool>,
@@ -244,7 +248,27 @@ impl NativeBackend {
         Ok(Self {
             audio: NamedAudioBackend,
             saved_audio: crate::shared_native_audio::Client::default(),
-            bus: NativeBus::connect()?,
+            builtin: crate::shared_builtin::Client::default(),
+            blocked_builtin: false,
+            bus: Some(NativeBus::connect()?),
+            daily: false,
+            preferred: None,
+            blocked_audio: BTreeSet::new(),
+            blocked_media: BTreeSet::new(),
+            uncertain: Arc::new(AtomicBool::new(false)),
+        })
+    }
+    /// Permanent service startup must not depend on an active player or even
+    /// the optional media bus. Discovery happens only on the executor's action.
+    pub fn connect_daily() -> Result<Self> {
+        Ok(Self {
+            audio: NamedAudioBackend,
+            saved_audio: crate::shared_native_audio::Client::default(),
+            builtin: crate::shared_builtin::Client::default(),
+            blocked_builtin: false,
+            bus: None,
+            daily: true,
+            preferred: previous_selection(),
             blocked_audio: BTreeSet::new(),
             blocked_media: BTreeSet::new(),
             uncertain: Arc::new(AtomicBool::new(false)),
@@ -270,9 +294,12 @@ impl NativeBackend {
         if selectors.is_empty() {
             return Ok(Vec::new());
         }
+        let Some(bus) = &self.bus else {
+            return Ok(Vec::new());
+        };
         let previous = preferred.cloned().or_else(previous_selection);
         let proxy = zbus::blocking::Proxy::new(
-            &self.bus.0,
+            &bus.0,
             "org.freedesktop.DBus",
             "/org/freedesktop/DBus",
             "org.freedesktop.DBus",
@@ -289,16 +316,27 @@ impl NativeBackend {
             return Err("native_media_inventory_too_large");
         }
         let mut candidates = Vec::new();
+        let deadline = std::time::Instant::now() + Duration::from_millis(900);
         for name in names {
-            let Ok(owner) = self.bus.owner(&name) else {
+            if std::time::Instant::now() >= deadline {
+                break;
+            }
+            if !selectors.iter().any(|selector| {
+                selector == crate::saved_native::DEFAULT_MEDIA
+                    || selector == &name
+                    || selector == family(&name)
+            }) {
+                continue;
+            }
+            let Ok(owner) = bus.owner(&name) else {
                 continue;
             };
-            let Ok(status) = self.bus.text(&owner, "PlaybackStatus") else {
+            let Ok(status) = bus.text(&owner, "PlaybackStatus") else {
                 continue;
             };
             if !matches!(status.as_str(), "Playing" | "Paused" | "Stopped")
-                || self.bus.flag(&owner, "CanControl") != Ok(true)
-                || self.bus.owner(&name).as_ref() != Ok(&owner)
+                || bus.flag(&owner, "CanControl") != Ok(true)
+                || bus.owner(&name).as_ref() != Ok(&owner)
             {
                 continue;
             }
@@ -317,6 +355,28 @@ impl NativeBackend {
 impl Backend for NativeBackend {
     fn execute(&mut self, action: &Action, fence: &Fence) -> Result<()> {
         match action {
+            Action::OpenApplication { .. } | Action::OpenWebsite { .. } | Action::System { .. } => {
+                if self.blocked_builtin {
+                    return Err("native_builtin_effect_blocked");
+                }
+                let result = self.builtin.execute(action, || fence.accepts());
+                if result == Err("native_builtin_effect_uncertain") {
+                    self.blocked_builtin = true;
+                    self.uncertain.store(true, Ordering::Release);
+                }
+                result
+            }
+            Action::AudioSelect { .. } => {
+                if self.blocked_audio.contains("selection") {
+                    return Err("native_audio_effect_blocked");
+                }
+                let result = self.saved_audio.execute(action, || fence.accepts());
+                if result == Err("native_audio_effect_uncertain") {
+                    self.blocked_audio.insert("selection".into());
+                    self.uncertain.store(true, Ordering::Release);
+                }
+                result
+            }
             Action::AudioAdjust { target, .. } | Action::AudioMute { target } => {
                 if self.blocked_audio.len() >= 8 || self.blocked_audio.contains(target) {
                     return Err("native_audio_effect_blocked");
@@ -338,19 +398,34 @@ impl Backend for NativeBackend {
                 result
             }
             Action::MediaTarget { player, command } => {
-                let session = fence
-                    .media_session()
-                    .ok_or("native_media_requires_pinned_session")?;
+                if self.bus.is_none() {
+                    self.bus = Some(NativeBus::connect()?);
+                }
+                let session = if let Some(session) = fence.media_session() {
+                    session.clone()
+                } else if self.daily {
+                    self.resolve_media(std::slice::from_ref(player), self.preferred.as_ref())?
+                        .into_iter()
+                        .next()
+                        .ok_or("media_unavailable")?
+                } else {
+                    return Err("native_media_requires_pinned_session");
+                };
                 if player != &session.selector {
                     return Err("native_media_payload_mismatch");
                 }
                 if self.blocked_media.len() >= 8 || self.blocked_media.contains(&session.owner) {
                     return Err("native_media_effect_blocked");
                 }
-                let result = execute(&self.bus, session, command, || fence.accepts());
+                let result = execute(self.bus.as_ref().unwrap(), &session, command, || {
+                    fence.accepts()
+                });
                 if result == Err("native_media_effect_uncertain") {
                     self.uncertain.store(true, Ordering::Release);
                     self.blocked_media.insert(session.owner.clone());
+                }
+                if result.is_ok() && player == crate::saved_native::DEFAULT_MEDIA {
+                    self.preferred = Some(session);
                 }
                 result
             }
@@ -483,5 +558,17 @@ mod tests {
             .owner,
             ":1.23"
         );
+    }
+    #[test]
+    fn daily_factory_requires_no_media_or_audio_connection_at_startup() {
+        let backend = NativeBackend::connect_daily().unwrap();
+        assert!(backend.daily && backend.bus.is_none());
+        assert!(
+            backend
+                .resolve_media(&[crate::saved_native::DEFAULT_MEDIA.into()], None)
+                .unwrap()
+                .is_empty()
+        );
+        assert!(!backend.health().load(Ordering::Acquire));
     }
 }

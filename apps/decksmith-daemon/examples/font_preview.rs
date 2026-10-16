@@ -18,6 +18,7 @@ fn main() {
         "Source Sans 3",
         "Viking Runes",
     ];
+    let emoji = std::env::args().any(|arg| arg == "--emoji");
     let mut sheet = image::RgbImage::new(800, 800);
     for (kind, name) in names.iter().enumerate() {
         let mut title = vec![26; 200 * 100 * 3];
@@ -35,7 +36,13 @@ fn main() {
         let mut key = vec![26; 120 * 120 * 3];
         key_text::draw_styled(
             &mut key,
-            if kind == 13 { "Viking 42" } else { "Volume Up" },
+            if emoji {
+                "MK2✅"
+            } else if kind == 13 {
+                "Viking 42"
+            } else {
+                "Volume Up"
+            },
             1,
             false,
             false,

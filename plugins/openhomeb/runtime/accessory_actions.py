@@ -17,7 +17,7 @@ def decode(binding,ticks):
  if type(ticks) is not int or (not 0<abs(ticks)<=20 if op=='level' else ticks!=0):raise ValueError('Invalid input')
  return identity,op
 
-async def perform(panel,binding,ticks):
+async def perform(panel,binding,ticks,authorize=None):
  identity,op=decode(binding,ticks);context='assigned';dispatched=False
  started=time.monotonic();phase='read';epoch=None
  trace={'operation':op,'phase':phase,'result':'confirmed'}
@@ -46,6 +46,7 @@ async def perform(panel,binding,ticks):
   await panel.host.disappear(context)
   panel.host.saved['instances'].pop(context,None)
   await panel.host.appear(context,SET,{'accessoryId':identity,'characteristicType':characteristic,'targetValue':expected})
+  if authorize is not None:await authorize()
   dispatched=True
   phase='dispatch';epoch=panel.host.epoch
   if not await panel.host.input(context,'keyUp',panel.host.epoch) or panel.host.completions.get(context)!='accepted':raise RuntimeError('Write not acknowledged')

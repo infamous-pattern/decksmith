@@ -211,18 +211,37 @@ fn draw_canvas(rgb: &mut [u8], label: &str, color: [u8; 3], canvas: Canvas) {
     let location = font.axes().location([("wght", 700.0)]);
     let outlines = font.outline_glyphs();
     let charmap = font.charmap();
-    // Bundled outline fonts do not contain color emoji glyphs. Preserve the
-    // saved label, but display one readable fallback per unsupported sequence.
+    // Keep ordinary text in the selected font, using bundled Noto Emoji outlines
+    // only for missing symbols. No system fonts or runtime downloads are needed.
+    let fallback = FontRef::new(include_bytes!("../../../assets/fonts/NotoEmoji[wght].ttf"))
+        .expect("valid bundled emoji font");
+    let fallback_location = fallback.axes().location([("wght", 700.0)]);
+    let fallback_outlines = fallback.outline_glyphs();
+    let fallback_charmap = fallback.charmap();
+    let glyph = |c| {
+        charmap
+            .map(c)
+            .filter(|id| id.to_u32() != 0)
+            .map(|id| (id, false))
+            .or_else(|| {
+                fallback_charmap
+                    .map(c)
+                    .filter(|id| id.to_u32() != 0)
+                    .map(|id| (id, true))
+            })
+    };
     let mut rendered = String::with_capacity(label.len());
     let mut in_missing_sequence = false;
     for c in label.chars() {
-        if charmap.map(c).is_some_and(|id| id.to_u32() != 0) {
+        if matches!(c as u32, 0x200d | 0xfe00..=0xfe0f | 0xe0100..=0xe01ef | 0xe0020..=0xe007f | 0x1f3fb..=0x1f3ff)
+        {
+            // These sequence controls must not acquire a standalone glyph. This
+            // outline path does not perform emoji ligature or color shaping.
+            continue;
+        }
+        if glyph(c).is_some() {
             rendered.push(c);
             in_missing_sequence = false;
-        } else if matches!(c as u32, 0x200d | 0xfe00..=0xfe0f | 0xe0100..=0xe01ef | 0xe0020..=0xe007f | 0x1f3fb..=0x1f3ff)
-        {
-            // Joiners, variation selectors, tags and skin-tone modifiers are
-            // part of the preceding emoji and have no standalone outline.
         } else if !in_missing_sequence {
             rendered.push('?');
             in_missing_sequence = true;
@@ -231,9 +250,16 @@ fn draw_canvas(rgb: &mut [u8], label: &str, color: [u8; 3], canvas: Canvas) {
     let label = rendered.as_str();
     let measure = |text: &str| {
         let metrics = font.glyph_metrics(Size::new(initial_size), &location);
+        let fallback_metrics = fallback.glyph_metrics(Size::new(initial_size), &fallback_location);
         text.chars()
-            .filter_map(|c| charmap.map(c))
-            .map(|id| metrics.advance_width(id).unwrap_or(0.0))
+            .filter_map(&glyph)
+            .map(|(id, emoji)| {
+                if emoji {
+                    fallback_metrics.advance_width(id).unwrap_or(0.0)
+                } else {
+                    metrics.advance_width(id).unwrap_or(0.0)
+                }
+            })
             .sum::<f32>()
     };
     let split = if width == 120 && measure(label) > (width - 16) as f32 {
@@ -261,22 +287,41 @@ fn draw_canvas(rgb: &mut [u8], label: &str, color: [u8; 3], canvas: Canvas) {
             y: 0.0,
         };
         let metrics = font.glyph_metrics(Size::new(size), &location);
+        let fallback_metrics = fallback.glyph_metrics(Size::new(size), &fallback_location);
+        let advance_width = |id, emoji| {
+            if emoji {
+                fallback_metrics.advance_width(id).unwrap_or(0.0)
+            } else {
+                metrics.advance_width(id).unwrap_or(0.0)
+            }
+        };
         for (line_index, line) in lines.iter().enumerate() {
             let advance = line
                 .chars()
-                .filter_map(|c| charmap.map(c))
-                .map(|id| metrics.advance_width(id).unwrap_or(0.0))
+                .filter_map(&glyph)
+                .map(|(id, emoji)| advance_width(id, emoji))
                 .sum::<f32>();
             pen.x = -advance / 2.0;
             pen.y = line_index as f32 * size * 1.12;
             for c in line.chars() {
-                if let Some(id) = charmap.map(c) {
-                    if let Some(glyph) = outlines.get(id) {
-                        glyph
-                            .draw(DrawSettings::unhinted(Size::new(size), &location), &mut pen)
+                if let Some((id, emoji)) = glyph(c) {
+                    let outline = if emoji {
+                        fallback_outlines.get(id)
+                    } else {
+                        outlines.get(id)
+                    };
+                    if let Some(outline) = outline {
+                        outline
+                            .draw(
+                                DrawSettings::unhinted(
+                                    Size::new(size),
+                                    if emoji { &fallback_location } else { &location },
+                                ),
+                                &mut pen,
+                            )
                             .expect("valid bundled outline");
                     }
-                    pen.x += metrics.advance_width(id).unwrap_or(0.0);
+                    pen.x += advance_width(id, emoji);
                 }
             }
         }
@@ -457,7 +502,7 @@ mod font_tests {
     }
 
     #[test]
-    fn unsupported_emoji_draws_a_safe_fallback_without_panicking() {
+    fn emoji_sequences_remain_visible_without_panicking() {
         for label in ["🔊", "👩‍💻", "🎚️ Studio"] {
             let mut emoji = vec![0; 120 * 120 * 3];
             draw(&mut emoji, label, 1, false, false, [255; 3]);
@@ -466,5 +511,37 @@ mod font_tests {
                 "fallback rendering for {label}"
             );
         }
+    }
+    #[test]
+    fn emoji_symbols_render_as_glyphs_in_every_selected_font() {
+        for font in 0..14 {
+            for label in ["✅", "🔊", "🎵", "🙂", "🔥"] {
+                let typography = Typography { font, scale: 1. };
+                let mut actual = vec![0; 120 * 120 * 3];
+                let mut replacement = actual.clone();
+                draw_styled(&mut actual, label, 1, false, false, [255; 3], typography);
+                draw_styled(&mut replacement, "?", 1, false, false, [255; 3], typography);
+                assert!(
+                    actual.iter().any(|v| *v != 0),
+                    "missing {label} in font {font}"
+                );
+                assert_ne!(
+                    actual, replacement,
+                    "question mark substituted for {label} in font {font}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn fallback_symbols_obey_caption_color_and_variation_selectors_do_not_add_glyphs() {
+        let mut plain = vec![0; 120 * 120 * 3];
+        let mut variation = plain.clone();
+        draw(&mut plain, "✅", 1, false, false, [255, 0, 0]);
+        draw(&mut variation, "✅️", 1, false, false, [255, 0, 0]);
+        assert_eq!(plain, variation);
+        assert!(plain.chunks_exact(3).any(|p| p[0] > 0));
+        assert!(plain.chunks_exact(3).all(|p| p[1] == 0 && p[2] == 0));
+        assert!(plain[..120 * 3].iter().all(|v| *v == 0));
+        assert!(plain[119 * 120 * 3..].iter().all(|v| *v == 0));
     }
 }

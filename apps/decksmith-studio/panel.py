@@ -157,18 +157,18 @@ class Panel(Adw.Application):
         self.brightness_input.update_property([Gtk.AccessibleProperty.LABEL], ['Brightness percentage'])
         controls.append(self.brightness_input)
         controls.append(Gtk.Label(label='%'))
-        self.apply = Gtk.Button(label='Apply', valign=Gtk.Align.CENTER)
+        self.apply = Gtk.Button(label='Apply brightness', valign=Gtk.Align.CENTER)
         self.apply.add_css_class('suggested-action')
         self.apply.connect('clicked', self.brightness_clicked)
-        controls.append(self.apply)
         self.brightness_row.add_suffix(controls)
         box.append(settings)
+        self.apply.set_halign(Gtk.Align.END);box.append(self.apply)
         editor_group = Adw.PreferencesGroup()
         editor_row = Adw.ActionRow(title='Pages and buttons', subtitle='Customize key labels, artwork and actions')
         self.edit_button = Gtk.Button(label='Edit layout', valign=Gtk.Align.CENTER)
         self.edit_button.connect('clicked', self.open_editor)
         editor_row.add_suffix(self.edit_button)
-        editor_group.add(editor_row)
+        self.editor_row=editor_row;editor_group.add(editor_row)
         self.automatic_row=Adw.ActionRow(title='Automatic page switching',subtitle='Checking GNOME integration…')
         editor_group.add(self.automatic_row)
         box.append(editor_group)
@@ -280,6 +280,14 @@ class Panel(Adw.Application):
         return True
 
     def show_status(self, status):
+        if status.get('mode')=='permanent-service' and not os.environ.get('DECKSMITH_ISOLATED_TEST'):
+            from profile_client import permanent_available
+            editor=getattr(self,'editor',None)
+            if editor is not None and not editor.pending and not (editor.draft and editor.draft.dirty) and permanent_available():
+                # The installed service was started after this fallback window
+                # opened. Re-enter the normal launcher; never spawn a daemon.
+                editor.cleanup()
+                os.execv(sys.executable,[sys.executable,str(Path(__file__).resolve())])
         self.updating = True
         self.running = status['running']
         available = self.running and not status.get('unavailable')
@@ -389,5 +397,12 @@ class Panel(Adw.Application):
             return read_status()
         self.submit(task, self.show_status)
 
+def normal_application():
+    from profile_client import permanent_available
+    if permanent_available():
+        from permanent_workspace import PermanentWorkspace
+        return PermanentWorkspace()
+    return Panel()
+
 if __name__ == '__main__':
-    Panel().run(None)
+    normal_application().run(None)

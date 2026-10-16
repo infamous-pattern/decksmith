@@ -26,6 +26,10 @@ use std::{
 type Result<T> = std::result::Result<T, &'static str>;
 const GENERATIONS: usize = 16;
 const PREFS_BYTES: usize = 65_536;
+// Only pre-checkpoint stores need an archive search. New generations carry one
+// verified predecessor per device, independent of total archive count.
+const LEGACY_HISTORY_ENTRIES: usize = 4096;
+const LEGACY_HISTORY_BYTES: usize = 8 * 1024 * 1024;
 
 pub struct Enrollment<'a> {
     pub id: DeviceId,
@@ -50,6 +54,8 @@ pub struct Profile {
     pub saved_page: u8,
     document: Arc<Document>,
     legacy: Option<Arc<[u8]>>,
+    previous: Option<Arc<Document>>,
+    history_complete: bool,
 }
 impl Profile {
     pub fn document(&self) -> &Document {
@@ -99,6 +105,8 @@ impl Catalog {
                 saved_page,
                 document: Arc::new(doc),
                 legacy: old.legacy.clone(),
+                previous: old.previous.clone(),
+                history_complete: old.history_complete,
             },
         );
         Ok(next)
@@ -186,6 +194,10 @@ struct Row {
     saved_page: u8,
     layout: File,
     legacy: Option<File>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    previous: Option<File>,
+    #[serde(default)]
+    history_complete: bool,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -251,6 +263,153 @@ impl Store {
             fs::symlink_metadata(self.root.join("retention.json")).is_ok(),
         ))
     }
+    /// Permanent-service saves retain verified history in sibling archives before
+    /// reaching the bounded active-generation budget. Labs remain explicit.
+    pub fn ensure_daily_capacity(&self) -> Result<()> {
+        let (count, interrupted) = self.history_status()?;
+        if interrupted {
+            return Err("profile_retention_pending");
+        }
+        if count >= 12 {
+            self.archive_sibling(self.load()?.generation, 8)?;
+        }
+        Ok(())
+    }
+    /// Read verified generations only; selection/brightness-only saves do not
+    /// hide the preceding layout. Archives remain private and are never adopted.
+    pub fn previous_profile_layout(&self, id: DeviceId) -> Result<Vec<u8>> {
+        let current = self.load()?;
+        let profile = current.profile(id)?;
+        if profile.history_complete {
+            return profile
+                .previous
+                .as_ref()
+                .map(|doc| doc.bytes().to_vec())
+                .ok_or("previous_profile_layout_missing");
+        }
+        self.legacy_previous_layout(&current, id)?
+            .ok_or("previous_profile_layout_missing")
+    }
+    /// Bounded compatibility import for generations written before predecessor
+    /// checkpoints. Inspect small manifests, then fully verify only the newest
+    /// differing archived generation. Never prune, rewrite or adopt archives.
+    fn legacy_previous_layout(&self, current: &Catalog, id: DeviceId) -> Result<Option<Vec<u8>>> {
+        let bytes = current.profile(id)?.document().bytes();
+        let find = |store: &Self| -> Result<Option<Vec<u8>>> {
+            for generation in store.inventory()?.into_iter().rev() {
+                if generation >= current.generation {
+                    continue;
+                }
+                let old = store.load_generation(generation)?;
+                if let Ok(profile) = old.profile(id)
+                    && current.registry.same_device_association(&old.registry, id)
+                    && profile.document().bytes() != bytes
+                {
+                    return Ok(Some(profile.document().bytes().to_vec()));
+                }
+            }
+            Ok(None)
+        };
+        if let Some(bytes) = find(self)? {
+            return Ok(Some(bytes));
+        }
+        let current_digest = digest(bytes);
+        let mut budget = LEGACY_HISTORY_BYTES;
+        let mut candidate: Option<(u64, Store)> = None;
+        for (count, entry) in fs::read_dir(self.root.parent().ok_or("invalid_profile_path")?)
+            .map_err(|_| "profile_store_io")?
+            .enumerate()
+        {
+            if count >= LEGACY_HISTORY_ENTRIES {
+                return Err("profile_archive_review_required");
+            }
+            let entry = entry.map_err(|_| "profile_store_io")?;
+            if !entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("profile-history-")
+            {
+                continue;
+            }
+            let store = Store::open(&entry.path())?;
+            let journal_bytes = read(&store.root.join("retention-source.json"), REGISTRY_BYTES)?;
+            budget = budget
+                .checked_sub(journal_bytes.len())
+                .ok_or("profile_archive_review_required")?;
+            let journal: Retention =
+                serde_json::from_slice(&journal_bytes).map_err(|_| "invalid_profile_retention")?;
+            if journal.version != 1
+                || journal.retired.is_empty()
+                || journal.retired.len() >= GENERATIONS
+                || journal.retired.windows(2).any(|w| w[0] >= w[1])
+                || journal
+                    .retired
+                    .iter()
+                    .any(|g| *g == 0 || *g >= journal.generation)
+                || store.pointer()? != *journal.retired.last().ok_or("invalid_profile_retention")?
+            {
+                return Err("invalid_profile_retention");
+            }
+            for generation in store.inventory()? {
+                if !journal.retired.contains(&generation) {
+                    return Err("profile_archive_mismatch");
+                }
+                if generation >= current.generation
+                    || candidate
+                        .as_ref()
+                        .is_some_and(|(best, _)| generation <= *best)
+                {
+                    continue;
+                }
+                let raw = read(&store.dir(generation).join("manifest.json"), REGISTRY_BYTES)?;
+                budget = budget
+                    .checked_sub(raw.len())
+                    .ok_or("profile_archive_review_required")?;
+                let manifest: Manifest =
+                    serde_json::from_slice(&raw).map_err(|_| "invalid_profile_manifest")?;
+                if !matches!(manifest.version, 1 | 2)
+                    || manifest.generation != generation
+                    || manifest.profiles.len() > MAX_DEVICES
+                {
+                    return Err("invalid_profile_manifest");
+                }
+                if manifest
+                    .profiles
+                    .iter()
+                    .any(|p| p.id == id && p.layout.sha256 != current_digest)
+                {
+                    // Paths in old retention journals can refer to the original
+                    // backup location. Match verified private identity instead;
+                    // never adopt another store merely because it is a sibling.
+                    let registry_bytes = store.checked(
+                        &store.dir(generation),
+                        "registry.json",
+                        &manifest.registry,
+                        REGISTRY_BYTES,
+                    )?;
+                    budget = budget
+                        .checked_sub(registry_bytes.len())
+                        .ok_or("profile_archive_review_required")?;
+                    let registry = Registry::decode(&registry_bytes)?;
+                    if current.registry.same_device_association(&registry, id) {
+                        candidate = Some((generation, Store::open(&store.root)?));
+                    }
+                }
+            }
+        }
+        match candidate {
+            Some((generation, store)) => {
+                let old = store.load_generation(generation)?;
+                let doc = old.profile(id)?.document();
+                if doc.bytes() == bytes {
+                    return Err("profile_archive_mismatch");
+                }
+                Ok(Some(doc.bytes().to_vec()))
+            }
+            None => Ok(None),
+        }
+    }
+
     pub fn archive_sibling(&self, expected: u64, keep: usize) -> Result<ArchiveReport> {
         match fs::symlink_metadata(self.root.join("retention.json")) {
             Ok(_) => {
@@ -290,6 +449,9 @@ impl Store {
         ];
         for row in manifest.profiles {
             entries.push((format!("{}.json", row.id), LIMIT));
+            if row.previous.is_some() {
+                entries.push((format!("{}-previous.json", row.id), LIMIT));
+            }
             if row.legacy.is_some() {
                 entries.push((format!("{}-legacy.json", row.id), LIMIT));
             }
@@ -583,7 +745,10 @@ impl Store {
         let m: Manifest =
             serde_json::from_slice(&read(&dir.join("manifest.json"), REGISTRY_BYTES)?)
                 .map_err(|_| "invalid_profile_manifest")?;
-        if m.version != 1 || m.generation != generation || m.profiles.len() > MAX_DEVICES {
+        if !matches!(m.version, 1 | 2)
+            || m.generation != generation
+            || m.profiles.len() > MAX_DEVICES
+        {
             return Err("invalid_profile_manifest");
         }
         let registry =
@@ -613,6 +778,24 @@ impl Store {
             } else {
                 None
             };
+            if (m.version == 2 && !row.history_complete)
+                || (row.previous.is_some() && !row.history_complete)
+            {
+                return Err("invalid_profile_history");
+            }
+            let previous = row
+                .previous
+                .as_ref()
+                .map(|entry| {
+                    let bytes =
+                        self.checked(&dir, &format!("{}-previous.json", row.id), entry, LIMIT)?;
+                    let previous = Document::for_model(&bytes, record.model())?;
+                    if previous.version() != 2 || previous.bytes() == doc.bytes() {
+                        return Err("invalid_profile_history");
+                    }
+                    Ok(Arc::new(previous))
+                })
+                .transpose()?;
             profiles.insert(
                 row.id,
                 Profile {
@@ -621,6 +804,8 @@ impl Store {
                     saved_page: row.saved_page,
                     document: Arc::new(doc),
                     legacy,
+                    previous,
+                    history_complete: row.history_complete,
                 },
             );
         }
@@ -673,6 +858,26 @@ impl Store {
     fn commit(&self, catalog: &Catalog, stop: Option<u8>) -> Result<u64> {
         self.no_retention()?;
         let generation = self.next()?;
+        let base = self.load()?;
+        if base.generation != catalog.generation {
+            return Err("stale_profile_generation");
+        }
+        // Resolve all compatibility history before writing a new generation. A
+        // failed verification leaves current pointer and existing files intact.
+        let mut predecessors = BTreeMap::new();
+        for p in catalog.profiles.values() {
+            let previous = match base.profiles.get(&p.id) {
+                Some(old) if old.document.bytes() != p.document.bytes() => {
+                    Some(old.document.bytes().to_vec())
+                }
+                Some(old) if old.history_complete => {
+                    old.previous.as_ref().map(|doc| doc.bytes().to_vec())
+                }
+                Some(_) => self.legacy_previous_layout(&base, p.id)?,
+                None => p.previous.as_ref().map(|doc| doc.bytes().to_vec()),
+            };
+            predecessors.insert(p.id, previous);
+        }
         let dir = self.dir(generation);
         disk::mkdir(&dir)?;
         let registry = catalog.registry.encode_private()?;
@@ -684,19 +889,25 @@ impl Store {
             if let Some(bytes) = &p.legacy {
                 disk::write(&dir.join(format!("{}-legacy.json", p.id)), bytes)?;
             }
+            let previous = predecessors.get(&p.id).and_then(Option::as_ref);
+            if let Some(bytes) = previous {
+                disk::write(&dir.join(format!("{}-previous.json", p.id)), bytes)?;
+            }
             rows.push(Row {
                 id: p.id,
                 revision: p.revision,
                 saved_page: p.saved_page,
                 layout: file(p.document.bytes()),
                 legacy: p.legacy.as_ref().map(|bytes| file(bytes)),
+                previous: previous.map(|bytes| file(bytes)),
+                history_complete: true,
             });
         }
         if stop == Some(1) {
             return Err("profile_commit_interrupted");
         }
         let manifest = Manifest {
-            version: 1,
+            version: 2,
             generation,
             selected: catalog.selected,
             registry: file(&registry),
@@ -790,6 +1001,8 @@ impl Store {
                 saved_page,
                 document: Arc::new(document),
                 legacy,
+                previous: None,
+                history_complete: true,
             },
         );
         if catalog.selected.is_none() {
@@ -823,6 +1036,8 @@ impl Store {
             return Err("invalid_profile_page");
         }
         let legacy = old.legacy.clone();
+        let previous = old.previous.clone();
+        let history_complete = old.history_complete;
         catalog
             .registry
             .update(catalog.registry.revision(), id, name, brightness)?;
@@ -834,6 +1049,8 @@ impl Store {
                 saved_page,
                 document: Arc::new(doc),
                 legacy,
+                previous,
+                history_complete,
             },
         );
         self.commit(&catalog, None)
@@ -1029,6 +1246,12 @@ impl Controls {
     }
     pub fn gate(&mut self, locked: bool, suspended: bool) -> Result<()> {
         self.manager.gate(locked, suspended)
+    }
+    pub fn fence_gate(&mut self, locked: bool, suspended: bool) -> Result<()> {
+        self.manager.fence_gate(locked, suspended)
+    }
+    pub fn paint_gated(&mut self, id: DeviceId, keys: &[u8], touch: Option<&[u8]>) -> Result<()> {
+        self.manager.paint_gated(id, keys, touch)
     }
     pub fn poll_round(&mut self) -> Vec<ReceivedInput> {
         self.manager.poll_round()
@@ -1909,5 +2132,216 @@ mod tests {
         let _lock = s.lock().unwrap();
         assert!(s.archive_history(16, 8, &temp.0.join("history")).is_err());
         assert!(!temp.0.join("history").exists());
+    }
+    fn edit_label(s: &Store, device: DeviceId, label: &str) -> Vec<u8> {
+        let c = s.load().unwrap();
+        let p = c.profile(device).unwrap();
+        let mut value: serde_json::Value = serde_json::from_slice(p.document.bytes()).unwrap();
+        value["pages"][0]["keys"][0]["label"] = label.into();
+        let bytes = serde_json::to_vec(&value).unwrap();
+        s.save_profile(device, p.revision, &bytes, p.saved_page, "Test", 50)
+            .unwrap();
+        bytes
+    }
+    fn churn_history(s: &Store, rounds: u32) {
+        for n in 0..rounds {
+            s.ensure_daily_capacity().unwrap();
+            let c = s.load().unwrap();
+            s.save_preferences_private(c.generation, format!("{{\"step\":{n}}}").as_bytes())
+                .unwrap();
+        }
+    }
+    // Compatibility fixture: remove only new checkpoint fields/files, leaving
+    // exactly the old generation schema, archive journals and current pointer.
+    fn legacy_history(s: &Store) {
+        for entry in fs::read_dir(s.root.parent().unwrap()).unwrap() {
+            let path = entry.unwrap().path();
+            if !path.join("generations").is_dir() {
+                continue;
+            }
+            let store = Store::open(&path).unwrap();
+            for g in store.inventory().unwrap() {
+                let file = store.dir(g).join("manifest.json");
+                let mut m: serde_json::Value =
+                    serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+                m["version"] = 1.into();
+                for row in m["profiles"].as_array_mut().unwrap() {
+                    row.as_object_mut().unwrap().remove("history_complete");
+                    row.as_object_mut().unwrap().remove("previous");
+                    let name = format!("{}-previous.json", row["id"].as_str().unwrap());
+                    let _ = fs::remove_file(store.dir(g).join(name));
+                }
+                fs::write(file, serde_json::to_vec(&m).unwrap()).unwrap();
+            }
+        }
+    }
+    #[test]
+    fn compact_previous_survives_more_than_64_archives_without_scanning_them() {
+        let (temp, s) = pair();
+        let old = s
+            .load()
+            .unwrap()
+            .profile(id(1))
+            .unwrap()
+            .document
+            .bytes()
+            .to_vec();
+        edit_label(&s, id(1), "New ✅");
+        churn_history(&s, 300);
+        assert!(fs::read_dir(&temp.0).unwrap().count() > 64);
+        assert_eq!(s.previous_profile_layout(id(1)).unwrap(), old);
+        // An unreadable unrelated backup cannot break indexed recovery.
+        disk::mkdir(&temp.0.join("profile-history-unrelated")).unwrap();
+        assert_eq!(s.previous_profile_layout(id(1)).unwrap(), old);
+        assert_eq!(
+            s.previous_profile_layout(id(2)),
+            Err("previous_profile_layout_missing")
+        );
+    }
+    #[test]
+    fn legacy_80_archive_history_is_imported_once_without_rewriting_backups() {
+        let (temp, s) = pair();
+        let old = s
+            .load()
+            .unwrap()
+            .profile(id(1))
+            .unwrap()
+            .document
+            .bytes()
+            .to_vec();
+        edit_label(&s, id(1), "Legacy new");
+        churn_history(&s, 330);
+        legacy_history(&s);
+        // A restored/copied store must not depend on the old absolute journal path.
+        let relocated = temp.0.join("relocated");
+        fs::rename(&s.root, &relocated).unwrap();
+        let s = Store::open(&relocated).unwrap();
+        assert_eq!(s.previous_profile_layout(id(1)).unwrap(), old);
+        let archives: Vec<_> = fs::read_dir(&temp.0)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("profile-history-")
+            })
+            .collect();
+        let manifests: Vec<_> = archives
+            .iter()
+            .flat_map(|p| {
+                let store = Store::open(p).unwrap();
+                store
+                    .inventory()
+                    .unwrap()
+                    .into_iter()
+                    .map(|g| {
+                        (
+                            store.dir(g).join("manifest.json"),
+                            fs::read(store.dir(g).join("manifest.json")).unwrap(),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let c = s.load().unwrap();
+        s.save_preferences_private(c.generation, b"{}").unwrap();
+        assert!(s.load().unwrap().profile(id(1)).unwrap().history_complete);
+        assert_eq!(s.previous_profile_layout(id(1)).unwrap(), old);
+        for (p, bytes) in manifests {
+            assert_eq!(fs::read(p).unwrap(), bytes);
+        }
+        disk::mkdir(&temp.0.join("profile-history-unrelated")).unwrap();
+        assert_eq!(s.previous_profile_layout(id(1)).unwrap(), old);
+    }
+    #[test]
+    fn predecessor_is_device_specific_and_restore_then_save_can_be_undone() {
+        let (_temp, s) = pair();
+        let original = s.load().unwrap();
+        let plus = edit_label(&s, id(1), "Plus edit");
+        let mk2 = edit_label(&s, id(2), "MK2 edit");
+        assert_eq!(
+            s.previous_profile_layout(id(1)).unwrap(),
+            original.profile(id(1)).unwrap().document.bytes()
+        );
+        assert_eq!(
+            s.previous_profile_layout(id(2)).unwrap(),
+            original.profile(id(2)).unwrap().document.bytes()
+        );
+        let c = s.load().unwrap();
+        let p = c.profile(id(1)).unwrap();
+        s.save_profile(
+            id(1),
+            p.revision,
+            &s.previous_profile_layout(id(1)).unwrap(),
+            0,
+            "Restored",
+            60,
+        )
+        .unwrap();
+        assert_eq!(s.previous_profile_layout(id(1)).unwrap(), plus);
+        assert_eq!(
+            s.load().unwrap().profile(id(2)).unwrap().document.bytes(),
+            mk2
+        );
+        churn_history(&s, 20);
+        assert_eq!(s.previous_profile_layout(id(1)).unwrap(), plus);
+    }
+    #[test]
+    fn corrupt_predecessor_fails_closed_without_replacing_current_pointer() {
+        let (_temp, s) = pair();
+        edit_label(&s, id(1), "Latest");
+        let c = s.load().unwrap();
+        let pointer = fs::read(s.root.join("current.json")).unwrap();
+        fs::write(
+            s.dir(c.generation).join(format!("{}-previous.json", id(1))),
+            b"{}",
+        )
+        .unwrap();
+        assert_eq!(
+            s.previous_profile_layout(id(1)),
+            Err("profile_checksum_failed")
+        );
+        assert_eq!(
+            s.save_preferences_private(c.generation, b"{}"),
+            Err("profile_checksum_failed")
+        );
+        assert_eq!(fs::read(s.root.join("current.json")).unwrap(), pointer);
+    }
+    #[test]
+    fn interrupted_checkpoint_save_preserves_both_current_and_previous_layouts() {
+        let (_temp, s) = pair();
+        let original = s
+            .load()
+            .unwrap()
+            .profile(id(1))
+            .unwrap()
+            .document
+            .bytes()
+            .to_vec();
+        let edited = edit_label(&s, id(1), "Current edit");
+        let current = s.load().unwrap();
+        assert_eq!(
+            s.commit(&current, Some(2)),
+            Err("profile_commit_interrupted")
+        );
+        assert_eq!(s.load().unwrap().generation, current.generation);
+        assert_eq!(
+            s.load().unwrap().profile(id(1)).unwrap().document.bytes(),
+            edited
+        );
+        assert_eq!(s.previous_profile_layout(id(1)).unwrap(), original);
+        let (_temp2, restored) = pair();
+        // Explicitly restoring to another new store carries the checkpoint too.
+        let destination = restored.root.parent().unwrap().join("restored-checkpoint");
+        s.restore_generation(current.generation, &destination)
+            .unwrap();
+        assert_eq!(
+            Store::open(&destination)
+                .unwrap()
+                .previous_profile_layout(id(1))
+                .unwrap(),
+            original
+        );
     }
 }

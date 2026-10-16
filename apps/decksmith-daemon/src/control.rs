@@ -110,6 +110,23 @@ pub fn startup(default_path: &str) -> Result<(Pages, Settings), &'static str> {
     let pages = preset(&settings.layout)?;
     Ok((pages, settings))
 }
+pub(crate) fn set_auto_lock_preference(
+    enabled: bool,
+    gate: &crate::session_lock::Gate,
+) -> zbus::fdo::Result<()> {
+    let path = path().with_file_name("auto-lock.json");
+    std::fs::create_dir_all(path.parent().unwrap())
+        .and_then(|_| {
+            std::fs::write(
+                path.with_extension("json.tmp"),
+                if enabled { "true" } else { "false" },
+            )
+        })
+        .and_then(|_| std::fs::rename(path.with_extension("json.tmp"), &path))
+        .map_err(|_| zbus::fdo::Error::Failed("Could not save Auto-Lock preference".into()))?;
+    gate.enable(enabled);
+    Ok(())
+}
 static SAVE_LOCK: Mutex<()> = Mutex::new(());
 pub(crate) fn save_shared(shared: &Shared) -> zbus::fdo::Result<()> {
     let _guard = SAVE_LOCK.lock().unwrap();
@@ -320,18 +337,7 @@ impl Api {
         self.save()
     }
     fn set_auto_lock(&mut self, enabled: bool) -> zbus::fdo::Result<()> {
-        let path = path().with_file_name("auto-lock.json");
-        std::fs::create_dir_all(path.parent().unwrap())
-            .and_then(|_| {
-                std::fs::write(
-                    path.with_extension("json.tmp"),
-                    if enabled { "true" } else { "false" },
-                )
-            })
-            .and_then(|_| std::fs::rename(path.with_extension("json.tmp"), &path))
-            .map_err(|_| zbus::fdo::Error::Failed("Could not save Auto-Lock preference".into()))?;
-        self.gate.enable(enabled);
-        Ok(())
+        set_auto_lock_preference(enabled, &self.gate)
     }
     fn set_brightness(&mut self, percent: u8) -> zbus::fdo::Result<()> {
         if percent > 100 {

@@ -24,27 +24,22 @@ class DialControls(Gtk.Box):
         self.picker.connect('notify::selected',self.select);box.append(self.picker)
         group=Adw.PreferencesGroup(title="Assignment");self.group=group;box.append(group)
         self.label=Adw.EntryRow(title='Touch-strip label');self.label.connect('changed',self.changed);group.add(self.label)
-        self.rotation=Adw.ComboRow(title='Turn to adjust',model=Gtk.StringList.new(['No action','Audio volume','Device brightness']))
-        self.rotation.connect('notify::selected',self.rotation_changed)
+        self.rotation=Adw.ComboRow(title='Turn to adjust',model=Gtk.StringList.new(['No action','Audio volume','Device brightness','Homebridge · experimental']))
+        self.rotation.connect('notify::selected',self.rotation_changed);group.add(self.rotation)
         self.target=AudioTargetPicker(self.target_changed);group.add(self.target)
         self.icon_refresh=Gtk.Button(label='Refresh application icon',halign=Gtk.Align.START)
         self.icon_refresh.connect('clicked',self.refresh_icon);group.add(self.icon_refresh)
         self.label_error=Gtk.Label(wrap=True,xalign=0);self.label_error.add_css_class('error');group.add(self.label_error)
-        behavior=Adw.PreferencesGroup(title='Behavior');box.append(behavior);behavior.add(self.rotation)
+        behavior=Adw.ExpanderRow(title='More behavior',subtitle='Adjustment step and accessory options')
         from homebridge_picker import HomebridgePicker
-        self.homebridge=HomebridgePicker(self.assign_homebridge,dial=True);behavior.add(self.homebridge)
+        self.homebridge=HomebridgePicker(self.assign_homebridge,dial=True);group.add(self.homebridge);self.homebridge.set_visible(False)
         self.remove_homebridge=Gtk.Button(label='Remove Homebridge assignment',halign=Gtk.Align.START)
-        self.remove_homebridge.connect('clicked',self.clear_homebridge);behavior.add(self.remove_homebridge)
+        self.remove_homebridge.connect('clicked',self.clear_homebridge);group.add(self.remove_homebridge)
         self.step=Adw.SpinRow(title='Percent per tick',adjustment=Gtk.Adjustment(value=1,lower=1,upper=10,step_increment=1))
-        self.step.connect('notify::value',self.changed);behavior.add(self.step)
+        self.step.connect('notify::value',self.changed);behavior.add_row(self.step)
         self.press=Adw.ComboRow(title='Dial press',model=Gtk.StringList.new(['No action','Toggle mute','Next page','Previous page','Media · Play / Pause','Media · Previous track','Media · Next track','Push to talk']))
-        self.press.connect('notify::selected',self.changed);behavior.add(self.press)
-        self.media_player=MediaPicker(self.changed);behavior.add(self.media_player)
-        from action_catalog import ActionCatalog
-        self.catalog=ActionCatalog(
-            [('Turn',label,lambda i=i:self.rotation.set_selected(i)) for i,label in enumerate(['No action','Audio volume','Device brightness'])]+
-            [('Press',label,lambda i=i:self.press.set_selected(i)) for i,label in enumerate(['No action','Toggle mute','Next page','Previous page','Play / Pause','Previous track','Next track','Push to talk'])])
-        self.catalog.set_visible(False)
+        self.press.connect('notify::selected',self.changed);group.add(self.press)
+        self.media_player=MediaPicker(self.changed);group.add(self.media_player);group.add(behavior)
         appearance=Adw.PreferencesGroup();box.append(appearance)
         self.appearance_group=Adw.ExpanderRow(title='Appearance',subtitle='Gauge style, font and colors');appearance.add(self.appearance_group)
         self.display_style=Adw.ComboRow(title='Touch-strip style',model=Gtk.StringList.new(['Dual-arc gauge','Classic bar','Single-arc meter']))
@@ -69,7 +64,11 @@ class DialControls(Gtk.Box):
         self.homebridge.sync(dial.get('plugin_rotation'))
         self.remove_homebridge.set_visible(bool(dial.get('plugin_rotation')))
         self.step.set_title('Device steps per click' if dial.get('plugin_rotation',{}).get('schema')==2 else 'Percent per tick')
-        self.label.set_text(dial['label']);self.rotation.set_selected(ROTATIONS.index(dial['rotation']))
+        self.homebridge.set_visible(bool(dial.get('plugin_rotation')))
+        model=self.rotation.get_model();plugins=bool(getattr(self.owner,'has_homebridge',False) or dial.get('plugin_rotation'))
+        if plugins and model.get_n_items()==3:model.append('Homebridge · experimental')
+        elif not plugins and model.get_n_items()>3:model.remove(3)
+        self.label.set_text(dial['label']);self.rotation.set_selected(3 if dial.get('plugin_rotation') else ROTATIONS.index(dial['rotation']))
         self.media_player.select(dial.get('media_player',''))
         self.target.select(dial.get('audio_target','system'),inputs_only=dial['press']['type']=='push_to_talk')
         self.step.set_value(dial['step']);self.press.set_selected(PRESSES.index(dial['press']['type']))
@@ -99,6 +98,9 @@ class DialControls(Gtk.Box):
 
     def rotation_changed(self,*_args):
         if self.syncing:return
+        if self.rotation.get_selected()==3:
+            self.homebridge.set_visible(True);self.homebridge.set_expanded(True);return
+        self.homebridge.set_visible(False)
         self.data[self.index].pop('plugin_rotation',None)
         if ROTATIONS[self.rotation.get_selected()]=='brightness':
             self.syncing=True
@@ -137,7 +139,7 @@ class DialControls(Gtk.Box):
     def style_changed(self,style):
         if style:self.data[self.index]['appearance']=style
         else:self.data[self.index].pop('appearance',None)
-        store(self.owner.draft.data,getattr(self.owner,'page',0),self.index,self.data[self.index]);self.owner.render()
+        store(self.owner.draft.data,getattr(self.owner,'page',0),self.index,self.data[self.index]);self.validate();self.owner.render()
     def reset_style(self,*_):self.style_changed({});self.style_rows.sync()
     def changed(self,*_args):
         if self.syncing:return
@@ -146,7 +148,7 @@ class DialControls(Gtk.Box):
         plugins={k:v for k,v in self.data[self.index].items() if k in ('plugin_rotation','plugin_press')}
         if _args and _args[0] is self.rotation:plugins.pop('plugin_rotation',None)
         if _args and _args[0] is self.press:plugins.pop('plugin_press',None)
-        self.data[self.index]={'label':self.label.get_text(),'rotation':ROTATIONS[self.rotation.get_selected()],'step':round(self.step.get_value()),'press':{'type':PRESSES[self.press.get_selected()]}}
+        self.data[self.index]={'label':self.label.get_text(),'rotation':ROTATIONS[self.rotation.get_selected()] if self.rotation.get_selected()<len(ROTATIONS) else 'none','step':round(self.step.get_value()),'press':{'type':PRESSES[self.press.get_selected()]}}
         self.data[self.index].update(plugins)
         if self.display_style.get_selected()!=0:self.data[self.index]['display_style']=DISPLAY_STYLES[self.display_style.get_selected()]
         if appearance:self.data[self.index]['appearance']=appearance
@@ -172,8 +174,10 @@ class DialControls(Gtk.Box):
         self.target.set_visible(self.rotation.get_selected()==1 or self.press.get_selected() in (1,7))
         self.display_style.set_visible(not self.data[self.index].get('plugin_rotation') and (self.rotation.get_selected()!=0 or self.press.get_selected() in (1,7)))
         if any(d['press']['type']=='push_to_talk' and not d.get('audio_target','').startswith('input:') for d in self.data):
-            self.apply.set_sensitive(False);self.status.set_text('Choose a named microphone for push to talk.');return
+            self.apply.set_sensitive(False);self.status.set_visible(True);self.status.set_text('Choose a named microphone for push to talk.');return
         self.apply.set_sensitive(bool(valid));self.step.set_sensitive(self.rotation.get_selected()!=0 or bool(self.data[self.index].get('plugin_rotation')))
+        self.status.set_visible(not valid or not self.embedded)
+        self.appearance_group.set_subtitle(('Custom style' if self.data[self.index].get('appearance') else 'Theme defaults')+' · '+['Dual-arc gauge','Classic bar','Single-arc meter'][self.display_style.get_selected()])
         self.status.set_text(('Save and Apply sends your changes to the device.' if self.embedded else 'Done returns to Edit Layout. Save and Apply sends your changes to the device.') if valid else 'Labels need 1–24 visible characters. Emoji are supported.')
     def use(self,_button):
         for index,dial in enumerate(self.data):store(self.owner.draft.data,getattr(self.owner,'page',0),index,dial)

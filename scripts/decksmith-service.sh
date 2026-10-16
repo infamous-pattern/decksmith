@@ -3,9 +3,9 @@ set -euo pipefail
 repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 if [[ -f "$repo_dir/release.json" ]]; then
   case "${1:-status}" in
-    start|stop|status) exec systemctl --user "${1:-status}" decksmith.service ;;
+    start|stop|restart|status) exec systemctl --user "${1:-status}" decksmith.service ;;
     logs) exec journalctl --user -u decksmith.service -n 40 --no-pager ;;
-    *) echo 'Use start, stop, status or logs.' >&2; exit 2 ;;
+    *) echo 'Use start, stop, restart, status or logs.' >&2; exit 2 ;;
   esac
 fi
 case "${1:-status}" in
@@ -25,7 +25,8 @@ case "${1:-status}" in
       "$repo_dir/target/debug/decksmithd" --config "$repo_dir/config/audio.json" --exclusive --run
     ;;
   stop) systemctl --user stop decksmith.service ;;
+  restart) systemctl --user restart decksmith.service ;;
   status) systemctl --user status --no-pager decksmith.service ;;
   logs) journalctl --user -u decksmith.service -n 40 --no-pager ;;
-  *) echo "Usage: $0 start|stop|status|logs" >&2; exit 2 ;;
+  *) echo "Usage: $0 start|stop|restart|status|logs" >&2; exit 2 ;;
 esac

@@ -182,6 +182,38 @@ pub fn paint(
     display.set_touch_image(strip)
 }
 
+/// Fixed model-sized supervisor frame. Prepared once per execution runtime,
+/// outside its input loop; no user artwork or dynamic layout is decoded here.
+pub(crate) fn model_frame(
+    model: decksmith_core::device_model::DeviceModel,
+) -> crate::profile_control::Frame {
+    let descriptor = decksmith_core::device_model::DeviceDescriptor::for_model(model);
+    let mut key = vec![0; 120 * 120 * 3];
+    crate::key_text::draw(&mut key, "Locked", 1, false, false, [245, 190, 115]);
+    let (width, height) = descriptor.geometry().key_pixels;
+    let key = if (width, height) == (120, 120) {
+        key
+    } else {
+        let image = image::RgbImage::from_raw(120, 120, key).expect("fixed RGB frame");
+        image::imageops::resize(
+            &image,
+            u32::from(width),
+            u32::from(height),
+            image::imageops::FilterType::Lanczos3,
+        )
+        .into_raw()
+    };
+    let mut keys = vec![0; descriptor.key_rgb_bytes() * usize::from(descriptor.key_count())];
+    keys[..key.len()].copy_from_slice(&key);
+    crate::profile_control::Frame {
+        keys,
+        touch: descriptor
+            .capabilities()
+            .touch
+            .map(|surface| vec![0; surface.rgb_bytes()]),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

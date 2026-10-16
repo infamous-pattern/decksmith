@@ -422,6 +422,13 @@ pub fn run(args: &[String]) -> Result<()> {
         Store::open(&path.join("profiles"))?.load()?,
         settings.as_ref(),
     )?;
+    // Lifecycle qualification is separately opted in; ordinary diagnostic runs
+    // retain their established scope. Unknown/stale desktop state blocks.
+    let host_gate = (std::env::var("DECKSMITH_LIFECYCLE_TEST").as_deref() == Ok("1")).then(|| {
+        let gate = crate::session_lock::Gate::new(true);
+        gate.monitor();
+        gate
+    });
     let editable = args[0] == "--connected-edit-native-lab";
     let mut editor: Option<crate::live_profiles::Service> = None;
     let end = Instant::now() + Duration::from_secs(seconds);
@@ -459,6 +466,10 @@ pub fn run(args: &[String]) -> Result<()> {
                 }
                 refresh = Instant::now();
             }
+            if let Some(gate) = &host_gate {
+                let state = gate.snapshot();
+                trial.runtime.host_lock(state.locked, state.epoch)?;
+            }
             trial.tick()?;
             if editable
                 && editor.is_none()
@@ -480,6 +491,9 @@ pub fn run(args: &[String]) -> Result<()> {
             }
             if report.elapsed() >= Duration::from_millis(250) {
                 trial.report(&path.join("status.json"), "running")?;
+                if let Some(gate) = &host_gate {
+                    write_report(&path.join("lifecycle.json"), &serde_json::to_vec_pretty(&serde_json::json!({"mode":"real-session-lock","lock":gate.snapshot(),"suspend_wired":false,"startup_wired":false})).map_err(|_| "test_status_failed")?)?;
+                }
                 report = Instant::now();
             }
             std::thread::sleep(Duration::from_millis(5));

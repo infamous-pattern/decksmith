@@ -305,12 +305,19 @@ class Editor(Adw.ApplicationWindow):
             if kind.startswith('media_'):return 'Media'
             if kind.startswith('open_'):return 'Applications'
             return 'General' if kind=='none' else 'Audio'
-        self.action_catalog=ActionCatalog([(category(kind),label,lambda i=i:self.action.set_selected(i))
-                                          for i,(kind,label) in enumerate(zip(ACTIONS,ACTION_LABELS))])
-        self.form.add(self.action if integrated else self.action_catalog)
+        self.action_catalog=ActionCatalog([(category(kind),label,lambda i=i:self.choose_builtin_action(i))
+                                          for i,(kind,label) in enumerate(zip(ACTIONS,ACTION_LABELS))]+
+                                         [('Plugins','Homebridge · experimental',self.choose_homebridge)])
+        self.form.add(self.action_catalog)
+        from pathlib import Path
+        import os
+        runtime=os.environ.get('XDG_RUNTIME_DIR')
+        self.has_homebridge=bool(os.environ.get('DECKSMITH_PLUGIN_LAB_CONNECTION') or
+            (runtime and (Path(runtime)/'decksmith-plugin-lab.json').is_file()) or
+            (Path(os.environ.get('XDG_CONFIG_HOME',str(Path.home()/'.config')))/'systemd/user/decksmith-openhomeb.service').is_file())
         from homebridge_picker import HomebridgePicker
         self.homebridge=HomebridgePicker(self.assign_homebridge)
-        self.form.add(self.homebridge)
+        self.form.add(self.homebridge);self.homebridge.set_visible(False)
         self.plugin_remove=Gtk.Button(label='Remove plugin assignment',halign=Gtk.Align.START)
         self.plugin_remove.connect('clicked',self.remove_plugin_assignment);self.form.add(self.plugin_remove)
         from system_controls import LABELS as SYSTEM_LABELS
@@ -394,7 +401,7 @@ class Editor(Adw.ApplicationWindow):
             return
         # Reorder existing widgets so resize never loses the selection or draft.
         self.workspace.set_orientation(Gtk.Orientation.VERTICAL if compact else Gtk.Orientation.HORIZONTAL)
-        self.workspace.reorder_child_after(getattr(self,'property_column',self.properties),None if compact or self.device_column.get_parent() is not self.workspace else self.device_column)
+        self.workspace.reorder_child_after(getattr(self,'property_scroll_host',self.properties),None if compact or self.device_column.get_parent() is not self.workspace else self.device_column)
         self.properties.set_hexpand(not compact)
         self.device_column.set_hexpand(compact)
         self.device_column.set_size_request(-1 if compact else 554,-1)
@@ -423,7 +430,9 @@ class Editor(Adw.ApplicationWindow):
                 self.reset_button.set_sensitive(self.draft is not None)
                 if self.draft is not None:
                     self.render()
-                self.status.set_text(error_message or "Request failed; changes may have been saved. Your draft is retained. Check the connection before retrying.")
+                describe=getattr(self.owner,'request_error_message',None)
+                detail=describe(error) if describe else None
+                self.status.set_text(detail or error_message or "Request failed; changes may have been saved. Your draft is retained. Check the connection before retrying.")
             return False
         future.add_done_callback(lambda _future: GLib.idle_add(finish))
 
@@ -606,6 +615,16 @@ class Editor(Adw.ApplicationWindow):
         if self.integrated:self.shell.navigate('keys')
         self.select_key(index)
 
+    def choose_builtin_action(self, index):
+        # Selecting the existing built-in action must also replace a plugin.
+        if self.action.get_selected()==index:self.form_changed(self.action)
+        else:self.action.set_selected(index)
+        self.homebridge.set_visible(False)
+
+    def choose_homebridge(self):
+        self.homebridge.set_visible(True)
+        self.homebridge.set_expanded(True)
+
     def select_key(self, index):
         if self.draft is None or not 0<=index<self.key_count:return
         self.control_kind='key'
@@ -617,7 +636,7 @@ class Editor(Adw.ApplicationWindow):
         if key['action']['type']=='system':self.system_picker.set_selected(self.system_commands.index(key['action']['command']))
         self.form.set_title(f'Key {index+1} · '+key['label'])
         self.plugin_remove.set_visible(bool(key.get('plugin')))
-        self.homebridge.sync(key.get('plugin'))
+        self.homebridge.sync(key.get('plugin'));self.homebridge.set_visible(bool(key.get('plugin')))
         if key.get('plugin'):
             self.form.set_title(f'Key {index+1} · '+key['label']+' · Plugin assignment')
         self.action.set_title('Built-in action (replaces plugin)' if key.get('plugin') else 'Action')
@@ -732,7 +751,8 @@ class Editor(Adw.ApplicationWindow):
         style_key=self.draft.data['pages'][self.page]['keys'][self.key]
         custom=bool(style_key.get('appearance')) or any(k in style_key for k in ('label_position','label_color','background_color','label_background'))
         self.appearance.set_subtitle('Custom style · Reset to theme to inherit' if custom else 'Using shared theme defaults')
-        self.action_catalog.set_label("Action · "+ACTION_LABELS[self.action.get_selected()])
+        self.action_catalog.set_available("Homebridge · experimental",self.has_homebridge or bool(style_key.get("plugin")))
+        self.action_catalog.set_label("Homebridge · experimental" if style_key.get("plugin") else ACTION_LABELS[self.action.get_selected()])
         action = ACTIONS[self.action.get_selected()]
         self.system_picker.set_visible(action=='system');self.system_note.set_visible(action=='system')
         self.destination.set_visible(action=='go_to_page')
@@ -1183,6 +1203,8 @@ class Editor(Adw.ApplicationWindow):
 
     def close_requested(self, _window):
         if self.pending:return True
+        guard=getattr(self.owner,'guard_before_close',None)
+        if guard and guard():return True
         if self.draft is not None and self.draft.dirty:
             dialog=Adw.AlertDialog(heading='Save changes before closing?',body='Your layout has unsaved changes. Quitting will stop background controls.' if getattr(self.owner,'quit_all',False) else 'Your layout has unsaved changes. Background controls keep running when this window closes.')
             dialog.add_response('keep','Keep editing')

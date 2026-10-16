@@ -477,6 +477,11 @@ impl DeviceManager {
         if self.locked == locked && self.suspended == suspended {
             return Ok(());
         }
+        self.fence_gate(locked, suspended)
+    }
+    /// Renew the desktop generation even when a complete host lock/unlock cycle
+    /// occurred between coordinator observations. Never creates action contexts.
+    pub fn fence_gate(&mut self, locked: bool, suspended: bool) -> Result<()> {
         let epoch = self
             .lock_epoch
             .checked_add(1)
@@ -486,6 +491,20 @@ impl DeviceManager {
         self.lock_epoch = epoch;
         for session in &mut self.sessions {
             session.fence();
+        }
+        Ok(())
+    }
+    /// Supervisor-only display path: no action context can exist while blocked.
+    /// A gate transition fences the same actor mailbox before this is queued.
+    pub fn paint_gated(&mut self, id: DeviceId, keys: &[u8], touch: Option<&[u8]>) -> Result<()> {
+        if !self.locked && !self.suspended {
+            return Err("devices_not_gated");
+        }
+        let s = self.session_mut(id)?;
+        let device = s.device.as_mut().ok_or("device_not_ready")?;
+        if let Err(error) = device.queue_frame(keys, touch) {
+            s.failed(error);
+            return Err("device_frame_failed");
         }
         Ok(())
     }

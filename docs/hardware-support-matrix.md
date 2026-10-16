@@ -4,10 +4,10 @@ Catalog audit: September 13, 2026. Official Elgato product pages and device
 references were checked on this date. “Current” means listed in the official
 catalog, not guaranteed stock in every region. This is a support target and
 validation plan, not a statement that these devices already work with Decksmith
-or that Elgato certifies Linux. Implementation checkpoint: October 13, 2026.
+or that Elgato certifies Linux. Implementation checkpoint: October 16, 2026.
 Stream Deck + is the Fedora 44 V1 hardware reference. The standard 15-key MK.2
-now has adapter/fixture and initial paired physical evidence for unreleased V1.5;
-production integration and complete model release certification remain open.
+now has adapter/fixture, permanent-service and paired physical evidence for
+unreleased V1.5. Final signed-candidate admission and release certification remain open.
 
 ## Current physical device matrix
 
@@ -91,6 +91,19 @@ aggregate telemetry plus user-directed actions, not per-gesture timing logs.
 Physical reversed connection order, paired lock/suspend, shared action dispatch,
 production workspace/enrollment and sustained resource qualification remain gates.
 Do not extend this evidence to Scissor/Module variants or certify the full range.
+
+## October 15 permanent-service qualification
+
+The installed development runtime controls Plus and MK.2 together with saved
+independent profiles. Physical checks accepted pages/brightness, shared native
+audio/media/microphone controls, lock/locked reconnect, suspend, bidirectional USB
+isolation/recovery, quit blanking/relaunch, login startup, paired editor save and
+previous-layout recovery, keyboard focus and Orca across successive builds.
+The latest optimized development package also passed ordinary/quicker controls,
+bidirectional USB recovery and finite quiet/loaded resource observations. See the
+[V1.5 candidate review](v1.5-candidate.md) for carried-forward coverage and limits.
+No other model or physical identical-model pair inherits this evidence. Signed
+candidate qualification remains separate from development acceptance.
 
 ## Scope decisions kept separate
 

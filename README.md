@@ -15,6 +15,12 @@ Stream Deck +.** Debian, Ubuntu and COSMIC have separate experimental previews.
 [Report an issue](https://github.com/infamous-pattern/decksmith/issues) ·
 [Roadmap](docs/ROADMAP.md)
 
+**V1.5 candidate preparation:** the development build adds simultaneous Stream
+Deck + and 15-key MK.2 control, independent saved device layouts, a simpler editor
+and new dial gauges. Signed-candidate qualification is pending; the downloads
+below still provide V1 and its existing experimental previews. See the
+[V1.5 candidate scope and remaining checks](docs/v1.5-candidate.md).
+
 ![Decksmith Home with device preview and background-control settings](docs/images/decksmith-home.png?v=914df36b4fe4)
 
 ## See it in action
@@ -45,8 +51,9 @@ The [original V1 tour](https://www.youtube.com/watch?v=ZJG1n_8rGNY) is also avai
   blanks the entire device.
 
 Optional actions depend on the desktop's services. The Homebridge integration is
-**experimental**; general plugin support, independent multiple devices and the
-15-key Stream Deck MK.2 are planned for V1.5. See the [roadmap](docs/ROADMAP.md).
+**experimental**. Independent multiple devices and the 15-key Stream Deck MK.2
+are implemented in the V1.5 development build, pending signed-candidate
+qualification. General plugin support is deferred to V2. See the [roadmap](docs/ROADMAP.md).
 
 ## Downloads and compatibility
 
@@ -65,7 +72,8 @@ needed to run them.
 
 Preview VM checks do not establish physical USB/audio or lifecycle support on
 those platforms. COSMIC does not inherit GNOME-only integrations. Review the
-linked limits before installing. Broader GNOME/Wayland compatibility is a V1.5 goal.
+linked limits before installing. Broader supported compatibility remains separate
+from the focused V1.5 multi-device release.
 
 ### New dial gauges
 

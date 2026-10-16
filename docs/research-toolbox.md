@@ -39,6 +39,40 @@ hook trial is a separate decision; adopting its guidance does not add automatic
 code-edit hooks or a new UI framework. No performance or design-quality
 improvement is claimed from adoption alone.
 
+## Deck-Switch and Deckhand — reference repositories adopted October 15
+
+Both repositories are approved references for specific feature and architecture
+questions. Source, documentation and representative editor views were inspected;
+no foreign code, installer or dependency was executed or added to Decksmith.
+Retain Rust/GTK, the simplified editor and independent device profiles.
+
+- [Deck-Switch](https://github.com/LabRaTox/Deck-Switch), reviewed at
+  `bce843ae6d7dcad55707aa6076611556d7d43970`: useful capability/dependency reasons,
+  preserved unavailable assignments, declarative localized plugin settings,
+  named Dial Stack entries and shared system-metric snapshots. Its MIT license
+  requires notices if code is ever reused; dependencies need separate review.
+  Its Python/Tauri stack, in-process plugin loader, KDE/Arch assumptions and
+  periodic animation loop are not Decksmith implementation templates. Its
+  long-dial-push stack cycling conflicts with our approved tap-to-cycle and
+  microphone hold rules; retain our semantics.
+- [Deckhand](https://github.com/juicetheforce/deckhand), reviewed at
+  `0ca5bd9b7e08a8988d6c329f65ad83323d430296`: useful event-driven cached audio/media
+  inventory, device-scoped failure badges, duplicate-replacing actionable
+  notifications, and geometry-aware bulk copy with explicit skipped controls and
+  navigation warnings. Its GPL-3.0-or-later source remains reference material;
+  implement ideas independently rather than copying code into Decksmith's
+  Apache-2.0 distribution. It has no plugin host and does not implement Plus
+  dial/touch-strip controls. Its global profile switching differs from our
+  independent layouts. Periodic safety scans still exist, and its published CPU
+  figure is not a verified benchmark for Decksmith's live gauges.
+
+Use these ideas selectively: capability/failure clarity and cached observations
+can support multi-device qualification; optional cross-device copy and clearer
+Dial Stack lists remain follow-up work. Plugin field schemas and shared built-in
+system monitors now belong to V2. Keep device defaults independent, copying
+explicit, errors actionable and the accepted native layout stable. Repository
+review is not physical, lifecycle or performance acceptance.
+
 ## Choose the simplest source of evidence
 
 Start with official Elgato HID/SDK documentation, saved test profiles and observed
@@ -161,6 +195,9 @@ server setup report records the installed paths, package digests and smoke resul
 No background Ghidra service, network listener or system-wide Java change is needed.
 
 ## Primary references
+
+- [Deck-Switch reviewed source](https://github.com/LabRaTox/Deck-Switch/tree/bce843ae6d7dcad55707aa6076611556d7d43970)
+- [Deckhand reviewed source](https://github.com/juicetheforce/deckhand/tree/0ca5bd9b7e08a8988d6c329f65ad83323d430296)
 
 - [Ghidra repository](https://github.com/NationalSecurityAgency/ghidra)
 - [Ghidra 12.1.4 release](https://github.com/NationalSecurityAgency/ghidra/releases/tag/Ghidra_12.1.4_build)
