@@ -27,11 +27,11 @@ hosted-runner, checksum, target and archive policy before package code executes.
 | Gate | Ubuntu 26.04 | Debian 13 |
 | --- | --- | --- |
 | Initial V1.5.1 candidate | Rust compile/tests passed; stopped at new maintenance advisories | Same stop |
-| Signed package admission and relocation | V1.5.2 candidate verified; additional installer fix requires rebuild | Same |
+| Signed package admission and relocation | Replacement V1.5.2 package verified, including installer fix | Same |
 | Offline verified VM backup, OS update and confirmed reboot | Passed; retained-preview smoke passed; guest off | Passed; retained-preview smoke passed; guest off |
-| Normal-user upgrade from retained V1.0 preview; saved files and startup state | Unmodified candidate found permission blocker; reviewed migration plus signed runtime passed | Same |
-| Service start/stop/restart with no hardware | Passed after reviewed source migration | Passed after reviewed source migration |
-| Native paired virtual editor; owner-specific saves, brightness, recovery and restart | Passed with reviewed source migration and signed runtime | Same |
+| Normal-user upgrade from retained V1.0 preview; saved files and startup state | Passed with unchanged replacement signed package; original permissions retained | Same |
+| Service start/stop/restart with no hardware | Passed with unchanged replacement signed package | Same |
+| Native paired virtual editor; owner-specific saves, brightness, recovery and restart | Passed with unchanged replacement signed package | Same |
 | Fresh dependency installation and missing-package repair on current package | Pending | Pending |
 | Whole-store upgrade/downgrade recovery across preview and V1.5 schema | Pending | Pending |
 | GNOME indicator and foreground-app switching | Pending | Blocked on GNOME 48 compatibility review; extension metadata declares 50/51 |
@@ -195,3 +195,42 @@ GNOME integration and physical Ubuntu acceptance remain open. Debian also report
 its lock source unavailable with GNOME 48 in this fixture; no lock/foreground
 compatibility is claimed. Fedora V1.5.1, preview release assets, installer pins and
 the daily desktop remain unchanged.
+
+
+## Approved installer fix: exact signed package repeats
+
+The maintainer approved pushing the additional installer migration and rebuilding
+all three candidates, without release publication or desktop installation. Both
+hosts verified identical source tree `a1882002b9865979cef6b9c5b92336b73d0cb3a3`:
+canonical `c97abc6e73bfee1f4edce054da46f73e13df214d`, public source
+`896a973adb59922f1fb8cdd986deab109f14888b`. The earlier paragraph's pending approval
+is historical; this section records its completion.
+
+| Target | Replacement build and signing | Admitted bundle |
+| --- | --- | --- |
+| Fedora 44 | https://github.com/infamous-pattern/decksmith/actions/runs/39057610936 | `1.5.2-51af13296b52` |
+| Ubuntu 26.04 | https://github.com/infamous-pattern/decksmith/actions/runs/39057610984 | `1.5.2-ee1a4addd776` |
+| Debian 13 | https://github.com/infamous-pattern/decksmith/actions/runs/39057610950 | `1.5.2-98b7b247f2e3` |
+
+Quality and all three build/signing workflows passed. The unchanged verifier
+admitted all six signed subjects for each target against that exact public source,
+workflow and main ref, with hosted-runner restrictions, checksums and archive
+validation. The complete Ubuntu and Debian packages, including their signed
+installer, then passed the parallel normal-user VM repeats without a source
+installer substitution. Each included the exact final installer SHA-256 recorded
+above. Upgrade, no-device unit start/stop/restart, native Wayland waiting editor,
+rollback/reinstall and native private paired editor/restart checks all passed.
+Original saved bytes, permission modes and startup integration were explicitly
+verified after restoration. Original permission trees were retained in private
+evidence; both guests shut down gracefully and are off.
+
+Evidence: `outputs/ubuntu-support-20261017/evidence/signed-fix-ubuntu2604/` and
+`.../signed-fix-debian13/`. Fresh installation/missing-package repair, human/portal/
+accessibility, GNOME extension integration, physical USB/audio/media/microphone and
+lifecycle/resource acceptance remain open. Debian's later repeat reported a GNOME
+lock source available, unlike the earlier startup sample; neither observation
+certifies physical lock recovery or GNOME 48 extension compatibility.
+
+No release, public installer pin, preview asset or daily desktop was changed.
+The subsequent documentation-only receipt commit does not replace these immutable
+candidate source identities or their signed files.
