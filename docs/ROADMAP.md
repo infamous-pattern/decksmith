@@ -11,8 +11,11 @@ change system routing.
 this order on October 17. Qualify Ubuntu 26.04 x86_64 GNOME/Wayland against the
 current V1.5.1 source and keep Debian 13 validation as a separate target on the
 AI server. Initial signed candidates stopped at new upstream maintenance notices;
-a zbus 6 migration and pre-signing paired-bus regression are prepared as V1.5.2
-development work. Both retained server VMs passed backup/update/reboot and existing-preview
+the zbus 6 migration and pre-signing paired-bus regression now have verified V1.5.2
+Fedora, Ubuntu and Debian candidates. Native VM acceptance found a V1.0-preview
+permission transition; an additional source installer migration passed 122 script
+tests and both native paired VM checks with the signed runtime, but still needs
+approval and rebuilt signed packages. Both retained server VMs passed backup/update/reboot and existing-preview
 smoke checks. Existing previews remain experimental until their own acceptance and
 publication decisions. Do not infer support from a build, VM smoke test or Fedora
 physical evidence. See the [Ubuntu/Debian support qualification](checkpoints/2026-10-17-ubuntu-debian-support.md).

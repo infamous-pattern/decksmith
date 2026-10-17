@@ -151,6 +151,19 @@ available. The main panel now offers an explicit login-startup preference; the
 installer preserves the existing setting. The optional [GNOME panel menu](desktop-integration.md)
 is installed separately. [Auto-Lock](auto-lock.md) is available as an explicit preference.
 
+### V1.5.2 development: retained V1.0 preview permissions
+
+The prepared V1.5.2 installer can migrate group-writable settings from a managed
+V1.0 preview only when their XDG configuration parent is owner-only. Save and close
+the editor and stop Background controls first. It verifies a private copy with
+identical file contents, retains the original tree and permissions beside the
+settings as `.decksmith-preview-before-<timestamp>`, and reports that path as
+`preview_config_backup`. It preserves owner access bits and does not follow links
+or automatically change shared folders, executable files or read-only directories.
+Those cases stop for inspection. Failed installation restores the earlier tree.
+This is prepared development behavior; the published V1.5.1 and existing preview
+installers do not include it. Retain the original copy until upgrade acceptance.
+
 ## Backup and recovery
 
 **V1.5 downgrade:** retain the matching complete pre-upgrade configuration/device

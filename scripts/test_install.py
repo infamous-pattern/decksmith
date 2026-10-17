@@ -1,4 +1,4 @@
-import base64,importlib.util,io,json,sys,tarfile,tempfile,unittest
+import base64,importlib.util,io,json,os,stat,sys,tarfile,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
 from package_io import digest,write_archive,read_archive,release_files,atomic
@@ -126,3 +126,63 @@ class InstallTests(unittest.TestCase):
         defaults=json.loads((self.paths.app/'current/config/plus-default.json').read_text())
         self.assertEqual(defaults['theme']['appearance']['icon_size'],85)
         self.assertEqual(defaults['pages'][0]['keys'][4]['action']['type'],'open_website')
+
+    def preview_settings(self):
+        self.paths.config.mkdir(parents=True,exist_ok=True);self.paths.config.chmod(0o700)
+        config=self.paths.config/'decksmith';config.mkdir(mode=0o775);config.chmod(0o775)
+        path=config/'control-panel.json';path.write_bytes(b'{"layout":"audio","brightness":63}');path.chmod(0o664)
+        return config,path
+    def test_preview_upgrade_preserves_bytes_and_original_modes_in_retained_copy(self):
+        manager.install(self.paths,self.bundle('1.0.0-preview'));config,path=self.preview_settings();data=path.read_bytes()
+        result=manager.install(self.paths,self.bundle('1.5.2-test'));previous=Path(result['preview_config_backup'])
+        self.assertEqual(path.read_bytes(),data);self.assertEqual(stat.S_IMODE(config.stat().st_mode),0o700);self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o600)
+        self.assertEqual((previous/path.name).read_bytes(),data);self.assertEqual(stat.S_IMODE(previous.stat().st_mode),0o775);self.assertEqual(stat.S_IMODE((previous/path.name).stat().st_mode),0o664)
+        again=manager.install(self.paths,self.bundle('1.5.2-test'));self.assertNotIn('preview_config_backup',again);self.assertEqual(manager.load_record(self.paths)['preview_config_backup'],str(previous))
+    def test_failed_preview_activation_restores_original_configuration_and_modes(self):
+        manager.install(self.paths,self.bundle('1.0.0-preview'));config,path=self.preview_settings();data=path.read_bytes()
+        with patch.object(manager,'wait_ready',side_effect=ValueError('Not ready')):
+            with self.assertRaisesRegex(ValueError,'Not ready'):manager.install(self.paths,self.bundle('1.5.2-test'),True)
+        self.assertEqual(path.read_bytes(),data);self.assertEqual(stat.S_IMODE(config.stat().st_mode),0o775);self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o664)
+        self.assertEqual(manager.current(self.paths),'1.0.0-preview');self.assertFalse(list(self.paths.config.glob('.decksmith-preview-*')))
+    def test_preview_migration_refuses_shared_parent_links_and_executable_files(self):
+        for case in ['shared-parent','symlink','hardlink','executable']:
+            with self.subTest(case=case),tempfile.TemporaryDirectory() as temporary:
+                paths=manager.Paths.create(Path(temporary)/'home');paths.config.mkdir(parents=True,mode=0o700);paths.config.chmod(0o700)
+                config=paths.config/'decksmith';config.mkdir(mode=0o775);config.chmod(0o775);path=config/'settings.json';path.write_bytes(b'unchanged');path.chmod(0o664)
+                outside=Path(temporary)/'outside';outside.write_bytes(b'outside');outside.chmod(0o664)
+                if case=='shared-parent':paths.config.chmod(0o755)
+                elif case=='symlink':path.unlink();path.symlink_to(outside)
+                elif case=='hardlink':path.unlink();os.link(outside,path)
+                else:path.chmod(0o775)
+                with self.assertRaises(ValueError):manager.migrate_private_preview(paths,'1.0.0-preview')
+                self.assertEqual(outside.read_bytes(),b'outside');self.assertEqual(stat.S_IMODE(outside.stat().st_mode),0o664);self.assertEqual(stat.S_IMODE(config.stat().st_mode),0o775)
+                self.assertFalse(list(paths.config.glob('.decksmith-private-*')));self.assertFalse(list(paths.config.glob('.decksmith-preview-*')))
+    def test_preview_migration_copy_sync_failure_leaves_original_tree_intact(self):
+        config,path=self.preview_settings();data=path.read_bytes()
+        with patch.object(manager,'sync_directory',side_effect=OSError('disk error')):
+            with self.assertRaises(OSError):manager.migrate_private_preview(self.paths,'1.0.0-preview')
+        self.assertEqual(path.read_bytes(),data);self.assertEqual(stat.S_IMODE(config.stat().st_mode),0o775)
+        self.assertFalse(list(self.paths.config.glob('.decksmith-private-*')))
+
+    def test_preview_migration_parent_sync_failure_restores_original_after_swap(self):
+        config,path=self.preview_settings();data=path.read_bytes();original_sync=manager.sync_directory
+        def fail_parent(directory):
+            if directory==self.paths.config:raise OSError('parent sync error')
+            return original_sync(directory)
+        with patch.object(manager,'sync_directory',side_effect=fail_parent):
+            with self.assertRaises(OSError):manager.migrate_private_preview(self.paths,'1.0.0-preview')
+        self.assertEqual(path.read_bytes(),data);self.assertEqual(stat.S_IMODE(config.stat().st_mode),0o775);self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o664)
+        self.assertFalse(list(self.paths.config.glob('.decksmith-private-*')));self.assertFalse(list(self.paths.config.glob('.decksmith-preview-*')))
+    def test_preview_migration_does_not_add_owner_write_to_readonly_settings(self):
+        config,_=self.preview_settings();readonly=config/'readonly.json';readonly.write_bytes(b'keep readonly');readonly.chmod(0o444)
+        previous=manager.migrate_private_preview(self.paths,'1.0.0-preview')
+        self.assertEqual(readonly.read_bytes(),b'keep readonly');self.assertEqual(stat.S_IMODE(readonly.stat().st_mode),0o400)
+        self.assertEqual(stat.S_IMODE((previous/'readonly.json').stat().st_mode),0o444)
+
+    def test_preview_migration_refuses_readonly_directory_without_changing_it(self):
+        config,path=self.preview_settings();folder=config/'readonly';folder.mkdir();folder.chmod(0o500)
+        try:
+            with self.assertRaisesRegex(ValueError,'read-only directories'):manager.migrate_private_preview(self.paths,'1.0.0-preview')
+            self.assertEqual(stat.S_IMODE(folder.stat().st_mode),0o500);self.assertEqual(stat.S_IMODE(config.stat().st_mode),0o775)
+            self.assertEqual(path.read_bytes(),b'{"layout":"audio","brightness":63}')
+        finally:folder.chmod(0o700)

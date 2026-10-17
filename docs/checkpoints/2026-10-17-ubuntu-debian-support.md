@@ -27,11 +27,11 @@ hosted-runner, checksum, target and archive policy before package code executes.
 | Gate | Ubuntu 26.04 | Debian 13 |
 | --- | --- | --- |
 | Initial V1.5.1 candidate | Rust compile/tests passed; stopped at new maintenance advisories | Same stop |
-| Signed package admission and relocation | Pending | Pending |
+| Signed package admission and relocation | V1.5.2 candidate verified; additional installer fix requires rebuild | Same |
 | Offline verified VM backup, OS update and confirmed reboot | Passed; retained-preview smoke passed; guest off | Passed; retained-preview smoke passed; guest off |
-| Normal-user upgrade from retained V1.0 preview; saved files and startup state | Pending | Pending |
-| Service start/stop/restart with no hardware | Pending | Pending |
-| Native paired virtual editor; owner-specific saves, brightness, recovery and restart | Pending | Pending |
+| Normal-user upgrade from retained V1.0 preview; saved files and startup state | Unmodified candidate found permission blocker; reviewed migration plus signed runtime passed | Same |
+| Service start/stop/restart with no hardware | Passed after reviewed source migration | Passed after reviewed source migration |
+| Native paired virtual editor; owner-specific saves, brightness, recovery and restart | Passed with reviewed source migration and signed runtime | Same |
 | Fresh dependency installation and missing-package repair on current package | Pending | Pending |
 | Whole-store upgrade/downgrade recovery across preview and V1.5 schema | Pending | Pending |
 | GNOME indicator and foreground-app switching | Pending | Blocked on GNOME 48 compatibility review; extension metadata declares 50/51 |
@@ -134,3 +134,64 @@ and explicitly points the virtual daemon there. Ownership checks and runtime cod
 are unchanged. It also prints the daemon log on failure. The corrected fixture
 passed again on the AI host; clean container reruns remain required. Failed run
 IDs: Fedora `39055589592`, Ubuntu `39055589578`, Debian `39055589570`.
+
+
+## Verified V1.5.2 candidates and preview upgrade finding
+
+The dependency migration and container fixture correction are on both hosts with
+identical source tree `d3f8364cc78ed2b9bb5b1db752b7196f8bd1c39e`:
+canonical `4c6dcfb08e76713073ade16d50a5e113aac910cb`, public
+`5b6d052ef054ba10162bc6c9f16652f647c80112`. Quality and all three candidate
+workflows passed. All six subjects per target passed the existing verifier with
+exact workflow, source, main ref, hosted-runner, checksums and archive admission.
+
+| Target | Successful build/signing run | Admitted bundle |
+| --- | --- | --- |
+| Fedora 44 | https://github.com/infamous-pattern/decksmith/actions/runs/39056038382 | `1.5.2-c114cafd843c` |
+| Ubuntu 26.04 | https://github.com/infamous-pattern/decksmith/actions/runs/39056038529 | `1.5.2-309c7a4f9e2a` |
+| Debian 13 | https://github.com/infamous-pattern/decksmith/actions/runs/39056038625 | `1.5.2-f6c7d819d5c6` |
+
+The unmodified Ubuntu and Debian packages installed without changing saved bytes
+or startup preference, but could not start the permanent service on the retained
+V1.0 preview settings. Both guests had an owner-only `.config` parent, a `0775`
+Decksmith folder and a `0664` preferences file. The service correctly rejected
+that folder as `unsafe_layout_directory`. Both initial attempts restored the
+original integration and complete user baseline, then shut down cleanly.
+
+An additional, not-yet-published installer migration now handles that bounded
+case. For an existing managed V1.0 preview, with controls stopped and the editor
+closed, it verifies an unchanged self-owned regular configuration tree under an
+owner-only XDG configuration parent. It refuses links, hard-linked or executable
+files, special permissions, read-only directories, shared parents and oversized
+or changing input. It creates and byte-verifies a private copy, preserves owner
+access bits (including read-only files), retains the original folder and modes
+as `.decksmith-preview-before-<timestamp>` beside the active settings, and records
+that backup path. Installation failure restores the original tree and modes.
+Runtime ownership checks remain unchanged.
+
+The final installer SHA-256 tested on both guests is
+`8d74705c8643e0922b50ccca2e92932f452d11eadac1bab95449af46345bfbc8`.
+All **122** script/installer tests passed. Both native VM runs passed with this
+reviewed source installer and the admitted signed runtime: preview upgrade,
+unchanged saved bytes and startup preference, no-device service start/stop/restart,
+native Wayland waiting editor, package rollback/reinstall, independent virtual
+Plus/MK.2 drafts and saves, selected-device preview/action/brightness, owner-scoped
+history, editor-close continuity and persisted pages/brightness after restart.
+Original guest baselines and modes were restored; both guests are off. The original
+preview permission trees are retained in private evidence as well.
+
+Private final evidence directories are
+`outputs/ubuntu-support-20261017/evidence/package-<ubuntu2604|debian13>-source-migration-confirmed/`.
+The earlier private editor fixture also needed an explicit private umask on these
+distributions; its failed result is retained separately. Four model/OS screenshots
+were inspected: labels, emoji, device geometry and visible scroll affordances render
+correctly. Transient disabled-action hints in captures do not substitute for human
+interaction, accessibility or portal acceptance.
+
+This qualifies the reviewed migration with the signed runtime, **not a signed
+package containing the new installer**. Publishing that additional source and
+rebuilding the candidates needs maintainer approval. Fresh/missing-dependency,
+GNOME integration and physical Ubuntu acceptance remain open. Debian also reports
+its lock source unavailable with GNOME 48 in this fixture; no lock/foreground
+compatibility is claimed. Fedora V1.5.1, preview release assets, installer pins and
+the daily desktop remain unchanged.

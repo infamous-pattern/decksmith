@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Decksmith per-user install, update, backup and rollback. Startup is never enabled automatically."""
-import argparse,base64,contextlib,fcntl,json,os,platform,shlex,shutil,subprocess,sys,tempfile,time
+import argparse,base64,contextlib,fcntl,json,os,platform,shlex,shutil,stat,subprocess,sys,tempfile,time
 from dataclasses import dataclass
 from pathlib import Path
 sys.dont_write_bytecode=True
@@ -132,6 +132,81 @@ def backup(paths):
     destination=paths.backups/(time.strftime('%Y%m%d-%H%M%S')+'-'+str(time.time_ns())[-6:]+'.tar.gz')
     write_archive(destination,first);return destination
 
+def preview_config_snapshot(root):
+    files={};directories=[];modes={};total=0
+    def scan(path,relative=''):
+        nonlocal total
+        metadata=path.lstat()
+        if metadata.st_uid!=os.geteuid() or path.is_symlink():raise ValueError('Preview settings must be owned regular files and directories')
+        modes[relative]=stat.S_IMODE(metadata.st_mode)
+        if len(modes)>512:raise ValueError('Preview settings exceed the migration file limit')
+        if stat.S_ISDIR(metadata.st_mode):
+            if metadata.st_mode&0o700!=0o700:raise ValueError('Preview settings include read-only directories; inspect them before upgrading')
+            if metadata.st_mode&0o7000:raise ValueError('Preview settings have special directory permissions; inspect them before upgrading')
+            directories.append(relative)
+            for child in sorted(path.iterdir()):scan(child,relative+'/'+child.name if relative else child.name)
+        elif stat.S_ISREG(metadata.st_mode) and metadata.st_nlink==1:
+            if metadata.st_mode&0o7111:raise ValueError('Preview settings contain executable or special-permission files; inspect them before upgrading')
+            if metadata.st_size>2*1024*1024:raise ValueError('Preview settings file exceeds the migration size limit')
+            descriptor=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+            with os.fdopen(descriptor,'rb') as incoming:
+                current=os.fstat(incoming.fileno())
+                if (current.st_dev,current.st_ino)!=(metadata.st_dev,metadata.st_ino):raise ValueError('Preview settings changed during migration')
+                data=incoming.read(2*1024*1024+1)
+            total+=len(data)
+            if total>32*1024*1024 or len(data)!=metadata.st_size:raise ValueError('Preview settings exceed the migration size limit or changed')
+            files[relative]=data
+        else:raise ValueError('Preview settings contain a link or special file; inspect them before upgrading')
+    scan(root)
+    return files,directories,modes
+
+def sync_directory(path):
+    descriptor=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    try:os.fsync(descriptor)
+    finally:os.close(descriptor)
+
+def migrate_private_preview(paths,old):
+    # Only retained V1.0 managed previews get this migration. Never silently
+    # privatize a shared XDG folder, follow a link, or modify linked file modes.
+    root=paths.config/'decksmith'
+    if not old or not old.startswith('1.0.0-') or not (root.exists() or root.is_symlink()):return None
+    first=preview_config_snapshot(root)
+    if not any(mode&0o022 for mode in first[2].values()):return None
+    parent=paths.config.lstat()
+    if not stat.S_ISDIR(parent.st_mode) or paths.config.is_symlink() or parent.st_uid!=os.geteuid() or stat.S_IMODE(parent.st_mode)&0o077:
+        raise ValueError('Preview upgrade needs an owner-only configuration parent; inspect XDG_CONFIG_HOME before retrying')
+    require_stopped(paths)
+    if preview_config_snapshot(root)!=first:raise ValueError('Preview settings changed; finish saving and retry')
+    temporary=Path(tempfile.mkdtemp(prefix='.decksmith-private-',dir=paths.config))
+    previous=paths.config/('.decksmith-preview-before-'+str(time.time_ns()))
+    try:
+        files,directories,modes=first
+        for relative in directories:
+            if relative:(temporary/relative).mkdir(mode=0o700)
+        for relative,data in files.items():atomic(temporary/relative,data,modes[relative]&0o600)
+        copied=preview_config_snapshot(temporary)
+        if copied[:2]!=first[:2] or preview_config_snapshot(root)!=first:raise ValueError('Preview settings copy did not verify')
+        for relative in reversed(directories):
+            os.chmod(temporary/relative,modes[relative]&0o700);sync_directory(temporary/relative)
+        os.rename(root,previous)
+        try:os.rename(temporary,root);sync_directory(paths.config)
+        except BaseException:
+            if root.exists():os.rename(root,temporary)
+            os.rename(previous,root)
+            raise
+    finally:
+        if temporary.exists():shutil.rmtree(temporary)
+    return previous
+
+def restore_private_preview(paths,previous):
+    root=paths.config/'decksmith';failed=paths.config/('.decksmith-preview-failed-'+str(time.time_ns()))
+    os.rename(root,failed)
+    try:os.rename(previous,root);sync_directory(paths.config)
+    except BaseException:
+        if not root.exists():os.rename(failed,root)
+        raise
+    shutil.rmtree(failed)
+
 def systemd_quote(path):return '"'+str(path).replace('\\','\\\\').replace('"','\\"').replace('%','%%')+'"'
 def integrations(paths,release):
     root=paths.app/'current'
@@ -209,14 +284,19 @@ def install(paths,source,activate=False):
         fragment=run('systemctl','--user','show','decksmith.service','--property=FragmentPath','--value').stdout.strip()
         if fragment:legacy_unit=Path(fragment).read_bytes()
     if was_active and activate:service(paths,'stop')
+    preview_backup=None
     try:
+        preview_backup=migrate_private_preview(paths,old)
         for name,path in paths.integrations().items():atomic(path,desired[name],0o755 if name in ('launcher','manager','cli') else 0o644)
         point(paths,identity);reload(paths)
         if activate:service(paths,'reset-failed',False);service(paths,'start');wait_ready(paths,release)
         updated={'format':'decksmith-install','version':1,'current':identity,'previous':old if old!=identity else record.get('previous'),'original':record.get('original',before),'managed':{n:digest(d) for n,d in desired.items()},'preserved':({'desktop':True} if custom_desktop is not None else {}),'last_backup':str(snapshot)}
+        if preview_backup is not None:updated['preview_config_backup']=str(preview_backup)
+        elif record.get('preview_config_backup'):updated['preview_config_backup']=record['preview_config_backup']
         save_record(paths,updated)
     except Exception:
         if activate:service(paths,'stop',False)
+        if preview_backup is not None:restore_private_preview(paths,preview_backup)
         restore_integrations(paths,before)
         if old:point(paths,old)
         elif (paths.app/'current').is_symlink():(paths.app/'current').unlink()
@@ -225,7 +305,7 @@ def install(paths,source,activate=False):
         reload(paths)
         if was_active and activate:service(paths,'start',False)
         raise
-    return {'installed':identity,'previous':updated['previous'],'backup':str(snapshot),'activated':bool(activate and not paths.staged),'startup':'unchanged (never enabled by installer)','staged':paths.staged}
+    return {'installed':identity,'previous':updated['previous'],'backup':str(snapshot),'activated':bool(activate and not paths.staged),'startup':'unchanged (never enabled by installer)','staged':paths.staged,**({'preview_config_backup':str(preview_backup)} if preview_backup is not None else {})}
 
 def require_stopped(paths):
     if active(paths):raise ValueError('Stop Background controls before restoring, rolling back or removing the app')
