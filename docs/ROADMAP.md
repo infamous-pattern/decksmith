@@ -14,8 +14,13 @@ AI server. Initial signed candidates stopped at new upstream maintenance notices
 the zbus 6 migration and bounded V1.0-preview permission migration now have verified
 signed V1.5.2 Fedora, Ubuntu and Debian candidates. The installer passed 122 script
 tests; the exact Ubuntu and Debian packages passed native upgrade, paired editor,
-service and recovery checks. Fresh dependency installation, GNOME integration and
-physical Ubuntu acceptance remain open; no release or support promotion is approved. Both retained server VMs passed backup/update/reboot and existing-preview
+service and recovery checks. Additional parallel VM runs passed clean per-user
+installation, controlled missing-dependency repair, and complete paired-store,
+history and imported-artwork recovery; both original guest setups were restored
+and powered off. The cancellation test fixture correction passed GitHub Quality
+run 99. Pristine-OS/public installer delivery, GNOME integration and physical
+Ubuntu acceptance remain open; the maintainer deferred the hardware stage.
+No release or support promotion is approved. Both retained server VMs passed backup/update/reboot and existing-preview
 smoke checks. Existing previews remain experimental until their own acceptance and
 publication decisions. Do not infer support from a build, VM smoke test or Fedora
 physical evidence. See the [Ubuntu/Debian support qualification](checkpoints/2026-10-17-ubuntu-debian-support.md).

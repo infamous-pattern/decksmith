@@ -1,6 +1,6 @@
 # Ubuntu support and parallel Debian validation — October 17, 2026
 
-## Follow-up Quality run 98 — test fixture correction prepared
+## Follow-up Quality run 98 — corrected and verified
 
 The documentation commit's Quality run
 https://github.com/infamous-pattern/decksmith/actions/runs/39058290065 failed in
@@ -18,10 +18,58 @@ strict. No production transport or accessory behavior changes.
 
 The corrected test passed 1,000 consecutive runs on the AI server. All 346 Rust
 tests passed (six existing ignored), with formatting and strict all-feature,
-all-target Clippy passing. This correction is prepared locally; publication and
-a new GitHub Quality result remain pending. The latest Ubuntu and Debian signed
+all-target Clippy passing. The maintainer approved publication of the correction
+and notes to both repositories. Canonical `e2399618d09e0e53371804c4c015d438b99a29a2`
+and public `9f857132b3cae3c4b46c3a796a3b2ba3af7e97ca` have identical tree
+`db0d418807f90fd406d63a342746cac76610cea6`. Replacement Quality run
+https://github.com/infamous-pattern/decksmith/actions/runs/39061840299 passed Rust
+checks, installer tests and the unchanged dependency security audit. Historical
+failed run 98 remains available as evidence. The latest Ubuntu and Debian signed
 package workflows already passed (39057610984 and 39057610950); their existing
 native package qualification is independent of this newer test-fixture failure.
+
+## Additional clean-user dependency and paired-store recovery checks
+
+The unchanged admitted Ubuntu and Debian V1.5.2 candidates were exercised in
+parallel on the updated retained server VMs. Each run takes and byte-verifies a
+powered-off disk recovery copy, holds the existing per-user install/configuration
+aside, and restores its exact contents, permissions, package version/mark and
+startup state afterward. This is a **clean per-user installation**, not a pristine
+OS test or an end-to-end test of a future public installer pin.
+
+Both initial runs passed real removal of only `python3-gi-cairo` after checking
+the package-manager removal plan, detection/refusal with dependencies missing,
+repair through the candidate's shared dependency helper in a real terminal, and
+normal-user installation with startup disabled. APT did not need an additional
+confirmation for this single-package repair; no confirmation is inferred.
+
+The private native paired editor creates independent named profiles, pages,
+brightness and history. The candidate's own backup/restore commands then recover
+the saved registry, profile generations, session state and imported artwork after
+controlled corruption, followed by same-candidate reinstall and normal service
+startup with no attached hardware.
+
+The first Debian recovery check stopped because its assertion required the
+`waiting_for_device` fallback used before any saved catalogue can be read. The
+actual reply already exposed both saved profiles, disconnected, with the selected
+Plus page and brightness. Ubuntu initially passed during that fallback window.
+Both original guest baselines were restored and shut down cleanly. These first
+outcomes are retained separately. The corrected qualification assertion waits
+for both exact saved identities and checks their models, layouts, saved pages,
+brightness, owner-scoped history and disconnected status rather than accepting a
+transient fallback. Confirmation runs are recorded separately.
+
+Both confirmation runs **passed** with the unchanged signed packages. The Plus
+profile recovered page 0 at 51% brightness; MK.2 recovered page 1 at 50%, with
+independent custom captions and readable owner-scoped history. All backed-up
+configuration and imported-icon bytes matched after restore, reinstall and service
+stop. Original per-user files and permissions, dependency package version/mark,
+and disabled/inactive startup state were restored; both guests shut down normally.
+Private evidence is under `outputs/ubuntu-support-20261017/evidence/`:
+`clean-recovery-confirmed-ubuntu2604/` and `clean-recovery-confirmed-debian13/`.
+The initial outcomes are retained alongside them. This did not qualify downgrade
+of a V1.5 store into an older engine, real audio, physical USB or desktop lifecycle.
+The maintainer deferred the local Ubuntu hardware stage; its VM remains off.
 
 ## Scope and decision
 
@@ -55,7 +103,9 @@ hosted-runner, checksum, target and archive policy before package code executes.
 | Normal-user upgrade from retained V1.0 preview; saved files and startup state | Passed with unchanged replacement signed package; original permissions retained | Same |
 | Service start/stop/restart with no hardware | Passed with unchanged replacement signed package | Same |
 | Native paired virtual editor; owner-specific saves, brightness, recovery and restart | Passed with unchanged replacement signed package | Same |
-| Fresh dependency installation and missing-package repair on current package | Pending | Pending |
+| Clean per-user install and controlled missing-package repair on current package | Passed with unchanged signed candidate and actual terminal dependency helper | Same |
+| Complete current paired-store/history/artwork backup, restore and reinstall | Passed; both saved identities/pages/brightness and exact bytes verified | Same |
+| Pristine-OS and future public URL installer delivery | Pending | Pending |
 | Whole-store upgrade/downgrade recovery across preview and V1.5 schema | Pending | Pending |
 | GNOME indicator and foreground-app switching | Pending | Blocked on GNOME 48 compatibility review; extension metadata declares 50/51 |
 | Human editor, file-picker, keyboard and screen-reader checks | Pending | Pending |
