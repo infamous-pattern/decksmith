@@ -1,5 +1,71 @@
 # Ubuntu support and parallel Debian validation — October 17, 2026
 
+## Debian GNOME 48 correction — signed candidate requested
+
+Following explicit maintainer approval, the source extension declaration now
+includes Shell 48 alongside 50/51. This matches the completed GNOME 48.7 VM trial;
+no JavaScript, permissions, service behavior or version-validation policy changes.
+The corrected source and integration findings will be synchronized to both
+repositories before dispatching the separate Debian signing workflow. Its exact
+source, signatures and archive contents must be verified before rerunning native
+package/editor/recovery and actual GNOME integration checks on the Debian VM.
+Those unchanged-signed-package results will be recorded separately after execution.
+This authorization does not publish a release, promote Debian support or replace
+the Fedora desktop build. Ubuntu physical testing remains deferred.
+
+## Latest GNOME integration checks — passed; Debian declaration still pending
+
+The unchanged signed Ubuntu candidate `1.5.2-d4a17d906de7` passed the real GNOME
+50.1 session checks on the retained Ubuntu VM. The Debian candidate
+`1.5.2-dcc98e22be50` is rejected by GNOME 48.7 before extension enable because its
+metadata declares only Shell 50/51 (`OUT_OF_DATE`, state 4). A private, guest-only
+trial adding `48` to that declaration enabled the extension (state 1) without
+changing its JavaScript or icon. That trial passed the same integration checks;
+the shipped signed Debian package still has the original compatibility gap.
+
+Both sessions passed:
+
+- Actual indicator menu opening, background-control start/stop and restart, and
+  opening the installed editor followed by Quit Decksmith stopping both editor
+  and controls. The test waits for a visible editor before requesting Quit.
+- Real GNOME foreground identities from three private GTK applications selecting
+  independent Plus/MK.2 virtual pages, falling back to each layout's default for
+  an unassigned application, and returning to an already-open assigned app.
+- Extension disable/re-enable releasing and reacquiring its foreground bus name,
+  with the virtual Decks retaining their active pages through the source cycle.
+- A separate normal signed runtime, with no attached hardware, showing Waiting
+  for device and reporting foreground source unavailable after extension disable,
+  then recovering the actual desktop identity after re-enable. Virtual mode
+  deliberately does not run the normal source-liveness monitor; that distinction
+  is retained rather than weakening the normal-runtime assertion.
+
+The Ubuntu fixture starts with user extensions globally disabled. This preference
+was temporarily enabled after fresh login for the checks and restored afterward.
+Shell version validation remained enabled. Both extension error lists were empty.
+Native menu captures were inspected.
+
+Earlier failed attempts are preserved. They exposed test setup/readiness mistakes:
+extension API destination/path discovery, unique guest work paths, existing-window
+activation, global extension enablement, asynchronous extension state transitions,
+editor startup readiness, and the virtual/normal liveness distinction. A passing
+corrected attempt does not erase those records or constitute a product fix.
+
+Original guest files, permissions, GNOME preferences and disabled/inactive service
+startup state were restored and verified on both guests. Debian shut down normally.
+Ubuntu's first cleanup poweroff was rejected by an OS block inhibitor and its
+graceful cleanup deadline expired; that original failed cleanup record remains.
+Inspection then found no shutdown block inhibitor or Decksmith process. A second
+identity-checked normal poweroff, under the guest lock, succeeded. Both VMs are now
+off; no forced poweroff, real audio, USB passthrough or desktop change occurred.
+
+Private evidence: `outputs/gnome-qualification-lifecycle-20261017/completion.json`,
+the original `outcomes.json`, per-target evidence and the separate Ubuntu
+`cleanup-recovery.json`. The next Debian change is a reviewed GNOME 48 declaration
+and a rebuilt signed candidate followed by unchanged-package retesting. Physical
+Ubuntu acceptance remains deferred by the maintainer; broader lifecycle, audio,
+resource, fresh-public-delivery and support-promotion gates remain open. No source
+compatibility change, release publication or supported-platform promotion occurred.
+
 ## Latest editor-correction candidates — native VM acceptance passed
 
 The Homebridge assignment/cross-device clipboard corrections and accepted Fedora
@@ -169,7 +235,7 @@ hosted-runner, checksum, target and archive policy before package code executes.
 | Complete current paired-store/history/artwork backup, restore and reinstall | Passed; both saved identities/pages/brightness and exact bytes verified | Same |
 | Pristine-OS and future public URL installer delivery | Pending | Pending |
 | Whole-store upgrade/downgrade recovery across preview and V1.5 schema | Pending | Pending |
-| GNOME indicator and foreground-app switching | Pending | Blocked on GNOME 48 compatibility review; extension metadata declares 50/51 |
+| GNOME indicator and foreground-app switching | Passed on actual GNOME 50.1 with signed candidate, virtual Decks and separate normal no-device source-liveness checks | Shipped metadata rejects GNOME 48.7; guest-only GNOME 48 declaration passed the same checks; signed rebuilt package still pending |
 | Human editor, file-picker, keyboard and screen-reader checks | Pending | Pending |
 | Physical Plus/MK.2 USB, shared audio/media, gauges and microphone policy | Pending | Pending |
 | Physical lock, suspend, hotplug, quit/relaunch and login startup | Pending | Pending |

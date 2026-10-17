@@ -3,6 +3,7 @@
   "name": "Decksmith",
   "description": "Decksmith controls and application-based page switching for GNOME.",
   "shell-version": [
+    "48",
     "50",
     "51"
   ],
