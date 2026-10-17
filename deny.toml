@@ -31,7 +31,7 @@ allow = ["BSD-2-Clause"]
 multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
-# ADR-0014: zbus macro dependencies still require syn 2 alongside existing syn 3.
+# Derive dependencies still require syn 2 alongside zbus 6's syn 3.
 skip = [{ name = "syn", version = "=2.0.119" }]
 
 [sources]

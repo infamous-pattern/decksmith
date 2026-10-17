@@ -379,7 +379,7 @@ impl Api {
 pub fn start(
     settings: Settings,
     layout_json: String,
-) -> Result<(zbus::blocking::Connection, Context), &'static str> {
+) -> Result<(zbus::Connection, Context), &'static str> {
     let status = Arc::new(Mutex::new(Status {
         api_version: 1,
         connected: false,
@@ -402,23 +402,22 @@ pub fn start(
     let foreground = crate::foreground::Foreground::default();
     foreground.monitor();
     let (queue, incoming) = mpsc::sync_channel(16);
-    let connection = zbus::blocking::connection::Builder::session()
-        .map_err(|_| "bus_unavailable")?
-        .name("cc.senecal.Decksmith")
-        .map_err(|_| "bus_name_failed")?
-        .serve_at(
-            "/cc/senecal/Decksmith",
-            Api {
-                foreground: foreground.clone(),
-                gate: gate.clone(),
-                preview: Mutex::new(None),
-                queue,
-                status: status.clone(),
-            },
-        )
-        .map_err(|_| "bus_interface_failed")?
-        .build()
-        .map_err(|_| "bus_registration_failed")?;
+    let connection = futures_lite::future::block_on(
+        zbus::connection::Builder::session()
+            .name("cc.senecal.Decksmith")
+            .serve_at(
+                "/cc/senecal/Decksmith",
+                Api {
+                    foreground: foreground.clone(),
+                    gate: gate.clone(),
+                    preview: Mutex::new(None),
+                    queue,
+                    status: status.clone(),
+                },
+            )
+            .build(),
+    )
+    .map_err(|_| "bus_registration_failed")?;
     Ok((
         connection,
         Context {

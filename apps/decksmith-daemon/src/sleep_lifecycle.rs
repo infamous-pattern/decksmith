@@ -137,8 +137,7 @@ async fn connect(address: Option<&str>) -> Result<zbus::Connection> {
     let builder = match address {
         Some(address) => zbus::connection::Builder::address(address),
         None => zbus::connection::Builder::system(),
-    }
-    .map_err(|_| "sleep_bus_unavailable")?;
+    };
     bounded(builder.method_timeout(CALL).build()).await
 }
 async fn run(
@@ -193,11 +192,8 @@ async fn connected(
     let proxy = bounded(
         zbus::proxy::Builder::<zbus::Proxy<'_>>::new(connection)
             .destination(destination)
-            .map_err(|_| "sleep_bus_unavailable")?
             .path("/org/freedesktop/login1")
-            .map_err(|_| "sleep_bus_unavailable")?
             .interface("org.freedesktop.login1.Manager")
-            .map_err(|_| "sleep_bus_unavailable")?
             .cache_properties(zbus::proxy::CacheProperties::No)
             .build(),
     )
@@ -328,7 +324,7 @@ async fn connected(
     }
 }
 async fn inhibit(proxy: &zbus::Proxy<'_>) -> Result<OwnedFd> {
-    let fd: zbus::zvariant::OwnedFd = bounded(proxy.call(
+    let fd: zbus::OwnedFd = bounded(proxy.call(
         "Inhibit",
         &(
             "sleep",
@@ -370,7 +366,7 @@ mod tests {
             _who: &str,
             _why: &str,
             mode: &str,
-        ) -> zbus::fdo::Result<zbus::zvariant::OwnedFd> {
+        ) -> zbus::fdo::Result<zbus::OwnedFd> {
             assert_eq!((what, mode), ("sleep", "delay"));
             let (reader, writer) = UnixStream::pair().unwrap();
             reader.set_nonblocking(true).unwrap();
@@ -387,7 +383,7 @@ mod tests {
     }
     struct Rig {
         observer: Observer,
-        server: zbus::blocking::Connection,
+        server: zbus::Connection,
         preparing: Arc<AtomicBool>,
         peers: Arc<Mutex<Vec<UnixStream>>>,
         _bus: PrivateBus,
@@ -417,21 +413,20 @@ mod tests {
                 )
                 .into_boxed_str(),
             );
-            let server = zbus::blocking::connection::Builder::address(address.as_str())
-                .unwrap()
-                .name(destination)
-                .unwrap()
-                .serve_at(
-                    "/org/freedesktop/login1",
-                    Probe {
-                        preparing: preparing.clone(),
-                        peers: peers.clone(),
-                        delay,
-                    },
-                )
-                .unwrap()
-                .build()
-                .unwrap();
+            let server = futures_lite::future::block_on(
+                zbus::connection::Builder::address(address.as_str())
+                    .name(destination)
+                    .serve_at(
+                        "/org/freedesktop/login1",
+                        Probe {
+                            preparing: preparing.clone(),
+                            peers: peers.clone(),
+                            delay,
+                        },
+                    )
+                    .build(),
+            )
+            .unwrap();
             let observer = Observer::start_with(Some(address), destination).unwrap();
             Self {
                 observer,
@@ -458,15 +453,14 @@ mod tests {
         }
         fn sleep(&self, preparing: bool) {
             self.preparing.store(preparing, Ordering::Release);
-            self.server
-                .emit_signal(
-                    None::<&str>,
-                    "/org/freedesktop/login1",
-                    "org.freedesktop.login1.Manager",
-                    "PrepareForSleep",
-                    &(preparing,),
-                )
-                .unwrap();
+            futures_lite::future::block_on(self.server.emit_signal(
+                None::<&str>,
+                "/org/freedesktop/login1",
+                "org.freedesktop.login1.Manager",
+                "PrepareForSleep",
+                &(preparing,),
+            ))
+            .unwrap();
         }
         fn closed(&self, index: usize) -> bool {
             let mut peers = self.peers.lock().unwrap();
@@ -516,7 +510,7 @@ mod tests {
         assert_eq!(failure.error, Some("sleep_preparation_timeout"));
         assert!(failure.blocked);
         assert!(r.closed(0));
-        r.server.clone().close().unwrap();
+        futures_lite::future::block_on(r.server.clone().close()).unwrap();
         r.wait(|s| !s.available && s.blocked);
         let start = Instant::now();
         drop(r.observer);

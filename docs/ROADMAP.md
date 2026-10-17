@@ -1,11 +1,23 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 16, 2026. The v0.4 product
+This is the implementation roadmap, updated October 17, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
 
-## Current work — Friday, October 16
+## Current work — Saturday, October 17
+
+**Ubuntu support first; Debian validation in parallel.** The maintainer approved
+this order on October 17. Qualify Ubuntu 26.04 x86_64 GNOME/Wayland against the
+current V1.5.1 source and keep Debian 13 validation as a separate target on the
+AI server. Initial signed candidates stopped at new upstream maintenance notices;
+a zbus 6 migration and pre-signing paired-bus regression are prepared as V1.5.2
+development work. Both retained server VMs passed backup/update/reboot and existing-preview
+smoke checks. Existing previews remain experimental until their own acceptance and
+publication decisions. Do not infer support from a build, VM smoke test or Fedora
+physical evidence. See the [Ubuntu/Debian support qualification](checkpoints/2026-10-17-ubuntu-debian-support.md).
+
+## Published V1.5 checkpoint — Friday, October 16
 
 Signed candidate `1.5.0-8c0783ad4bf8` is installed on the daily desktop and has
 completed its recorded physical controls/lock/USB/resource checks plus exact-package

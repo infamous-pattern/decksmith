@@ -886,23 +886,22 @@ pub(crate) fn start_connected(
     native: bool,
     stop: Arc<AtomicBool>,
     permanent: bool,
-) -> Result<(zbus::blocking::Connection, std::thread::JoinHandle<()>)> {
+) -> Result<(zbus::Connection, std::thread::JoinHandle<()>)> {
     let (queue, incoming) = mpsc::sync_channel::<Request>(8);
     // No name replacement or service auto-activation; this cannot adopt V1 or
     // the saved-only workspace. Claim the endpoint before loading a live store.
-    let connection = zbus::blocking::connection::Builder::session()
-        .map_err(|_| "bus_unavailable")?
-        .allow_name_replacements(false)
-        .replace_existing_names(false)
-        .name("cc.senecal.Decksmith.ConnectedWorkspace")
-        .map_err(|_| "bus_name_failed")?
-        .serve_at(
-            "/cc/senecal/Decksmith/ConnectedWorkspace",
-            WorkspaceApi(Api { queue }),
-        )
-        .map_err(|_| "bus_interface_failed")?
-        .build()
-        .map_err(|_| "bus_registration_failed")?;
+    let connection = futures_lite::future::block_on(
+        zbus::connection::Builder::session()
+            .allow_name_replacements(false)
+            .replace_existing_names(false)
+            .name("cc.senecal.Decksmith.ConnectedWorkspace")
+            .serve_at(
+                "/cc/senecal/Decksmith/ConnectedWorkspace",
+                WorkspaceApi(Api { queue }),
+            )
+            .build(),
+    )
+    .map_err(|_| "bus_registration_failed")?;
     let (ready_send, ready_receive) = mpsc::sync_channel(1);
     let ending = stop.clone();
     let thread = std::thread::Builder::new()
@@ -1005,16 +1004,15 @@ pub fn lab(args: &[String]) -> Result<()> {
     host.render(plus)?;
     host.render(mk2)?;
     let (queue, incoming) = mpsc::sync_channel::<Request>(8);
-    let connection = zbus::blocking::connection::Builder::session()
-        .map_err(|_| "bus_unavailable")?
-        .allow_name_replacements(false)
-        .replace_existing_names(false)
-        .name("cc.senecal.Decksmith.ProfileLab")
-        .map_err(|_| "bus_name_failed")?
-        .serve_at("/cc/senecal/Decksmith/ProfileLab", Api { queue })
-        .map_err(|_| "bus_interface_failed")?
-        .build()
-        .map_err(|_| "bus_registration_failed")?;
+    let connection = futures_lite::future::block_on(
+        zbus::connection::Builder::session()
+            .allow_name_replacements(false)
+            .replace_existing_names(false)
+            .name("cc.senecal.Decksmith.ProfileLab")
+            .serve_at("/cc/senecal/Decksmith/ProfileLab", Api { queue })
+            .build(),
+    )
+    .map_err(|_| "bus_registration_failed")?;
     let stopping = Arc::new(AtomicBool::new(false));
     for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
         signal_hook::flag::register(signal, stopping.clone())
@@ -1065,19 +1063,18 @@ pub fn workspace(args: &[String]) -> Result<()> {
     // Reserve the endpoint before touching any destination. No second service
     // can silently adopt another store behind an editor's outstanding tokens.
     let (queue, incoming) = mpsc::sync_channel::<Request>(8);
-    let connection = zbus::blocking::connection::Builder::session()
-        .map_err(|_| "bus_unavailable")?
-        .allow_name_replacements(false)
-        .replace_existing_names(false)
-        .name("cc.senecal.Decksmith.DeviceWorkspace")
-        .map_err(|_| "bus_name_failed")?
-        .serve_at(
-            "/cc/senecal/Decksmith/DeviceWorkspace",
-            WorkspaceApi(Api { queue }),
-        )
-        .map_err(|_| "bus_interface_failed")?
-        .build()
-        .map_err(|_| "bus_registration_failed")?;
+    let connection = futures_lite::future::block_on(
+        zbus::connection::Builder::session()
+            .allow_name_replacements(false)
+            .replace_existing_names(false)
+            .name("cc.senecal.Decksmith.DeviceWorkspace")
+            .serve_at(
+                "/cc/senecal/Decksmith/DeviceWorkspace",
+                WorkspaceApi(Api { queue }),
+            )
+            .build(),
+    )
+    .map_err(|_| "bus_registration_failed")?;
     let import = import_path
         .map(|p| {
             let path = Path::new(&p);
@@ -1192,19 +1189,18 @@ pub fn workspace_lab(args: &[String]) -> Result<()> {
         true,
     )?;
     let (queue, incoming) = mpsc::sync_channel::<Request>(8);
-    let connection = zbus::blocking::connection::Builder::session()
-        .map_err(|_| "bus_unavailable")?
-        .allow_name_replacements(false)
-        .replace_existing_names(false)
-        .name("cc.senecal.Decksmith.DeviceWorkspace")
-        .map_err(|_| "bus_name_failed")?
-        .serve_at(
-            "/cc/senecal/Decksmith/DeviceWorkspace",
-            WorkspaceApi(Api { queue }),
-        )
-        .map_err(|_| "bus_interface_failed")?
-        .build()
-        .map_err(|_| "bus_registration_failed")?;
+    let connection = futures_lite::future::block_on(
+        zbus::connection::Builder::session()
+            .allow_name_replacements(false)
+            .replace_existing_names(false)
+            .name("cc.senecal.Decksmith.DeviceWorkspace")
+            .serve_at(
+                "/cc/senecal/Decksmith/DeviceWorkspace",
+                WorkspaceApi(Api { queue }),
+            )
+            .build(),
+    )
+    .map_err(|_| "bus_registration_failed")?;
     let stopping = Arc::new(AtomicBool::new(false));
     for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
         signal_hook::flag::register(signal, stopping.clone())

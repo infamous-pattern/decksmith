@@ -5,10 +5,7 @@ use crate::{foreground::Foreground, session_lock::Gate};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json, value::RawValue};
 use std::time::Duration;
-use zbus::{
-    blocking::{Connection, Proxy},
-    fdo,
-};
+use zbus::{Connection, Proxy, fdo};
 const BUS: &str = "cc.senecal.Decksmith.ConnectedWorkspace";
 const PATH: &str = "/cc/senecal/Decksmith/ConnectedWorkspace";
 const IFACE: &str = "cc.senecal.Decksmith.DeviceWorkspace2";
@@ -31,39 +28,43 @@ struct Api {
     foreground: Foreground,
 }
 impl Api {
-    fn proxy(&self) -> Result<Proxy<'_>> {
-        Proxy::new(&self.connection, BUS, PATH, IFACE).map_err(failed)
+    async fn proxy(&self) -> Result<Proxy<'_>> {
+        Proxy::new(&self.connection, BUS, PATH, IFACE)
+            .await
+            .map_err(failed)
     }
-    fn request<
-        B: Serialize + zbus::zvariant::DynamicType,
-        R: for<'d> zbus::zvariant::DynamicDeserialize<'d>,
+    async fn request<
+        B: Serialize + zbus::DynamicType,
+        R: for<'d> zbus::wire::DynamicDeserialize<'d>,
     >(
         &self,
         method: &str,
         body: &B,
     ) -> Result<R> {
-        self.proxy()?
-            .call_with_flags(method, zbus::proxy::MethodFlags::NoAutoStart.into(), body)
+        self.proxy()
+            .await?
+            .call_with_flags(method, zbus::proxy::MethodFlags::NO_AUTO_START, body)
+            .await
             .map_err(failed)?
             .ok_or_else(|| failed("Missing control reply"))
     }
-    fn text<B: Serialize + zbus::zvariant::DynamicType>(
+    async fn text<B: Serialize + zbus::DynamicType>(
         &self,
         method: &str,
         body: &B,
     ) -> Result<String> {
-        self.request(method, body)
+        self.request(method, body).await
     }
-    fn catalog(&self) -> Result<Value> {
-        serde_json::from_str(&self.text("ListDevices", &())?).map_err(failed)
+    async fn catalog(&self) -> Result<Value> {
+        serde_json::from_str(&self.text("ListDevices", &()).await?).map_err(failed)
     }
-    fn selected(&self) -> Result<(Value, Profile)> {
-        let catalog = self.catalog()?;
+    async fn selected(&self) -> Result<(Value, Profile)> {
+        let catalog = self.catalog().await?;
         let id = catalog["selected"]
             .as_str()
             .ok_or_else(|| failed("No saved device is selected"))?;
         let profile: Profile =
-            serde_json::from_str(&self.text("GetProfile", &(id,))?).map_err(failed)?;
+            serde_json::from_str(&self.text("GetProfile", &(id,)).await?).map_err(failed)?;
         if profile.id != id {
             return Err(failed("Selected device reply mismatch"));
         }
@@ -76,12 +77,12 @@ impl Api {
             Ok(())
         }
     }
-    fn save(&self, raw: &str) -> Result<()> {
+    async fn save(&self, raw: &str) -> Result<()> {
         self.unlocked()?;
         if raw.len() > 1_048_576 {
             return Err(fdo::Error::InvalidArgs("Layout too large".into()));
         }
-        let (catalog, p) = self.selected()?;
+        let (catalog, p) = self.selected().await?;
         let page = catalog["sessions"]
             .as_array()
             .and_then(|ss| ss.iter().find(|s| s["id"] == p.id))
@@ -92,13 +93,16 @@ impl Api {
             "SaveProfile",
             &(p.id, p.token.get(), raw, page, p.name, p.brightness),
         )
+        .await
         .map(|_| ())
     }
 }
+// Handlers call the profile endpoint on the same bus. Yield while awaiting its
+// reply so the shared D-Bus runtime can continue serving both endpoints.
 #[zbus::interface(name = "cc.senecal.Decksmith.Control1")]
 impl Api {
-    fn get_status(&self) -> Result<String> {
-        let catalog = match self.catalog() {
+    async fn get_status(&self) -> Result<String> {
+        let catalog = match self.catalog().await {
             Ok(catalog) => catalog,
             Err(_) => return Ok(json!({"api_version":1,"mode":"permanent-service","running":true,"connected":false,"display_ready":false,"layout":"custom","active_page":null,"device_count":0,"attention":[],"reason":"waiting_for_device","auto_lock":self.gate.snapshot(),"automatic_pages":self.foreground.snapshot()}).to_string()),
         };
@@ -131,11 +135,11 @@ impl Api {
         status["attention"] = json!([]);
         Ok(status.to_string())
     }
-    fn get_layout(&self) -> Result<String> {
-        Ok(self.selected()?.1.layout.get().into())
+    async fn get_layout(&self) -> Result<String> {
+        Ok(self.selected().await?.1.layout.get().into())
     }
-    fn validate_layout(&self, layout_json: &str) -> Result<String> {
-        let (catalog, p) = self.selected()?;
+    async fn validate_layout(&self, layout_json: &str) -> Result<String> {
+        let (catalog, p) = self.selected().await?;
         let model = catalog["devices"]
             .as_array()
             .and_then(|ds| ds.iter().find(|d| d["id"] == p.id))
@@ -150,59 +154,64 @@ impl Api {
             .map_err(failed)?;
         Ok(layout_json.into())
     }
-    fn preview_keys(&self, layout_json: &str, page: u8) -> Result<Vec<u8>> {
-        let (_, p) = self.selected()?;
+    async fn preview_keys(&self, layout_json: &str, page: u8) -> Result<Vec<u8>> {
+        let (_, p) = self.selected().await?;
         self.request("Preview", &(p.id, layout_json, page, false))
+            .await
             .map_err(failed)
     }
-    fn preview_touch(&self, layout_json: &str, page: u8) -> Result<(Vec<u8>, String)> {
-        let (_, p) = self.selected()?;
+    async fn preview_touch(&self, layout_json: &str, page: u8) -> Result<(Vec<u8>, String)> {
+        let (_, p) = self.selected().await?;
         let frame = self
             .request("Preview", &(p.id, layout_json, page, true))
+            .await
             .map_err(failed)?;
         Ok((frame, "saved-device".into()))
     }
-    fn save_layout(&self, layout_json: &str) -> Result<()> {
-        self.save(layout_json)
+    async fn save_layout(&self, layout_json: &str) -> Result<()> {
+        self.save(layout_json).await
     }
-    fn show_page(&self, page: u8) -> Result<()> {
+    async fn show_page(&self, page: u8) -> Result<()> {
         self.unlocked()?;
-        let (_, p) = self.selected()?;
+        let (_, p) = self.selected().await?;
         self.text("ShowPage", &(p.id, p.token.get(), page))
+            .await
             .map(|_| ())
     }
-    fn set_brightness(&self, percent: u8) -> Result<()> {
+    async fn set_brightness(&self, percent: u8) -> Result<()> {
         self.unlocked()?;
         if percent > 100 {
             return Err(fdo::Error::InvalidArgs(
                 "Brightness must be 0 through 100".into(),
             ));
         }
-        let (_, p) = self.selected()?;
+        let (_, p) = self.selected().await?;
         self.text("SaveMetadata", &(p.id, p.token.get(), p.name, percent))
+            .await
             .map(|_| ())
     }
-    fn set_auto_lock(&self, enabled: bool) -> Result<()> {
+    async fn set_auto_lock(&self, enabled: bool) -> Result<()> {
         crate::control::set_auto_lock_preference(enabled, &self.gate)
     }
-    fn report_foreground(&self, desktop_id: &str) -> Result<()> {
+    async fn report_foreground(&self, desktop_id: &str) -> Result<()> {
         self.foreground.report(desktop_id).map_err(failed)
     }
-    fn get_previous_layout(&self) -> Result<String> {
-        let (_, p) = self.selected()?;
-        self.text("GetPreviousProfile", &(p.id,))
+    async fn get_previous_layout(&self) -> Result<String> {
+        let (_, p) = self.selected().await?;
+        self.text("GetPreviousProfile", &(p.id,)).await
     }
-    fn test_control(&self, layout_json: &str, page: u8, slot: u8) -> Result<()> {
+    async fn test_control(&self, layout_json: &str, page: u8, slot: u8) -> Result<()> {
         self.unlocked()?;
-        let (_, p) = self.selected()?;
+        let (_, p) = self.selected().await?;
         self.text(
             "TestControl",
             &(p.id, p.token.get(), layout_json, page, slot),
         )
+        .await
         .map(|_| ())
     }
-    fn set_layout(&self, name: &str) -> Result<()> {
-        let (_, p) = self.selected()?;
+    async fn set_layout(&self, name: &str) -> Result<()> {
+        let (_, p) = self.selected().await?;
         if name == "custom" {
             return Ok(());
         }
@@ -214,12 +223,13 @@ impl Api {
         let raw = std::fs::read_to_string(crate::runtime_paths::config(file)).map_err(failed)?;
         // Validation is model-specific: a legacy eight-key preset must never
         // replace a fifteen-key profile through silent truncation/remapping.
-        self.validate_layout(&raw)?;
+        self.validate_layout(&raw).await?;
         self.unlocked()?;
         self.text(
             "SaveProfile",
             &(p.id, p.token.get(), raw, 0u8, p.name, p.brightness),
         )
+        .await
         .map(|_| ())
     }
 }
@@ -227,29 +237,29 @@ pub(crate) fn start(
     gate: Gate,
     foreground: Foreground,
 ) -> std::result::Result<Connection, &'static str> {
-    let connection = zbus::blocking::connection::Builder::session()
-        .map_err(|_| "control_adapter_bus_unavailable")?
-        .method_timeout(Duration::from_secs(7))
-        .build()
-        .map_err(|_| "control_adapter_bus_unavailable")?;
+    let connection = futures_lite::future::block_on(
+        zbus::connection::Builder::session()
+            .method_timeout(Duration::from_secs(7))
+            .build(),
+    )
+    .map_err(|_| "control_adapter_bus_unavailable")?;
     // Calls have a bounded reply deadline; no auto-start or name replacement.
-    let mut builder =
-        zbus::blocking::connection::Builder::session().map_err(|_| "bus_unavailable")?;
+    let mut builder = zbus::connection::Builder::session();
     builder = builder
         .allow_name_replacements(false)
         .replace_existing_names(false)
-        .name("cc.senecal.Decksmith")
-        .map_err(|_| "bus_name_failed")?;
-    builder
-        .serve_at(
-            "/cc/senecal/Decksmith",
-            Api {
-                connection,
-                gate,
-                foreground,
-            },
-        )
-        .map_err(|_| "bus_interface_failed")?
-        .build()
-        .map_err(|_| "bus_registration_failed")
+        .name("cc.senecal.Decksmith");
+    futures_lite::future::block_on(
+        builder
+            .serve_at(
+                "/cc/senecal/Decksmith",
+                Api {
+                    connection,
+                    gate,
+                    foreground,
+                },
+            )
+            .build(),
+    )
+    .map_err(|_| "bus_registration_failed")
 }

@@ -49,6 +49,7 @@ jobs:
               python3 -m unittest discover -s scripts -p "test_*.py" -q
               python3 -m unittest discover -s apps/decksmith-studio -p "test_*.py" -q
               python3 scripts/build-bundle.py --output /tmp/bundle
+              DECKSMITH_ISOLATED_TEST=1 dbus-run-session -- python3 tests/permanent_control_smoke.py /tmp/target/release/decksmithd
               python3 scripts/prepare-release-candidate.py /tmp/bundle/decksmith-*.tar.gz --output /output/downloads --expected-source "$EXPECTED_SOURCE" --target popos2404
               test -z "$(git status --porcelain)"
             '

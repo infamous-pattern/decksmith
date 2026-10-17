@@ -120,7 +120,7 @@ impl Link {
 pub(crate) struct Service {
     incoming: Receiver<Request>,
     view: Arc<Mutex<Arc<View>>>,
-    connection: Option<zbus::blocking::Connection>,
+    connection: Option<zbus::Connection>,
     thread: Option<JoinHandle<()>>,
     stop: Arc<AtomicBool>,
     next_publish: Instant,

@@ -151,22 +151,16 @@ fn execute(
     }
     bus.invoke(&session.owner, method)
 }
-struct NativeBus(zbus::blocking::Connection);
+struct NativeBus(zbus::Connection);
 // The flags path bypasses zbus's ordinary connection method_timeout wrapper.
 // Dropping a timed-out future cannot undo a request that has already been sent.
-fn bounded_call<B, R>(
-    proxy: &zbus::blocking::Proxy<'_>,
-    method: &str,
-    body: &B,
-) -> zbus::Result<Option<R>>
+fn bounded_call<B, R>(proxy: &zbus::Proxy<'_>, method: &str, body: &B) -> zbus::Result<Option<R>>
 where
-    B: serde::Serialize + zbus::zvariant::DynamicType,
-    R: for<'de> zbus::zvariant::DynamicDeserialize<'de>,
+    B: serde::Serialize + zbus::DynamicType,
+    R: for<'de> zbus::wire::DynamicDeserialize<'de>,
 {
     futures_lite::future::block_on(futures_lite::future::race(
-        proxy
-            .inner()
-            .call_with_flags(method, zbus::proxy::MethodFlags::NoAutoStart.into(), body),
+        proxy.call_with_flags(method, zbus::proxy::MethodFlags::NO_AUTO_START, body),
         async {
             async_io::Timer::after(Duration::from_millis(200)).await;
             Err(zbus::Error::Failure("bounded native media timeout".into()))
@@ -175,21 +169,19 @@ where
 }
 impl NativeBus {
     fn connect() -> Result<Self> {
-        zbus::blocking::connection::Builder::session()
-            .map_err(|_| "media_unavailable")?
-            .method_timeout(Duration::from_millis(200))
-            .build()
-            .map(Self)
+        futures_lite::future::block_on(
+            zbus::connection::Builder::session()
+                .method_timeout(Duration::from_millis(200))
+                .build(),
+        )
+        .map(Self)
+        .map_err(|_| "media_unavailable")
+    }
+    fn proxy<'a>(&'a self, owner: &'a str, interface: &'a str) -> Result<zbus::Proxy<'a>> {
+        futures_lite::future::block_on(zbus::Proxy::new(&self.0, owner, PATH, interface))
             .map_err(|_| "media_unavailable")
     }
-    fn proxy<'a>(
-        &'a self,
-        owner: &'a str,
-        interface: &'a str,
-    ) -> Result<zbus::blocking::Proxy<'a>> {
-        zbus::blocking::Proxy::new(&self.0, owner, PATH, interface).map_err(|_| "media_unavailable")
-    }
-    fn property(&self, owner: &str, property: &str) -> Result<zbus::zvariant::OwnedValue> {
+    fn property(&self, owner: &str, property: &str) -> Result<zbus::OwnedVariant> {
         bounded_call(
             &self.proxy(owner, "org.freedesktop.DBus.Properties")?,
             "Get",
@@ -201,15 +193,19 @@ impl NativeBus {
 }
 impl Bus for NativeBus {
     fn owner(&self, name: &str) -> Result<String> {
-        zbus::blocking::Proxy::new(
-            &self.0,
-            "org.freedesktop.DBus",
-            "/org/freedesktop/DBus",
-            "org.freedesktop.DBus",
-        )
-        .map_err(|_| "media_unavailable")?
-        .call("GetNameOwner", &(name,))
-        .map_err(|_| "media_unavailable")
+        futures_lite::future::block_on(async {
+            zbus::Proxy::new(
+                &self.0,
+                "org.freedesktop.DBus",
+                "/org/freedesktop/DBus",
+                "org.freedesktop.DBus",
+            )
+            .await
+            .map_err(|_| "media_unavailable")?
+            .call("GetNameOwner", &(name,))
+            .await
+            .map_err(|_| "media_unavailable")
+        })
     }
     fn text(&self, owner: &str, property: &str) -> Result<String> {
         let value = String::try_from(self.property(owner, property)?)
@@ -298,15 +294,14 @@ impl NativeBackend {
             return Ok(Vec::new());
         };
         let previous = preferred.cloned().or_else(previous_selection);
-        let proxy = zbus::blocking::Proxy::new(
+        let proxy = futures_lite::future::block_on(zbus::Proxy::new(
             &bus.0,
             "org.freedesktop.DBus",
             "/org/freedesktop/DBus",
             "org.freedesktop.DBus",
-        )
+        ))
         .map_err(|_| "media_unavailable")?;
-        let names: Vec<String> = proxy
-            .call("ListNames", &())
+        let names: Vec<String> = futures_lite::future::block_on(proxy.call("ListNames", &()))
             .map_err(|_| "media_unavailable")?;
         let names: Vec<_> = names
             .into_iter()

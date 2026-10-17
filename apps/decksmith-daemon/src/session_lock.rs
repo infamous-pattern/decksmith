@@ -19,35 +19,32 @@ struct State {
 pub struct Gate(Arc<Mutex<State>>);
 
 fn lock_proxy(
-    connection: &zbus::blocking::Connection,
+    connection: &zbus::Connection,
     destination: &'static str,
     path: &'static str,
     interface: &'static str,
-) -> Option<zbus::blocking::Proxy<'static>> {
-    zbus::blocking::proxy::Builder::new(connection)
-        .destination(destination)
-        .ok()?
-        .path(path)
-        .ok()?
-        .interface(interface)
-        .ok()?
-        // session/auto is an alias: property-change signals use the canonical
-        // path. Always read lock properties afresh, even with a reusable proxy.
-        .cache_properties(zbus::proxy::CacheProperties::No)
-        .build()
-        .ok()
+) -> Option<zbus::Proxy<'static>> {
+    futures_lite::future::block_on(
+        zbus::proxy::Builder::new(connection)
+            .destination(destination)
+            .path(path)
+            .interface(interface)
+            // The logind alias may not send canonical-path property signals.
+            .cache_properties(zbus::proxy::CacheProperties::No)
+            .build(),
+    )
+    .ok()
 }
 
-fn connect_lock_proxy(session: bool) -> Option<zbus::blocking::Proxy<'static>> {
-    let connection = if session {
-        zbus::blocking::connection::Builder::session()
+fn connect_lock_proxy(session: bool) -> Option<zbus::Proxy<'static>> {
+    let builder = if session {
+        zbus::connection::Builder::session()
     } else {
-        zbus::blocking::connection::Builder::system()
-    }
-    .ok()?
-    .method_timeout(Duration::from_millis(250))
-    .build()
-    .ok()?;
+        zbus::connection::Builder::system()
+    };
+    let connection =
+        futures_lite::future::block_on(builder.method_timeout(Duration::from_millis(250)).build())
+            .ok()?;
     if session {
         lock_proxy(
             &connection,
@@ -119,8 +116,8 @@ impl Gate {
     pub fn monitor(&self) {
         let weak = Arc::downgrade(&self.0);
         std::thread::spawn(move || {
-            let mut session: Option<zbus::blocking::Proxy<'static>> = None;
-            let mut system: Option<zbus::blocking::Proxy<'static>> = None;
+            let mut session: Option<zbus::Proxy<'static>> = None;
+            let mut system: Option<zbus::Proxy<'static>> = None;
             let mut gnome_seen = false;
             while let Some(inner) = weak.upgrade() {
                 let gate = Gate(inner);
@@ -142,16 +139,17 @@ impl Gate {
                 if system.is_none() {
                     system = connect_lock_proxy(false);
                 }
-                let gnome = session
-                    .as_ref()
-                    .and_then(|p| p.call::<_, _, bool>("GetActive", &()).ok());
+                let gnome = session.as_ref().and_then(|p| {
+                    futures_lite::future::block_on(p.call::<_, _, bool>("GetActive", &())).ok()
+                });
                 gnome_seen |= gnome.is_some();
                 let logind = system.as_ref().and_then(|p| {
-                    let kind = p.get_property::<String>("Type").ok()?;
+                    let kind =
+                        futures_lite::future::block_on(p.get_property::<String>("Type")).ok()?;
                     if !matches!(kind.as_str(), "wayland" | "x11") {
                         return None;
                     }
-                    p.get_property::<bool>("LockedHint").ok()
+                    futures_lite::future::block_on(p.get_property::<bool>("LockedHint")).ok()
                 });
                 let (value, source) = if gnome_seen {
                     (gnome.map(|v| v || logind == Some(true)), "GNOME")
@@ -233,19 +231,19 @@ mod tests {
         let address = std::env::var("DBUS_SESSION_BUS_ADDRESS").unwrap_or_default();
         assert!(address.starts_with("unix:path=/tmp/dbus-"));
         let locked = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let server = zbus::blocking::connection::Builder::session()
-            .unwrap()
-            .name("cc.senecal.Decksmith.LockProbe")
-            .unwrap()
-            .serve_at("/test/lock", Probe(locked.clone()))
-            .unwrap()
-            .build()
-            .unwrap();
-        let client = zbus::blocking::connection::Builder::session()
-            .unwrap()
-            .method_timeout(Duration::from_millis(250))
-            .build()
-            .unwrap();
+        let server = futures_lite::future::block_on(
+            zbus::connection::Builder::session()
+                .name("cc.senecal.Decksmith.LockProbe")
+                .serve_at("/test/lock", Probe(locked.clone()))
+                .build(),
+        )
+        .unwrap();
+        let client = futures_lite::future::block_on(
+            zbus::connection::Builder::session()
+                .method_timeout(Duration::from_millis(250))
+                .build(),
+        )
+        .unwrap();
         let proxy = lock_proxy(
             &client,
             "cc.senecal.Decksmith.LockProbe",
@@ -254,28 +252,39 @@ mod tests {
         )
         .unwrap();
         let gate = Gate::new(true);
-        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        gate.observe(
+            futures_lite::future::block_on(proxy.get_property::<bool>("LockedHint")).ok(),
+            "test",
+        );
         assert!(!gate.snapshot().locked);
         // Deliberately emit no PropertiesChanged signal. The same proxy must
         // still fetch the current value, including the transition back to false.
         locked.store(true, std::sync::atomic::Ordering::Release);
-        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        gate.observe(
+            futures_lite::future::block_on(proxy.get_property::<bool>("LockedHint")).ok(),
+            "test",
+        );
         assert!(gate.snapshot().locked);
         locked.store(false, std::sync::atomic::Ordering::Release);
-        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        gate.observe(
+            futures_lite::future::block_on(proxy.get_property::<bool>("LockedHint")).ok(),
+            "test",
+        );
         assert!(!gate.snapshot().locked);
-        server
-            .object_server()
-            .remove::<Probe, _>("/test/lock")
+        futures_lite::future::block_on(server.object_server().remove::<Probe, _>("/test/lock"))
             .unwrap();
-        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        gate.observe(
+            futures_lite::future::block_on(proxy.get_property::<bool>("LockedHint")).ok(),
+            "test",
+        );
         assert!(gate.snapshot().locked);
         assert!(!gate.snapshot().available);
-        server
-            .object_server()
-            .at("/test/lock", Probe(locked))
+        futures_lite::future::block_on(server.object_server().at("/test/lock", Probe(locked)))
             .unwrap();
-        gate.observe(proxy.get_property::<bool>("LockedHint").ok(), "test");
+        gate.observe(
+            futures_lite::future::block_on(proxy.get_property::<bool>("LockedHint")).ok(),
+            "test",
+        );
         assert!(!gate.snapshot().locked);
         assert!(gate.snapshot().available);
     }

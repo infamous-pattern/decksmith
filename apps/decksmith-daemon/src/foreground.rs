@@ -41,21 +41,26 @@ impl Foreground {
         let weak = Arc::downgrade(&self.0);
         std::thread::spawn(move || {
             while let Some(inner) = weak.upgrade() {
-                let present = zbus::blocking::connection::Builder::session()
-                    .ok()
-                    .and_then(|b| b.method_timeout(Duration::from_millis(250)).build().ok())
-                    .and_then(|c| {
-                        zbus::blocking::Proxy::new(
-                            &c,
-                            "org.freedesktop.DBus",
-                            "/org/freedesktop/DBus",
-                            "org.freedesktop.DBus",
-                        )
-                        .ok()?
+                let present = futures_lite::future::block_on(async {
+                    let c = zbus::connection::Builder::session()
+                        .method_timeout(Duration::from_millis(250))
+                        .build()
+                        .await
+                        .ok()?;
+                    let proxy = zbus::Proxy::new(
+                        &c,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                    )
+                    .await
+                    .ok()?;
+                    proxy
                         .call::<_, _, bool>("NameHasOwner", &(SOURCE,))
+                        .await
                         .ok()
-                    })
-                    .unwrap_or(false);
+                })
+                .unwrap_or(false);
                 let context = Foreground(inner);
                 if !present {
                     context.unavailable();
