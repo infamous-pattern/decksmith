@@ -118,3 +118,19 @@ glyphs in text widgets; the device-rendered captions include their glyph fallbac
 These captures establish the stated editor/control path, not full desktop font,
 portal, accessibility or startup acceptance. The native Ubuntu/Debian gates remain
 open rather than treating those private-session limits as passes.
+
+## First V1.5.2 container attempts
+
+Public source `cb52a0030ad140569fcd7d37dcea7b96c9a0c9aa` passed the independent
+Quality workflow. Fedora, Ubuntu and Debian completed their existing quality
+checks and native bundle build, then stopped before signing at the new private
+paired regression. Its default layout came from the bind-mounted checkout,
+owned by the outer runner rather than the container test user; the existing
+layout ownership check correctly refuses that setup. The source fixture had
+passed on the normal-user AI host where those owners matched.
+
+The fixture now copies starter configuration into its own private resource tree
+and explicitly points the virtual daemon there. Ownership checks and runtime code
+are unchanged. It also prints the daemon log on failure. The corrected fixture
+passed again on the AI host; clean container reruns remain required. Failed run
+IDs: Fedora `39055589592`, Ubuntu `39055589578`, Debian `39055589570`.

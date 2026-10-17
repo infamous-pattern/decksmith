@@ -4,6 +4,7 @@ import ast
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -27,8 +28,12 @@ def main(binary):
     assert os.environ.get('DBUS_SESSION_BUS_ADDRESS', '').startswith('unix:path=/tmp/dbus-')
     with tempfile.TemporaryDirectory(prefix='decksmith-permanent-bus-') as temporary:
         root = Path(temporary)
+        # Container checkouts can belong to the outer runner UID. Give this
+        # private fixture its own resources without weakening ownership checks.
+        resources = root / 'resources'
+        shutil.copytree(Path(__file__).resolve().parents[1] / 'config', resources / 'config')
         env = dict(os.environ, PULSE_SERVER='unix:' + str(root / 'no-audio'),
-                   PIPEWIRE_REMOTE='no-pipewire')
+                   PIPEWIRE_REMOTE='no-pipewire', DECKSMITH_RESOURCE_ROOT=str(resources))
         for name in ('CONFIG', 'DATA', 'STATE', 'CACHE'):
             directory = root / name.lower()
             directory.mkdir()
@@ -90,6 +95,11 @@ def main(binary):
                         assert time.monotonic() < end, 'Brightness did not settle independently'
                         time.sleep(.05)
                 assert models == {'mk2', 'plus'}
+            except BaseException:
+                log.flush()
+                log.seek(0)
+                print(log.read(), file=sys.stderr)
+                raise
             finally:
                 daemon.terminate()
                 try:
