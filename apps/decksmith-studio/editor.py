@@ -8,7 +8,7 @@ gi.require_version('Adw', '1')
 from gi.repository import Adw, Gtk, GLib, Gdk, Gio, Pango, Gsk, Graphene
 from audio_target_picker import AudioTargetPicker
 from media_picker import MediaPicker
-from editor_model import Draft
+from editor_model import Draft, KeyClipboard
 from action_labels import default_label, uses_default
 from media_artwork import LABELS as MEDIA_LABELS, populate as populate_media
 from applications import installed, icon_png, website_png
@@ -59,6 +59,7 @@ class Editor(Adw.ApplicationWindow):
         self.owner, self.call = owner, call
         self.device_model=getattr(call,"device_model","plus");self.key_count=15 if self.device_model=="mk2" else 8;self.key_pixels=72 if self.device_model=="mk2" else 120
         self.draft = None
+        self.key_clipboard = KeyClipboard()
         self.page = self.key = 0
         self.control_kind="key"
         self.dial_index=0
@@ -556,7 +557,9 @@ class Editor(Adw.ApplicationWindow):
         if self.draft is None or self.pending or not self.edit_mode.get_active():
             return
         try:
-            getattr(self.draft, operation+'_key')(self.page,self.key)
+            if operation=='copy':self.key_clipboard.copy(self.draft,self.page,self.key)
+            elif operation=='paste':self.key_clipboard.paste(self.draft,self.page,self.key)
+            else:self.draft.clear_key(self.page,self.key)
         except ValueError as error:
             self.status.set_text(str(error))
             return
@@ -568,7 +571,7 @@ class Editor(Adw.ApplicationWindow):
         except ValueError:
             return  # Keep the validation explanation from render visible.
         if operation=='copy':
-            self.status.set_text('Key copied. Choose a destination and Paste key to change the layout.')
+            self.status.set_text('Key copied. Choose a key on either Deck and Paste key. Page links match by page name.')
         elif self.draft.dirty:
             self.status.set_text({'paste':'Key pasted. Save and Apply updates the device.',
                                   'clear':'Key cleared. Save and Apply updates the device.'}[operation])
@@ -691,7 +694,7 @@ class Editor(Adw.ApplicationWindow):
         self.key_tools_row.set_opacity(1.0 if self.control_kind=='key' else 0.0)
         self.key_tools_row.set_can_target(self.control_kind=='key')
         for operation,button in self.key_tools.items():
-            button.set_sensitive(self.control_kind=='key' and self.edit_mode.get_active() and not self.pending and (operation!='paste' or self.draft.clipboard is not None))
+            button.set_sensitive(self.control_kind=='key' and self.edit_mode.get_active() and not self.pending and (operation!='paste' or self.key_clipboard.available))
         page = self.draft.data['pages'][self.page]
         r,g,b = page['background']
         backgrounds=''.join(f'.deck-key.key-slot-{i} {{background-color: {LABEL_COLORS[key["background_color"]]};}}' for i,key in enumerate(page['keys']) if key.get('background_color') in LABEL_COLORS)
@@ -814,13 +817,9 @@ class Editor(Adw.ApplicationWindow):
 
     def assign_homebridge(self,item,binding):
         from homebridge_picker import label,icon_png
-        key=self.draft.data['pages'][self.page]['keys'][self.key]
-        key['action']={'type':'none'};key['plugin']=binding;key['label']=label(item['name'])
-        key.pop('icon_png',None);key.pop('artwork',None)
-        icon=icon_png(item['icon'])
-        if icon:key['icon_png']=icon;key['artwork']='application_icon'
-        key['label_position']='bottom'
+        self.draft.assign_plugin_key(self.page,self.key,binding,label(item['name']),icon_png(item['icon']))
         self.draft.checkpoint();self.select_key(self.key)
+        self.status.set_text('Homebridge assignment staged. Save and Apply updates this Deck.')
 
     def remove_plugin_assignment(self, *_):
         self.draft.data['pages'][self.page]['keys'][self.key].pop('plugin',None)

@@ -5,6 +5,18 @@ import zlib
 from time import monotonic
 from urllib.parse import urlsplit
 
+class KeyClipboard:
+    """One private clipboard for the editor window, shared across device drafts."""
+    def __init__(self):self.source=None;self.content=None
+    @property
+    def available(self):return self.content is not None
+    def copy(self,draft,page,index):
+        draft.copy_key(page,index)
+        self.source=draft;self.content=draft.clipboard
+    def paste(self,draft,page,index):
+        if not self.available:raise ValueError('Copy a key first.')
+        draft.paste_key(page,index,clipboard=self.content,source=self.source)
+
 class Draft:
     def __init__(self, data):
         self.clipboard = None
@@ -88,19 +100,38 @@ class Draft:
         destination = self.data['pages'][action['page']] if action['type']=='go_to_page' else None
         self.clipboard = (key, destination)
 
-    def paste_key(self, page, index):
-        if self.clipboard is None:
+    def paste_key(self, page, index, *, clipboard=None, source=None):
+        clipboard=self.clipboard if source is None else clipboard
+        source=self if source is None else source
+        if clipboard is None:
             raise ValueError('Copy a key first.')
-        stored, destination = self.clipboard
+        stored, destination = clipboard
         key = deepcopy(stored)
         if destination is not None:
-            target = next((i for i,p in enumerate(self.data['pages']) if p is destination),None)
-            if target is None:
-                raise ValueError('The copied key links to a deleted page. Copy another key.')
+            if not any(p is destination for p in source.data['pages']):
+                raise ValueError('The copied key’s source page changed or was deleted. Copy that key again.')
+            if source is self:
+                target=next(i for i,p in enumerate(self.data['pages']) if p is destination)
+            else:
+                matches=[i for i,p in enumerate(self.data['pages']) if p['name'].casefold()==destination['name'].casefold()]
+                if len(matches)!=1:
+                    raise ValueError('This key links to “'+destination['name']+'”. Create or uniquely name that page on this Deck before pasting.')
+                target=matches[0]
             key['action']['page'] = target
             if key.get('follow_page_name'):
-                key['label'] = destination['name']
+                key['label'] = self.data['pages'][target]['name']
         self.data['pages'][page]['keys'][index] = key
+
+    def assign_plugin_key(self,page,index,binding,caption,icon=None):
+        from plugin_bindings import validate
+        validate(binding)
+        key=self.data['pages'][page]['keys'][index]
+        # The new action owns its settings; page/media settings from the old
+        # action would make the otherwise valid plugin assignment unsaveable.
+        for field in ('follow_page_name','media_player','icon_png','artwork','icon_source','icon_tint'):
+            key.pop(field,None)
+        key.update(action={'type':'none'},plugin=deepcopy(binding),label=caption,label_position='bottom')
+        if icon:key.update(icon_png=list(icon),artwork='application_icon')
 
     def clear_key(self, page, index):
         self.data['pages'][page]['keys'][index] = {'label':'EMPTY','label_position':'hidden','action':{'type':'none'}}

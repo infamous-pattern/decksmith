@@ -43,12 +43,14 @@ class HomebridgePicker(Adw.ExpanderRow):
         self.targets.set_use_subtitle(True)
         self.targets.connect('notify::selected',self.select);self.add_row(self.targets)
         self.actions=Adw.ComboRow(title='Action',model=Gtk.StringList.new([]));self.add_row(self.actions)
-        self.note=Adw.ActionRow(title='Discovery is read-only',subtitle='Assigning changes the draft. Save and Apply activates it.');self.note.set_subtitle_lines(0);self.add_row(self.note)
-        # Expanded children still contribute to the collapsed row's minimum width.
-        # Stack the actions so they cannot push every key/dial form sideways.
+        self.note=Adw.ActionRow(title='Choose an accessory and action',subtitle='Select Assign to key, then Save and Apply to update this Deck.' if not dial else 'Select Assign to dial, then Save and Apply to update this Deck.');self.note.set_subtitle_lines(0);self.add_row(self.note)
+        # Keep assignment visible in the chooser header instead of below the
+        # expanded accessory settings; only refresh stays in the scrolling body.
         row=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8,margin_top=8,margin_bottom=8)
         self.refresh=Gtk.Button(label='Refresh accessories');self.refresh.connect('clicked',self.fetch);row.append(self.refresh)
-        self.use=Gtk.Button(label='Use assignment');self.use.set_sensitive(False);self.use.connect('clicked',self.apply);row.append(self.use);self.add_row(row)
+        self.use=Gtk.Button(label='Assign to dial' if dial else 'Assign to key',valign=Gtk.Align.CENTER)
+        self.use.set_tooltip_text('Stage this assignment; Save and Apply updates the selected Deck.')
+        self.use.set_sensitive(False);self.use.connect('clicked',self.apply);self.add_suffix(self.use);self.add_row(row)
         self.connect('notify::expanded',lambda *_:self.fetch() if self.get_expanded() and not self.items else None)
     def sync(self,saved):
         self.saved=saved
