@@ -1,5 +1,28 @@
 # Ubuntu support and parallel Debian validation — October 17, 2026
 
+## Follow-up Quality run 98 — test fixture correction prepared
+
+The documentation commit's Quality run
+https://github.com/infamous-pattern/decksmith/actions/runs/39058290065 failed in
+`shared_bridge_never_falls_back_and_rechecks_after_discovery`: the mock companion
+unwrapped a connection reset while the stale client cancelled before granting
+permission. Closing a Unix socket with unread readiness bytes can return reset
+instead of EOF. A local socket-pair check reproduced that transport behavior;
+2,000 repeats of the unmodified test did not reproduce the intermittent CI race.
+
+The prepared test-only correction accepts an empty reset/EOF or explicit abort
+only for stale cancellation, and a closed readiness write only for that same
+case. Any apply decision still fails the stale assertion; the client must still
+return `plugin_cancelled`. Successful apply and other protocol cases remain
+strict. No production transport or accessory behavior changes.
+
+The corrected test passed 1,000 consecutive runs on the AI server. All 346 Rust
+tests passed (six existing ignored), with formatting and strict all-feature,
+all-target Clippy passing. This correction is prepared locally; publication and
+a new GitHub Quality result remain pending. The latest Ubuntu and Debian signed
+package workflows already passed (39057610984 and 39057610950); their existing
+native package qualification is independent of this newer test-fixture failure.
+
 ## Scope and decision
 
 The maintainer selected Ubuntu 26.04 LTS x86_64 GNOME/Wayland as the next supported

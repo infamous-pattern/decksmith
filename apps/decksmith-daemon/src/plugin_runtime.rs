@@ -925,12 +925,31 @@ mod tests {
                 if mode == "stale" {
                     live.store(false, Ordering::Release);
                 }
-                peer.write_all(b"{\"ready\":true}\n").unwrap();
+                if let Err(error) = peer.write_all(b"{\"ready\":true}\n") {
+                    // Cancellation may close the client before it reads readiness.
+                    // Only the stale case may close without a protocol response.
+                    assert_eq!(mode, "stale");
+                    assert!(matches!(
+                        error.kind(),
+                        std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset
+                    ));
+                    return;
+                }
                 line.clear();
-                let bytes = reader.read_line(&mut line).unwrap();
+                let decision = reader.read_line(&mut line);
                 if mode == "stale" {
-                    assert!(bytes == 0 || line == "{\"decision\":\"abort\"}\n");
+                    // Closing with unread readiness bytes can produce reset rather
+                    // than EOF. Neither is permission to apply the action.
+                    match decision {
+                        Ok(0) => assert!(line.is_empty()),
+                        Ok(_) => assert_eq!(line, "{\"decision\":\"abort\"}\n"),
+                        Err(error) => {
+                            assert_eq!(error.kind(), std::io::ErrorKind::ConnectionReset);
+                            assert!(line.is_empty());
+                        }
+                    }
                 } else {
+                    decision.unwrap();
                     assert_eq!(line, "{\"decision\":\"apply\"}\n");
                     peer.write_all(b"{\"ok\":true}\n").unwrap();
                 }
