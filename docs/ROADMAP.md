@@ -32,8 +32,12 @@ history and imported-artwork recovery; both original guest setups were restored
 and powered off. The cancellation test fixture correction passed GitHub Quality
 run 99. Pristine-OS/public installer delivery, GNOME integration and physical
 Ubuntu acceptance remain open; the maintainer deferred the hardware stage.
-Continue exact-package Ubuntu/Debian checks with the editor corrections; earlier
-Ubuntu/Debian candidates predate those corrections. No release or support promotion
+Updated signed Ubuntu/Debian candidates including the editor corrections now
+passed exact-package native upgrade, service, paired editor/restart, Homebridge
+fixture save and bidirectional copy/undo/redo checks. Both guest baselines and
+permissions were restored and guests shut down. One transient sleep-test snapshot
+assertion failed in the first Quality attempt; the same-source retry and 300
+isolated repeats passed. Retain its deterministic-fixture follow-up separately. No release or support promotion
 is approved. Both retained server VMs passed backup/update/reboot and existing-preview
 smoke checks. Existing previews remain experimental until their own acceptance and
 publication decisions. Do not infer support from a build, VM smoke test or Fedora

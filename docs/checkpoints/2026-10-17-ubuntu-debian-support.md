@@ -1,5 +1,67 @@
 # Ubuntu support and parallel Debian validation — October 17, 2026
 
+## Latest editor-correction candidates — native VM acceptance passed
+
+The Homebridge assignment/cross-device clipboard corrections and accepted Fedora
+desktop results were published with identical source tree `b8d048b85708316d45c05762d8129b238093378b`
+at canonical `eb643c89b0c923f18a999e340ffeb4a57c160116` and public
+`358001cbecf6643361c54b76c8e208a0db87b78b`. New OS candidates include the editor
+corrections; the earlier installer-fix packages do not.
+
+- Ubuntu 26.04: signed candidate **1.5.2-d4a17d906de7**, build/signing run
+  https://github.com/infamous-pattern/decksmith/actions/runs/39064833468.
+- Debian 13: signed candidate **1.5.2-dcc98e22be50**, build/signing run
+  https://github.com/infamous-pattern/decksmith/actions/runs/39064835237.
+
+All six download subjects for each target passed exact repository/workflow/source,
+main-ref, hosted-runner, checksum and archive verification before execution. The
+retained VMs ran in parallel under guest locks and the shared schedule gate, with
+fresh byte-verified offline disk recovery copies and checked image integrity.
+
+Both unchanged signed packages passed:
+
+- Normal-user preview upgrade, saved-file/startup preservation, native no-device
+  editor launch and normal service start/stop/restart.
+- Previous-build rollback and same-candidate reinstall with saved data preserved.
+- Native paired virtual editor: separate drafts/saves, named devices, selected
+  device APIs, preview/brightness, owner-scoped history and restart persistence.
+- Replacement of page/media keys with Homebridge fixture assignments, visible
+  Assign to key and Save and Apply, native saves on both models, copying in both
+  directions, undo/redo, independent saved layouts and compact-window capture.
+
+These Homebridge tests use fixture accessories and virtual Decks, with native
+save/readback APIs; they do not execute a real accessory or audio command. All
+original user files and permissions and the disabled/inactive startup state were
+restored, and both guests shut down gracefully. Native captures were inspected.
+Private evidence: `outputs/ubuntu-debian-editor-20261017/evidence/`.
+
+### Quality timing follow-up — retained, not a production correction
+
+The notes commit's first Quality attempt failed at
+`sleep_lifecycle::tests::resume_clock_gap_invalidates_awake_until_uncached_revalidation`
+with `!pending.available && pending.blocked`. That assertion requires observing
+the transient pending state immediately after requesting asynchronous revalidation;
+a completed fresh-state reply can race the snapshot. The relevant Rust source is
+unchanged from the passing Fedora candidate. No production code or dependency
+policy was changed to obtain a passing result.
+
+The unchanged regression passed 300 consecutive isolated repeats on AI_server.
+The same-source Quality run's second attempt passed Rust checks, installer tests
+and the security audit:
+https://github.com/infamous-pattern/decksmith/actions/runs/39064814880.
+The initial failure is retained separately. A deterministic fixture boundary is
+still a test-stability follow-up; a green retry alone is not a claim that the
+intermittent assertion has been repaired. VM execution waited for this passing
+Quality gate and verified target packages.
+
+The earlier clean-user/dependency-repair/complete-store recovery checks remain
+valid evidence for their older signed packages; this run adds exact new-package
+upgrade/editor/copy coverage. Pristine-OS/public installer delivery, GNOME
+integration, human and physical acceptance remain open. In particular Debian's
+GNOME 48 extension-compatibility review is unresolved, and the maintainer still
+defers Ubuntu's local physical Deck session. No release or support promotion was
+performed; the Fedora desktop remains on its previously accepted candidate.
+
 ## Follow-up Quality run 98 — corrected and verified
 
 The documentation commit's Quality run
