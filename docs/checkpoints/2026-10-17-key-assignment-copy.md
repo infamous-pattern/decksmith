@@ -56,6 +56,42 @@ Decks or copy entire layouts/pages.
   any companion client, avoiding an unintended unavailable-catalogue display.
 
 Private evidence: `outputs/mk2-homebridge-clipboard-20261017/evidence/`.
-Next: complete the approved source publication/signing and verify the signed
-Fedora candidate, then obtain a saved/closed editor confirmation before desktop
-installation and a real Homebridge/copy acceptance check on both Decks.
+The source publication, signed Fedora candidate verification and approved desktop
+acceptance are recorded below. Next: continue exact-package Ubuntu/Debian testing;
+physical Ubuntu acceptance remains deferred until the maintainer is ready.
+
+
+## Signed candidate and desktop acceptance
+
+Both repositories received the same source tree: canonical commit `05e8dfed`
+and public commit `e479d956`. Quality run `39063555536` and Fedora build/signing
+run `39063576701` passed. Signed Fedora candidate **1.5.2-46ed033e0491** was
+verified against the exact public source and all signed downloads. Its packaged
+editor files match the approved tree. The actual candidate also passed the
+private native save/copy/undo/redo and compact-window checks on AI_server.
+
+After explicit saved/closed-editor approval, the candidate was installed on the
+maintainer's Fedora desktop. The complete configuration backup was verified,
+V1.5.1 and the existing Homebridge companion were retained, and both devices'
+saved layouts, selection, pages and brightness passed the post-install guard.
+
+The maintainer then confirmed physical acceptance:
+
+- MK.2 Homebridge accessory selection, Assign to key, Save and Apply and the
+  physical accessory action work; the Plus remains working.
+- MK.2-to-Plus key copying saves and operates the same accessory; MK.2 remains
+  working. A shared binding exists in the saved profiles. The first two saved
+  observations did not isolate a new Plus revision (Plus unchanged, MK.2 changed),
+  so those observations alone do not prove destination revision/source isolation
+  for this direction. Physical success is the maintainer's report.
+- A different Plus key copied to MK.2 saves, displays and executes correctly;
+  the original Plus key remains working. Read-only verification confirms MK.2's
+  saved layout changed, the Plus layout stayed unchanged, and exact assigned-key
+  payloads match across the saved device profiles.
+- Both physical device sessions remain connected with input/display ready and
+  no error. The app and companion retain their post-install PIDs with zero
+  automatic restarts.
+
+The user's saved test assignments remain in place. This verifies the reported
+Fedora desktop symptoms; it does not publish V1.5.2, qualify another OS or replace
+its remaining release review. Private receipt: the task's `physical-review.json`.

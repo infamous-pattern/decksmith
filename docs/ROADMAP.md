@@ -7,18 +7,21 @@ change system routing.
 
 ## Current work — Saturday, October 17
 
-**Desktop editor correction prepared.** The reported MK.2 Homebridge save flow
-now has a visible assignment step and clears settings from the replaced action.
-A window-wide key clipboard supports Plus/MK.2 copying with safe page-name
-resolution. All 244 editor tests and a private integration run using the exact
-installed V1.5.1 daemon passed. The maintainer approved source publication and a
-signed Fedora candidate for review. Candidate verification and desktop acceptance
-remain pending; the installed release is unchanged. See the
+**Desktop editor correction accepted on Fedora.** The MK.2 Homebridge flow now
+has a visible assignment step and clears obsolete action settings. A window-wide
+key clipboard supports copying between Plus and MK.2 with safe page-name resolution.
+All 244 editor tests and private native integration checks passed. Signed Fedora
+candidate `1.5.2-46ed033e0491` was verified and installed with a verified complete
+backup and V1.5.1 retained. The maintainer confirmed real MK.2 Homebridge saves/actions
+and copies in both directions; the saved reverse copy changed MK.2 while preserving
+Plus. Both services remain healthy without automatic restarts. The first forward
+copy's saved observations were inconclusive, separately from its user-confirmed
+physical success. See the
 [assignment/copy checkpoint](checkpoints/2026-10-17-key-assignment-copy.md).
 
 **Ubuntu support first; Debian validation in parallel.** The maintainer approved
 this order on October 17. Qualify Ubuntu 26.04 x86_64 GNOME/Wayland against the
-current V1.5.1 source and keep Debian 13 validation as a separate target on the
+current V1.5.2 candidate source and keep Debian 13 validation as a separate target on the
 AI server. Initial signed candidates stopped at new upstream maintenance notices;
 the zbus 6 migration and bounded V1.0-preview permission migration now have verified
 signed V1.5.2 Fedora, Ubuntu and Debian candidates. The installer passed 122 script
@@ -29,7 +32,9 @@ history and imported-artwork recovery; both original guest setups were restored
 and powered off. The cancellation test fixture correction passed GitHub Quality
 run 99. Pristine-OS/public installer delivery, GNOME integration and physical
 Ubuntu acceptance remain open; the maintainer deferred the hardware stage.
-No release or support promotion is approved. Both retained server VMs passed backup/update/reboot and existing-preview
+Continue exact-package Ubuntu/Debian checks with the editor corrections; earlier
+Ubuntu/Debian candidates predate those corrections. No release or support promotion
+is approved. Both retained server VMs passed backup/update/reboot and existing-preview
 smoke checks. Existing previews remain experimental until their own acceptance and
 publication decisions. Do not infer support from a build, VM smoke test or Fedora
 physical evidence. See the [Ubuntu/Debian support qualification](checkpoints/2026-10-17-ubuntu-debian-support.md).
