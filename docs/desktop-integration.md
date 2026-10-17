@@ -7,9 +7,11 @@ retain their preference, and the installer never silently enables startup.
 
 The optional GNOME menu shows service/device status, opens Decksmith, and starts
 or stops background controls. It does not need the editor to stay open. Startup
-also works without this extension. GNOME 50 and 51 are declared targets; GNOME 51
-Beta has passed activation and background-only login checks. GNOME 50 acceptance
-remains pending. Profiles, pause, diagnostics, and other desktop indicators are
+also works without this extension. GNOME 48, 50 and 51 are declared targets.
+Actual GNOME 48.7 (Debian) and 50.1 (Ubuntu) session integration checks passed;
+earlier GNOME 51 Beta checks covered activation and background-only login.
+These checks do not qualify an entire distribution or physical device lifecycle.
+Profiles, pause, diagnostics, and other desktop indicators are
 future work.
 
 ## Install the GNOME menu
@@ -21,11 +23,26 @@ python3 scripts/install-gnome-extension.py --enable
 ```
 
 GNOME may require signing out and back in to discover a newly installed extension.
-If prompted, enable **Decksmith** in Extensions after your next login. Installation
+If prompted, enable **Decksmith** in Extensions after your next login. Ensure the
+global extensions switch is also enabled; an extension can remain inactive when
+user extensions are globally disabled. Installation
 does not restart GNOME or alter background controls. Disable/remove the companion
 through Extensions independently of the main application.
 
 ## Validation
+
+October 17, 2026: Ubuntu's signed candidate passed real GNOME 50.1 indicator
+start/stop/restart, installed-editor open/Quit, independent foreground/default-page
+selection on paired virtual Decks, and extension source loss/recovery. Debian's
+corrected signed candidate `1.5.2-1272d3a4d717` passed the same checks on GNOME 48.7
+without editing the installed extension metadata or bypassing version validation.
+The normal no-device runtime separately verified source-liveness detection and
+the Waiting for device indicator; virtual mode does not run that monitor.
+Original guest data, preferences and service startup state were restored and the
+VMs shut down. See the [current qualification checkpoint](checkpoints/2026-10-17-ubuntu-debian-support.md)
+for exact signed source, earlier harness failures, cleanup recovery and open gates.
+This does not promote Ubuntu or Debian to supported status or replace physical
+USB/audio/lock/suspend/login acceptance.
 
 Fedora 45 Beta: native preference on/off test confirmed saved state and unchanged
 service invocation. After reboot with startup enabled, the service was active,

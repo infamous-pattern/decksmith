@@ -1,19 +1,51 @@
 # Ubuntu support and parallel Debian validation — October 17, 2026
 
-## Debian GNOME 48 correction — signed candidate requested
+## Debian GNOME 48 correction — unchanged signed candidate acceptance passed
 
 Following explicit maintainer approval, the source extension declaration now
 includes Shell 48 alongside 50/51. This matches the completed GNOME 48.7 VM trial;
 no JavaScript, permissions, service behavior or version-validation policy changes.
-The corrected source and integration findings will be synchronized to both
-repositories before dispatching the separate Debian signing workflow. Its exact
-source, signatures and archive contents must be verified before rerunning native
-package/editor/recovery and actual GNOME integration checks on the Debian VM.
-Those unchanged-signed-package results will be recorded separately after execution.
-This authorization does not publish a release, promote Debian support or replace
-the Fedora desktop build. Ubuntu physical testing remains deferred.
+The corrected source and integration findings were synchronized at canonical
+`e34beb7cd46a1baf2fd6ff1cae454f23ebdc075f` and public
+`ea29fc62a7520dd21c9df4ad0a6c11023b84e167`, identical tree
+`95fe6bddcff8e961eb5811ebafbedf150fb7502e`.
 
-## Latest GNOME integration checks — passed; Debian declaration still pending
+- Local installer/packaging tests: 122 passed.
+- Quality run: https://github.com/infamous-pattern/decksmith/actions/runs/39068287003.
+- Debian build/signing: https://github.com/infamous-pattern/decksmith/actions/runs/39068293997.
+- Both workflows passed on their first attempt. Corrected signed candidate:
+  **1.5.2-1272d3a4d717**, archive SHA-256
+  `dbbec9e918c0bfaa0b952c52428d9780a27a0e688245de57221cf844e675db2d`.
+
+All six signed download subjects passed exact repository/workflow/source/ref and
+hosted-runner provenance policy, checksum and archive verification before guest
+execution. The archive declares Shell 48/50/51; both extension JavaScript hashes
+match the earlier tested code.
+
+The unchanged signed package passed normal preview upgrade, saved-file/startup
+preservation, normal no-device service start/stop/restart, native waiting editor,
+previous-build rollback and reinstall, paired virtual editor saves/restart, and
+Homebridge assignment replacement/cross-Deck copy in both directions with undo
+and redo. Native full-size and compact captures were inspected. The accessory
+checks use fixtures; no real accessory or audio action was executed.
+
+In the actual Debian GNOME 48.7 session the signed extension loaded as ENABLED
+(state 1) with its original signed metadata. No guest metadata edits or version
+validation bypass occurred. All seven GNOME integration checks listed below
+passed, including independent foreground/default pages, indicator start/stop and
+restart, editor open/Quit, source bus release/recovery, and normal no-device
+source-loss detection. Final extension state was ENABLED with no extension errors.
+
+Each suite retained a verified offline disk recovery copy and restored original
+guest files, permissions, preferences and disabled/inactive startup state. Debian
+shut down normally after both suites, with no cleanup recovery required. Private
+evidence: `outputs/debian-gnome48-signed-20261017/completion.json`, candidate
+admission, native VM outcomes and `gnome/outcomes.json`. No release was published,
+Debian support was not promoted, and the Fedora desktop was unchanged. Physical
+Ubuntu testing remains deferred; physical/audio/lifecycle/resource and remaining
+distribution qualification gates are still open.
+
+## Earlier GNOME integration trial — basis for the signed correction
 
 The unchanged signed Ubuntu candidate `1.5.2-d4a17d906de7` passed the real GNOME
 50.1 session checks on the retained Ubuntu VM. The Debian candidate
@@ -60,13 +92,13 @@ off; no forced poweroff, real audio, USB passthrough or desktop change occurred.
 
 Private evidence: `outputs/gnome-qualification-lifecycle-20261017/completion.json`,
 the original `outcomes.json`, per-target evidence and the separate Ubuntu
-`cleanup-recovery.json`. The next Debian change is a reviewed GNOME 48 declaration
-and a rebuilt signed candidate followed by unchanged-package retesting. Physical
+`cleanup-recovery.json`. This earlier trial left the signed GNOME 48 correction
+and unchanged-package retest outstanding; those results are now recorded above. Physical
 Ubuntu acceptance remains deferred by the maintainer; broader lifecycle, audio,
 resource, fresh-public-delivery and support-promotion gates remain open. No source
 compatibility change, release publication or supported-platform promotion occurred.
 
-## Latest editor-correction candidates — native VM acceptance passed
+## Earlier editor-correction candidates — native VM acceptance passed
 
 The Homebridge assignment/cross-device clipboard corrections and accepted Fedora
 desktop results were published with identical source tree `b8d048b85708316d45c05762d8129b238093378b`
@@ -123,8 +155,8 @@ Quality gate and verified target packages.
 The earlier clean-user/dependency-repair/complete-store recovery checks remain
 valid evidence for their older signed packages; this run adds exact new-package
 upgrade/editor/copy coverage. Pristine-OS/public installer delivery, GNOME
-integration, human and physical acceptance remain open. In particular Debian's
-GNOME 48 extension-compatibility review is unresolved, and the maintainer still
+integration, human and physical acceptance remained open at this earlier
+package-only checkpoint. Debian's GNOME 48 review was then unresolved, and the maintainer still
 defers Ubuntu's local physical Deck session. No release or support promotion was
 performed; the Fedora desktop remains on its previously accepted candidate.
 
@@ -235,7 +267,7 @@ hosted-runner, checksum, target and archive policy before package code executes.
 | Complete current paired-store/history/artwork backup, restore and reinstall | Passed; both saved identities/pages/brightness and exact bytes verified | Same |
 | Pristine-OS and future public URL installer delivery | Pending | Pending |
 | Whole-store upgrade/downgrade recovery across preview and V1.5 schema | Pending | Pending |
-| GNOME indicator and foreground-app switching | Passed on actual GNOME 50.1 with signed candidate, virtual Decks and separate normal no-device source-liveness checks | Shipped metadata rejects GNOME 48.7; guest-only GNOME 48 declaration passed the same checks; signed rebuilt package still pending |
+| GNOME indicator and foreground-app switching | Passed on actual GNOME 50.1 with signed candidate, virtual Decks and separate normal no-device source-liveness checks | Corrected signed candidate 1.5.2-1272d3a4d717 passed on actual GNOME 48.7, including normal no-device source liveness; no guest metadata edits |
 | Human editor, file-picker, keyboard and screen-reader checks | Pending | Pending |
 | Physical Plus/MK.2 USB, shared audio/media, gauges and microphone policy | Pending | Pending |
 | Physical lock, suspend, hotplug, quit/relaunch and login startup | Pending | Pending |
