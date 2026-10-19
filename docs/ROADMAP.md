@@ -1,9 +1,58 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 17, 2026. The v0.4 product
+This is the implementation roadmap, updated October 19, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
+
+## Current work — Monday, October 19
+
+**Physical acceptance remains first.** Resume the approved Ubuntu 26.04 VM
+hardware session on the workstation when the maintainer is ready. Preserve the
+desktop build and saved layouts, confirm before handing both Decks to the guest,
+and restore normal controls afterward. Debian validation remains independent.
+The October 17 corrected signed Debian candidate `1.5.2-1272d3a4d717` passed native
+package/editor/recovery and actual GNOME 48.7 integration without guest metadata
+changes; Ubuntu's earlier signed candidate passed actual GNOME 50.1 integration.
+These results do not replace USB, real audio/media/microphone or lifecycle and
+resource acceptance. See the [qualification checkpoint](checkpoints/2026-10-17-ubuntu-debian-support.md).
+
+**After physical acceptance: bounded editor-state trial.** The maintainer approved
+[TCA as a research reference](research-toolbox.md#the-composable-architecture-tca--reference-adopted-october-19)
+on October 19. Trial explicit state/actions and isolated effects in one existing
+assignment/Save and Apply flow. Keep each device's identity, draft, validation,
+saving/error and connection state explicit. Test switching devices while discovery
+or preview is pending, retaining a draft on failed save, and rejecting obsolete
+responses through disconnect/reconnect. Use controlled transports/responses to
+exercise complete sequences; retain current daemon ownership/context safeguards,
+accepted UI, undo/redo and saved formats. Compare complexity and meaningful test
+coverage before extending the approach. This adds no Swift dependency or whole-app
+rewrite, and does not delay physical acceptance or authorize deployment.
+
+**Reference refresh and follow-up plan approved October 19.** The
+[21-repository review](checkpoints/2026-10-19-reference-refresh.md) includes
+Deckhand v0.8.1 and 53 commits beyond the prior pin. The maintainer approved adding
+the recommendations below to the project plan. They follow physical acceptance;
+V2 experiments and conditional maintenance retain their separate scope. Existing
+Copy/Paste and discovery/rendering work are implemented, not proposed again.
+
+| Order / scope | Planned work | Completion evidence |
+| --- | --- | --- |
+| First after physical acceptance | Run the bounded TCA-inspired editor-state trial described above. | Controlled out-of-order replies, device switches, failed saves and reconnects retain the right draft/owner; compare complexity before extending the model. |
+| Next usability improvement | Complete scoped failure feedback across the permanent runtime, physical controls and selected-control inspector. Extend existing feedback rather than adding a diagnostics dashboard. | Errors identify device/page/control and a practical remedy; success or reassignment clears the marker; reconnection does not conceal it; optional repeated notifications coalesce. No automatic retry of uncertain side effects. |
+| Small follow-up | Add a manual update check to About; assess an opt-in check when the editor opens. Keep installed build, OS/architecture and stable/candidate channel explicit. | Correct signed release destination, bounded/offline/error states, no daemon polling or automatic installation; preserve signature verification and complete-backup recovery. |
+| Alongside editor work | Extend tests protecting custom captions/artwork from late provider updates and checking artwork inputs at the import boundary. | Saved user choices survive live refreshes; invalid or unsupported inputs fail clearly without changing another control or losing a draft. Treat upstream cases as test ideas, not confirmed Decksmith defects. |
+| Throughout interface work | Apply refreshed Impeccable native review questions to actual GTK windows. | Clear scroll markers and reachable Save and Apply; long labels, focus, contrast, unavailable/recovery states, keyboard/Orca and light/dark themes checked without increasing interface density. |
+| Integration qualification; vendor maintenance conditional | Add initially empty Homebridge discovery/recovery, brightness-range and correct-target scenarios. Review Govee updates only after checking the actual installed plugin/model/version. | Temporary absence recovers without borrowed targets or lost assignments; no vendor scaling added blindly to Decksmith. Live bridge updates remain a separate maintenance decision. |
+| Optional bounded development trial | Evaluate current RepoWise on a clean source copy before expanding the editor refactor. | Findings checked against real Python/GTK/GI/D-Bus and Rust paths; record useful results, misses, cost and license/dependency implications. No automatic hooks, transcript ingestion or hosted analysis. |
+| V2 exploration | Design and trial an interactive local virtual Deck, distinct from the existing test backend. | Explicit pairing/permissions, sensible default geometry, GNOME focus behavior, display/touch removal and reconnection, lock handling and push-to-talk cancellation accepted independently. No implied browser/phone remote control. |
+| V2 plugin work | Define catalogue admission checks and declarative settings before integrating third-party plugins. | Validate identity, manifests, compatible versions, permissions, dependencies, artifacts/assets and licenses; do not treat catalogue membership as trust or compatibility. |
+| Optional later visual work | Select new Tabler monitor/media/status icons when needed; explore stereo/spectrum meter styles separately. | Preserve existing artwork identity and notices and keep current simple gauges as default; compare measured CPU/render cost and avoid unverified calibrated-meter claims. |
+
+Planning approval does not mark these items implemented or qualify upstream tools.
+Keep the native Rust/GTK architecture, independent default profiles and existing
+release/security gates. Installation, deployment and publication follow the
+applicable acceptance and approval process.
 
 ## Current work — Saturday, October 17
 

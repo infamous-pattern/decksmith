@@ -3,6 +3,48 @@
 Added October 11, 2026. These are optional development tools, separate from
 Decksmith's application, daemon, installer and release dependencies.
 
+## October 19 reference refresh
+
+Rechecked 21 documented/history/discussion repositories, including our public
+repository and infrastructure references. The
+[refresh report](checkpoints/2026-10-19-reference-refresh.md) records exact heads,
+release/main distinctions, current Decksmith overlap and proposed additions.
+Deckhand is 53 commits beyond the original review, with v0.8.1 released;
+Deck-Switch is unchanged. Impeccable is 62 commits beyond the original pin.
+The original assessments below remain dated review records, not current-version
+claims. Cross-device Copy/Paste is now implemented and physically accepted on
+Fedora. On October 19 the maintainer approved adding the report's recommendations
+to the roadmap, with post-physical-acceptance ordering and conditional/V2 trial
+boundaries retained. This does not mark the proposed tools or features qualified.
+No upstream tools, hooks or application code were installed or run.
+
+## The Composable Architecture (TCA) — reference adopted October 19
+
+[TCA](https://github.com/pointfreeco/swift-composable-architecture) is an approved
+architecture and testing reference. The maintainer requested its addition and a
+bounded editor-state trial after physical acceptance. Retain Decksmith's Rust
+daemon and Python/GTK editor; do not add the Swift library, Apple UI frameworks
+or a new runtime dependency.
+
+Reviewed at `bc2db5ba8ad3a47deba5db32fa340637ba6c9a76`; latest release observed
+was 1.26.2. This is an architectural reference, not a package selected for use.
+
+Study explicit state/actions and state transitions, feature composition,
+dependency-controlled effect tests and cancellation of obsolete asynchronous
+work. Adapt the principles independently to selected-device ownership, per-device
+drafts, validation, Save and Apply, discovery responses and disconnect/reconnect.
+Decksmith already has device-addressed clients and stale-context rejection;
+preserve those safeguards rather than duplicating or weakening them.
+
+Start with one editor assignment/save flow after physical acceptance. Compare the
+existing behavior with a small explicit state model, fake transport and controlled
+responses. Exercise device switching during a request, save failure with draft
+retention, disconnect/reconnect, and rejection of obsolete results. Preserve the
+accepted interface, saved-data format, undo/redo and explicit cross-device copy.
+Record added complexity and retain the approach only if it clarifies behavior
+and improves meaningful test coverage. No trial or application refactor has been
+performed. This is not a replacement for physical or resource acceptance.
+
 ## Impeccable — design guidance adopted October 14
 
 [Impeccable](https://github.com/pbakaus/impeccable), reviewed at commit
@@ -19,12 +61,17 @@ native editor reviews, adapt these checks to GTK/libadwaita, Orca, keyboard
 navigation and real window sizes; validate actual behavior rather than treating
 a source scan as acceptance.
 
-Its deterministic/browser tools are aimed at web interfaces. The supplied native
+Its deterministic/browser tools are aimed at web interfaces. The October 14 native
 audit is for iOS/Android/adaptive mobile apps, with no GTK/GNOME reference, so
 neither path qualifies our desktop application directly. Web examples, custom
 font/color advice, motion recommendations and mobile target sizes are not
 automatic requirements for Decksmith. Browser tooling may be useful separately
 for the optional plugin web panel and HTML mock-ups after a bounded trial.
+
+The October 19 refresh found an explicit native-review path that skips the web
+detector, plus newer contrast and text-clipping checks. Adapt the review questions
+to actual GTK behavior; the DevTools/CDP desktop scanner is for web-based apps,
+not this editor. See the refresh report for the new pin and limits.
 
 The user approved using these ideas throughout the project on October 14. For
 interface changes, identify the user's task and required states, review hierarchy
@@ -67,8 +114,9 @@ Retain Rust/GTK, the simplified editor and independent device profiles.
   figure is not a verified benchmark for Decksmith's live gauges.
 
 Use these ideas selectively: capability/failure clarity and cached observations
-can support multi-device qualification; optional cross-device copy and clearer
-Dial Stack lists remain follow-up work. Plugin field schemas and shared built-in
+can support multi-device qualification. Cross-device copying was follow-up work
+at the original review and is now implemented; clearer Dial Stack lists remain
+follow-up work. Plugin field schemas and shared built-in
 system monitors now belong to V2. Keep device defaults independent, copying
 explicit, errors actionable and the accepted native layout stable. Repository
 review is not physical, lifecycle or performance acceptance.
