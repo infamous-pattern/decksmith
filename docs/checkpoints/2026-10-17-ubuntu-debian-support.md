@@ -1,5 +1,122 @@
 # Ubuntu support and parallel Debian validation — October 17, 2026
 
+## October 19 physical Ubuntu trial — Firefox restart correction required
+
+The maintainer approved using the workstation's existing Ubuntu VM and temporarily
+passing both Decks, Schiit Magni and Wave:3 to it. The guest was updated before
+hardware testing: Ubuntu 26.04, kernel `7.0.0-38-generic`, GNOME Shell 50.1 and
+Firefox Snap 158.0-2 (revision 9057). A normal reboot, clean package audit, no
+remaining apt upgrades and no remaining Snap refreshes were verified.
+
+The unchanged signed Ubuntu candidate **1.5.2-d4a17d906de7** was re-admitted against
+its original source/provenance and archive SHA-256
+`81d55bba2cea7433c638b52b17b56e9ed539ef1ba09d26068791433e47fb3a40`, then installed
+as the normal guest user. No signed runtime file was patched for acceptance.
+An offline byte-verified VM recovery image and complete guest/desktop backups
+preceded changes. Native GNOME integration and scoped USB access were configured
+in the owned guest; normal Fedora controls were restored after the trial.
+
+Human checks, with saved-profile/device/audio observations, passed:
+
+- Independent physical pages and brightness, clear Plus keys/touch strip and
+  MK.2 keys, real Magni output volume/mute from both Decks, Firefox app volume,
+  moving output/app gauges and Automatic Firefox pause/resume.
+- Real Wave:3 holds on both Decks, overlapping holds until the last release,
+  Mute on either Deck cancelling all holds, fresh holds afterward, microphone
+  volume/gauge activity, normal unmute surviving page changes, and page changes
+  cancelling push-to-talk.
+- Unplugging either Deck while it held the mic returning the mic to Muted,
+  continued operation of the connected partner, recovered pages/controls and
+  fresh holds without stale unmute after reconnection.
+- Native editor label/checkmark saves, copying an output key from MK.2 to Plus
+  and a media key from Plus to MK.2, and executing both copied physical actions.
+  Sequential device-setting saves/readbacks ultimately confirmed MK.2 40% and
+  Plus 60%; those values survived lock/unlock. Earlier human confirmations did
+  not match saved readbacks, so they were not used alone to pass this check.
+- Quit Decksmith blanking all keys and the full touch strip, normal service
+  restart, GNOME Files/default pages versus different Firefox-assigned pages on
+  each Deck, and lock blanking/input suppression/unlock recovery. Both Locked
+  and unlocked source states were recorded.
+
+**Confirmed failure:** saving an explicit Firefox player choice retains
+`org.mpris.MediaPlayer2.firefox.instance_1_<connection>`. Restarting Firefox changes
+that identifier. The saved Plus third-dial action then stops pausing/resuming,
+while Automatic MK.2 media controls still work. The maintainer reproduced the
+physical failure; native discovery independently showed the old selector no
+longer resolves and the replacement Firefox player is present. This is a
+candidate compatibility defect, not a failed USB transfer or an unrelated-player
+fallback. It blocks accepting this candidate for Ubuntu support.
+
+A local correction recognizes Firefox's bounded numeric D-Bus instance suffix
+in both the editor's player picker and native adapter. New choices use a stable
+app family; previously saved Firefox instance choices resolve the replacement
+instance without rewriting layouts. Existing exact numeric-instance choices for
+other naming schemes retain their old behavior. Missing explicit targets still
+fail without controlling another app, and dispatch still pins/revalidates the
+unique owner.
+
+The correction passed 348 Rust tests (six existing ignored), all-target/all-feature
+strict Clippy and formatting with the existing CI-pinned Rust 1.97.1, plus six
+focused Python media tests. Tests cover old/new Firefox names, missing-player
+isolation, malformed suffixes and late owner replacement. A separate private
+Python helper resolved the actual restarted Firefox player using both the old
+saved choice and new stable choice. The signed candidate itself remained
+unchanged; these results do **not** pass corrected-candidate physical acceptance.
+The first server check used distribution Rust 1.99: Rust tests passed, but strict
+lint stopped on two unchanged `fetch_update` deprecations. That outcome is
+retained separately; no unrelated code or warning policy was changed. The
+matching 1.97.1 attempt passed.
+
+The five-minute unlocked idle sample measured **2.89% of one CPU core** and a
+sampled service memory peak of 56,823,808 bytes. Scope is the guest background
+service and its audio helpers; it excludes the editor, observation helper and
+host VM emulator. Playback was paused, both Decks connected and observation
+polling stopped. A temporary guest idle/suspend inhibitor kept the session awake
+without changing desktop preferences. A separate five-minute mixed-activity
+sample measured 9.37% and 100,196,352 bytes; it included page/microphone actions
+and USB recovery, so it is not a continuously connected playback benchmark or
+an input/display-latency measurement.
+
+Test-environment limits and retained evidence:
+
+- The initial VM was terminated when host controls stopped; subsequent startup
+  verified its QEMU process was outside Decksmith's service group. The VM also
+  needed additional USB port capacity and temporary, automatically reverted
+  access to only the two approved audio USB nodes. Failed attempts and safe
+  rollbacks are retained rather than counted as product acceptance.
+- Both physical reconnects changed the host USB address and required an explicit
+  QEMU routing refresh. Decksmith was not restarted for those recoveries. This
+  establishes app recovery after guest USB redelivery, not automatic VM USB
+  rerouting or Ubuntu bare-metal suspend/resume qualification.
+- One device-retirement warning was recorded during physical unplug. The mic
+  and surviving/reconnected Decks recovered; no actual suspend trial occurred.
+  Retain this diagnostic observation separately from suspend acceptance.
+- An evidence-copy attempt encountered a root-owned OS-update record. Existing
+  OS-update evidence was already preserved; a separate readable-file collector
+  captured 46 guest outcomes/logs. This did not prevent hardware restoration.
+
+Cleanup restored original guest profiles/Auto-Lock and disabled/inactive startup,
+retained the updated guest and signed candidate with recovery copies, restored the
+original VM definition, and powered the guest off normally. Fedora's original
+`1.5.2-46ed033e0491` build and both services are active. Original audio volumes,
+mutes and defaults were verified exactly, including Wave:3 muted; temporary USB
+permissions were removed. All **492** original desktop saved settings/artwork
+files compare byte-for-byte with the pre-test backup. The maintainer confirmed
+normal Fedora pages and controls on both Decks afterward.
+
+Private evidence: `outputs/ubuntu-physical-20261019/physical-acceptance.json`,
+`host-restoration-verification.json`, `host-saved-data-comparison.json`,
+`guest-final-power-state.json`, guest snapshots/traces, exact candidate admission,
+resource outcomes and pinned server regression logs. No release, support
+promotion, desktop replacement, commit or push occurred in this trial. Next:
+publish the correction and build/verify signed Ubuntu, Debian and Fedora
+candidates under the maintainer's subsequent explicit approval (source/build
+attestations only, no release publication or desktop update), repeat explicit
+Firefox restart on the corrected Ubuntu
+package, then complete remaining lifecycle/distribution qualification. Broader
+editor-state work remains after physical acceptance.
+
+
 ## Debian GNOME 48 correction — unchanged signed candidate acceptance passed
 
 Following explicit maintainer approval, the source extension declaration now

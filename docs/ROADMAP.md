@@ -7,10 +7,17 @@ change system routing.
 
 ## Current work — Monday, October 19
 
-**Physical acceptance remains first.** Resume the approved Ubuntu 26.04 VM
-hardware session on the workstation when the maintainer is ready. Preserve the
-desktop build and saved layouts, confirm before handing both Decks to the guest,
-and restore normal controls afterward. Debian validation remains independent.
+**Physical acceptance remains first.** The October 19 updated Ubuntu VM trial
+passed paired physical controls, native editor/copying, real output/app/microphone
+checks, GNOME pages/lock and USB redelivery recovery. It exposed an explicit
+Firefox player choice that stops resolving after browser restart; Automatic
+controls still work. A bounded editor/native-adapter correction passes local
+media tests and CI-toolchain Rust tests/linting on the AI server. The maintainer
+approved publishing the reviewed source and building/verifying new signed
+candidates; corrected-package physical retest remains required.
+Do not promote Ubuntu support yet. Fedora's original build, both Decks, exact
+audio settings and all 492 backed-up saved files were restored/verified, and the
+VM shut down normally. Debian validation remains independent.
 The October 17 corrected signed Debian candidate `1.5.2-1272d3a4d717` passed native
 package/editor/recovery and actual GNOME 48.7 integration without guest metadata
 changes; Ubuntu's earlier signed candidate passed actual GNOME 50.1 integration.

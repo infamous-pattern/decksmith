@@ -16,10 +16,34 @@ use std::{
 type Result<T> = std::result::Result<T, &'static str>;
 const PATH: &str = "/org/mpris/MediaPlayer2";
 const PLAYER: &str = "org.mpris.MediaPlayer2.Player";
+fn dbus_instance_suffix(suffix: &str) -> bool {
+    let Some((bus, connection)) = suffix.strip_prefix('_').and_then(|s| s.split_once('_')) else {
+        return false;
+    };
+    !bus.is_empty()
+        && !connection.is_empty()
+        && bus.bytes().all(|b| b.is_ascii_digit())
+        && connection.bytes().all(|b| b.is_ascii_digit())
+}
 fn family(name: &str) -> &str {
     name.rsplit_once(".instance")
-        .filter(|(_, suffix)| !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()))
+        .filter(|(_, suffix)| {
+            !suffix.is_empty()
+                && (suffix.bytes().all(|b| b.is_ascii_digit()) || dbus_instance_suffix(suffix))
+        })
         .map_or(name, |(prefix, _)| prefix)
+}
+fn selector_family(selector: &str) -> &str {
+    // Retain layouts saved before Firefox's D-Bus-derived suffix was recognized.
+    selector
+        .rsplit_once(".instance")
+        .filter(|(_, suffix)| dbus_instance_suffix(suffix))
+        .map_or(selector, |(prefix, _)| prefix)
+}
+fn matches_selector(name: &str, selector: &str) -> bool {
+    selector == crate::saved_native::DEFAULT_MEDIA
+        || name == selector
+        || family(name) == selector_family(selector)
 }
 fn previous_selection() -> Option<Session> {
     #[derive(Deserialize)]
@@ -52,11 +76,7 @@ fn selection(
 ) -> Option<Session> {
     candidates
         .iter()
-        .filter(|c| {
-            selector == crate::saved_native::DEFAULT_MEDIA
-                || c.name == selector
-                || family(&c.name) == selector
-        })
+        .filter(|c| matches_selector(&c.name, selector))
         .min_by_key(|c| {
             (
                 preferred.is_none_or(|p| p.name != c.name || p.owner != c.owner),
@@ -92,9 +112,7 @@ impl Session {
         if !(crate::launch::valid_player(&self.selector)
             || self.selector == crate::saved_native::DEFAULT_MEDIA)
             || !crate::launch::valid_player(&self.name)
-            || !(self.selector == crate::saved_native::DEFAULT_MEDIA
-                || family(&self.name) == self.selector
-                || self.selector == self.name)
+            || !matches_selector(&self.name, &self.selector)
             || self.owner.len() > 255
             || zbus::names::UniqueName::try_from(self.owner.as_str()).is_err()
         {
@@ -316,11 +334,10 @@ impl NativeBackend {
             if std::time::Instant::now() >= deadline {
                 break;
             }
-            if !selectors.iter().any(|selector| {
-                selector == crate::saved_native::DEFAULT_MEDIA
-                    || selector == &name
-                    || selector == family(&name)
-            }) {
+            if !selectors
+                .iter()
+                .any(|selector| matches_selector(&name, selector))
+            {
                 continue;
             }
             let Ok(owner) = bus.owner(&name) else {
@@ -553,6 +570,59 @@ mod tests {
             .owner,
             ":1.23"
         );
+    }
+    #[test]
+    fn firefox_saved_choices_survive_restart_without_cross_app_fallback() {
+        let candidates = vec![
+            Candidate {
+                name: "org.mpris.MediaPlayer2.firefox.instance_1_955".into(),
+                owner: ":1.955".into(),
+                status: "Paused".into(),
+            },
+            Candidate {
+                name: "org.mpris.MediaPlayer2.music".into(),
+                owner: ":1.22".into(),
+                status: "Playing".into(),
+            },
+        ];
+        for selector in [
+            "org.mpris.MediaPlayer2.firefox",
+            "org.mpris.MediaPlayer2.firefox.instance_1_162",
+        ] {
+            let selected = selection(selector, &candidates, None).unwrap();
+            selected.validate().unwrap();
+            assert_eq!(selected.selector, selector);
+            assert_eq!(selected.owner, ":1.955");
+            let (bus, _) = fixture();
+            *bus.owner.borrow_mut() = ":1.955".into();
+            execute(&bus, &selected, "play_pause", || true).unwrap();
+            assert_eq!(
+                *bus.writes.borrow(),
+                vec![(":1.955".into(), "PlayPause".into())]
+            );
+            bus.writes.borrow_mut().clear();
+            bus.replace.set(true);
+            assert!(execute(&bus, &selected, "play_pause", || true).is_err());
+            assert!(bus.writes.borrow().is_empty());
+            assert!(selection(selector, &candidates[1..], None).is_none());
+        }
+    }
+    #[test]
+    fn instance_suffixes_are_bounded_and_existing_exact_choices_stay_exact() {
+        let base = "org.mpris.MediaPlayer2.firefox";
+        assert_eq!(family(&format!("{base}.instance_1_162")), base);
+        for suffix in ["_1", "_1_2_extra", "__2", "_1_", "_named", "_١_٢"] {
+            let name = format!("{base}.instance{suffix}");
+            assert_eq!(family(&name), name);
+            assert_eq!(selector_family(&name), name);
+        }
+        let exact = "org.mpris.MediaPlayer2.brave.instance123";
+        assert_eq!(family(exact), "org.mpris.MediaPlayer2.brave");
+        assert_eq!(selector_family(exact), exact);
+        assert!(!matches_selector(
+            "org.mpris.MediaPlayer2.brave.instance456",
+            exact
+        ));
     }
     #[test]
     fn daily_factory_requires_no_media_or_audio_connection_at_startup() {

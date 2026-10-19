@@ -11,7 +11,12 @@ def valid_player(value):
     return isinstance(value,str) and len(value)<=255 and re.fullmatch(r'org\.mpris\.MediaPlayer2\.[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*)*',value) is not None
 
 def family(name):
-    return re.sub(r'\.instance[0-9]+$','',name)
+    return re.sub(r'\.instance(?:[0-9]+|_[0-9]+_[0-9]+)$','',name)
+
+def selector_family(target):
+    # Older Firefox choices stored its transient D-Bus instance name. Accept
+    # those saves without rewriting layouts or broadening another app's scope.
+    return re.sub(r'\.instance_[0-9]+_[0-9]+$','',target)
 
 def choices():
     bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
@@ -24,6 +29,7 @@ def choices():
     return sorted(result.values(),key=lambda item:item['label'].casefold())
 
 def players(bus,target=None):
+    if target is not None:target=selector_family(target)
     names=bus.call_sync('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','ListNames',None,None,Gio.DBusCallFlags.NONE,200,None).unpack()[0]
     result=[]
     for name in sorted(n for n in names if n.startswith('org.mpris.MediaPlayer2.') and (target is None or family(n)==target or n==target))[:8]:
