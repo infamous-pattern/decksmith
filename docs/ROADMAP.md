@@ -28,6 +28,33 @@ with no default agent integration or application dependency. Both trial services
 are stopped; the desktop, guests and schedules are unchanged. See the toolbox
 for measurements, corpus pins, limitations and the retained harness correction.
 
+## Design and Boatswain follow-up — approved October 20
+
+The maintainer approved the [Boatswain and metric-aware design review](research-toolbox.md#boatswain-and-metric-aware-design--references-adopted-october-20)
+as research references and planning input. This adds no runtime dependency,
+installed tool, release feature or support claim. The review examined pinned
+upstream source/interface definitions and the official feature listing, without
+running Boatswain or qualifying hardware. Implement ideas independently; retain
+Decksmith's native architecture and accepted simplified interface.
+
+Corrected Ubuntu physical acceptance remains the immediate priority. Follow it
+with the already approved bounded editor-state trial; use these recommendations
+to refine the existing work rather than start a broad redesign:
+
+| Order / scope | Planned work | Completion evidence |
+| --- | --- | --- |
+| Next editor usability work | Make selected Deck/page/control/target and draft, saved, applied and connection states clear. Refine the selection-based inspector and no-selection/no-device states, using Boatswain as a reference. Extend existing scoped failure feedback. | Users can identify what will change and whether it reached the intended device; failed saves retain drafts and provide a remedy. Long names, disconnects and device switching preserve context, visible focus, scroll markers and reachable Save and Apply at representative window sizes. Quiet success does not add repeated notifications or a diagnostics dashboard. |
+| Throughout gauge and automation work | Keep numbers tied to the user's task: configured volume and live signal are distinct; explain automatic page changes and preserve manual control. | Labels/help and unavailable states do not imply a calibrated audio-quality score or borrowed signal. Users can understand the active app rule and return to manual navigation. Preserve accepted gauge defaults and independent pages; add no productivity score, streak or new metrics dashboard. |
+| V2 development capability; refine existing virtual Deck plan | Study Boatswain's emulated-device provider when extending VirtualDeck into interactive editor testing. | Exercise multiple device geometries, selection, disconnected/reconnected states and independent drafts through the existing device contract. Retain local pairing/permission, focus, lock and held-input cleanup checks; simulation does not replace physical acceptance. |
+| Later linked-navigation design | Study explicit device/profile targeting as a building block for an opt-in cross-Deck page action, then separately design linked page groups and application rules. | Resolve stable device and page identities; missing targets stay explicit without silent substitution. Define group membership, manual override, disconnected-device catch-up and conflicts with per-device app rules. Default independent navigation remains intact. An upstream profile switch does not prove linked groups work. |
+| V2 sequences; refine existing deferred multi-actions | Design a simple ordered-step editor with delays and cancellation, informed by Boatswain's sequence implementation. | Bound execution and define re-entry, failure/partial completion, lock, disconnect, page/context change and held-input cleanup. Do not retry uncertain external side effects automatically; keep controls understandable without a general workflow canvas. |
+| Optional later integrations | Assess OBS scene/source controls and a small soundboard with explicit playback behavior and volume, subject to concrete user needs. | Correct connection/output and resource identity, meaningful disconnected/missing-file states, bounded resources and safe stop/cancellation are verified. OBS/plugin work retains the V2 process-isolation/permission boundaries; no upstream plugin compatibility or release commitment is implied. |
+
+The earlier reference-refresh plan and linked-navigation deferral remain in force.
+These additions consolidate overlapping ideas rather than reopen accepted artwork,
+media controls, independent layouts or cross-device Copy/Paste. Installation,
+deployment and publication still require their applicable acceptance decisions.
+
 ## Current work — Monday, October 19
 
 **Physical acceptance remains first.** The October 19 updated Ubuntu VM trial

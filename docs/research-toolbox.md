@@ -3,6 +3,76 @@
 Added October 11, 2026. These are optional development tools, separate from
 Decksmith's application, daemon, installer and release dependencies.
 
+## Boatswain and metric-aware design — references adopted October 20
+
+The maintainer approved adding [Boatswain](https://gitlab.gnome.org/World/boatswain)
+and the recommendations from the October 20 review to the project plan. No earlier
+Boatswain assessment was found in the recorded toolbox/reference refresh. This is
+a source and interface-definition review, not runtime or physical qualification.
+No Boatswain code was built, installed or executed.
+
+Reviewed main at `077e6c0291e068b2ffc0c7db972af0df6ccfb5cd` (October 14).
+The latest observed release was 6.0, tagged at
+`7569a5d6f951003f6468fbc0f0442575f05de06d`; reviewed main identifies itself as
+development version 6.1. Main-source findings do not establish the exact behavior
+of the stable package. The [official GNOME listing](https://apps.gnome.org/Boatswain/)
+describes pages/profiles, media and soundboard actions, OBS control and network
+requests. Boatswain's C/GTK4/libadwaita implementation is a native GNOME reference;
+keep Decksmith's existing Rust/Python/GTK architecture and project-owned device
+contract. Its GPL-3.0-or-later code/assets remain reference material for independent
+implementation, outside Decksmith's Apache-2.0 source and release dependencies.
+
+Study these bounded mechanisms:
+
+- **Selected-control inspector and empty states:** the
+  [device editor](https://gitlab.gnome.org/World/boatswain/-/blob/077e6c0291e068b2ffc0c7db972af0df6ccfb5cd/src/bs-device-editor.ui)
+  uses a clamped device area, a selection-dependent inspector and a "Select a
+  button" empty state. Its window also distinguishes no-device and device views.
+  Refine our existing chooser/inspector and disconnected feedback; do not add a
+  second dense canvas or replace accepted navigation and scroll markers.
+- **Explicit cross-device profile action:** the
+  [switch-profile action](https://gitlab.gnome.org/World/boatswain/-/blob/077e6c0291e068b2ffc0c7db972af0df6ccfb5cd/src/plugins/default/default-switch-profile-action.c)
+  resolves a device serial and profile ID. This is a useful later target-selection
+  reference, not evidence of linked navigation groups or atomic paired page
+  changes. Keep missing targets explicit; do not adopt silent profile substitution.
+- **Ordered multi-actions:** the
+  [sequence implementation](https://gitlab.gnome.org/World/boatswain/-/blob/077e6c0291e068b2ffc0c7db972af0df6ccfb5cd/src/plugins/default/default-multi-action.c)
+  includes delays and cancellable execution. Study the editor and execution model
+  for the existing deferred V2 sequence idea; independently define lock,
+  disconnect, page/context change and held-input cleanup. Never automatically
+  retry a step with uncertain external side effects.
+- **OBS and soundboard candidates:** OBS scene/source controls are a possible V2
+  integration, subject to a concrete use case. Soundboard
+  [preferences](https://gitlab.gnome.org/World/boatswain/-/blob/077e6c0291e068b2ffc0c7db972af0df6ccfb5cd/src/plugins/soundboard/soundboard-play-action-prefs.ui)
+  expose Play/Stop, Overlap, Restart, Loop/Stop and Press-and-Hold plus volume.
+  Keep these optional later features, with explicit connection/output targets,
+  missing-resource states and safe cancellation rather than expanding this release.
+- **Interactive emulated devices:** the
+  [mock provider](https://gitlab.gnome.org/World/boatswain/-/blob/077e6c0291e068b2ffc0c7db972af0df6ccfb5cd/lib/devices/mock/mock-device-provider.c)
+  is a reference for extending our existing VirtualDeck into interactive editor
+  testing with multiple geometries and connection states. Preserve the planned
+  local virtual Deck scope and independent physical acceptance.
+
+The accompanying UX Collective article,
+["UX designers are not designing interfaces, they design personalities"](https://uxdesign.cc/ux-designers-are-not-designing-interfaces-they-design-personalities-d94d874bb43d),
+argues that metrics shape users' behavior and should be treated as partial
+representations, not complete measures of success. Our application of that idea
+is calmer, task-oriented feedback: clear selected Deck/page/target, distinct
+draft/saved/applied/connection states, actionable recovery and predictable
+automation with manual control. Keep configured volume separate from live signal;
+neither is an overall audio-quality score. Keep diagnostics optional and avoid
+adding productivity scores, streaks or a metrics dashboard. These are Decksmith
+design recommendations, not claims that the article discusses this application.
+
+**Ordering:** corrected Ubuntu physical acceptance remains first, then the
+approved editor-state trial and scoped target/state-feedback work. Interactive
+virtual-device testing remains a V2 development capability; linked navigation,
+multi-actions, OBS and soundboard stay later candidates with separate design and
+qualification. Existing independent pages, media controls, artwork and copy tools
+are not proposed as new features. Private pinned source hashes/review evidence
+are retained in `outputs/boatswain-review-20261020`; no third-party source is
+included in this repository.
+
 ## XERJ — development-search assessment, October 20
 
 [XERJ](https://github.com/xerj-org/xerj) is an optional development-search trial
