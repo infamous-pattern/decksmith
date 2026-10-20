@@ -1,9 +1,25 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 19, 2026. The v0.4 product
+This is the implementation roadmap, updated October 20, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
+
+## Development toolbox — Tuesday, October 20
+
+**XERJ: optional bounded development-search trial.** The maintainer requested an
+assessment of [XERJ](https://github.com/xerj-org/xerj) for the development process
+or project. The [toolbox assessment](research-toolbox.md#xerj--development-search-assessment-october-20)
+records the inspected main/release pins, useful code/document/evidence retrieval
+questions and the controls to validate before use. Begin CLI-only on a curated
+AI-server source copy with a disposable local index, then compare ten real
+questions against targeted `rg`/file reads. Measure useful results, freshness,
+lookup effort and resource/indexing cost before deciding on agent integration.
+Keep automatic configuration changes, memory writes, external feedback and
+hosted processing off; source and reference licenses remain explicit. This is
+planned development tooling, with no runtime or release dependency. It does not
+delay corrected Ubuntu physical acceptance or the later editor-state trial.
+No installation, agent configuration, deployment or public publication occurred.
 
 ## Current work — Monday, October 19
 

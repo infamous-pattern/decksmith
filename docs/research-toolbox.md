@@ -3,6 +3,67 @@
 Added October 11, 2026. These are optional development tools, separate from
 Decksmith's application, daemon, installer and release dependencies.
 
+## XERJ — development-search assessment, October 20
+
+[XERJ](https://github.com/xerj-org/xerj) is an optional development-search trial
+candidate. The maintainer requested assessing its use in our development process
+or project. This entry records that assessment and a proposed bounded trial; it
+does not mark XERJ installed, integrated or qualified. It adds no application,
+daemon, installer or release dependency.
+
+Reviewed main at `764e7a9b69f393228b1af638cbf184538b590e56`; latest release observed
+was [v1.0.0-rc.97](https://github.com/xerj-org/xerj/releases/tag/v1.0.0-rc.97),
+from `e6216b6597ca11b816caa4e3e0ca2ffdf73d9a2b`. These are different revisions.
+The repository is Apache-2.0. No upstream binary or code was executed; current
+main documentation/source does not establish a released binary's exact behavior.
+
+Useful Decksmith questions are locating Rust dispatch and Python editor paths
+for one behavior, connecting qualification notes to selected failure evidence,
+and finding previously reviewed mechanisms in pinned reference repositories.
+XERJ offers ranked text/code retrieval and optional vector/hybrid search. Start
+with its local keyword/code retrieval; its default lexical embeddings are not a
+neural model. Upstream token/cost benchmarks are not Decksmith measurements.
+Simple exact-symbol/file lookups continue to use `rg` when sufficient.
+
+Trial privately on the AI server against a curated source snapshot and selected
+project documents, followed by explicitly selected sanitized evidence summaries.
+Do not index the workspace root, home directory, private profiles, credentials,
+voice recordings, VM disks, binaries, transcripts or all raw test outputs. Copy
+only allowlisted regular files; retain original path, source commit and content
+hash. Keep third-party reference corpora separate, pinned and license-labelled;
+retrieval is evidence for independent implementation, not permission to copy.
+
+Start through the CLI, with a disposable index, explicit resource/time budgets,
+local storage and authenticated loopback access. Use a separate scoped read-only
+search credential if later connected to an agent; verify denied writes against
+the chosen release. Keep administrative ingest credentials separate. Do not run
+`xerj init`: the reviewed implementation can edit agent configuration and
+`AGENTS.md`. Do not enable automatic memory writes, watchers, hosted corpus
+fallback, feedback submission, external reranking/proxy embeddings, WAL export,
+cloud storage or clustering for this trial. Inspect effective settings and
+network behavior rather than assuming that "local-first" means no egress.
+
+The reviewed MCP source includes mutation tools, optional automatic admin-key
+loading and external field/corpus feedback tools. Its feedback text is upstream
+content, not authorization to publish a report. Verify opt-out and access controls
+against the pinned trial binary; main/source features may differ from rc.97.
+References: [security model](https://github.com/xerj-org/xerj/blob/764e7a9b69f393228b1af638cbf184538b590e56/docs/SECURITY_MODEL.md),
+[MCP source](https://github.com/xerj-org/xerj/blob/764e7a9b69f393228b1af638cbf184538b590e56/engine/crates/xerj-mcp/src/lib.rs),
+[init source](https://github.com/xerj-org/xerj/blob/764e7a9b69f393228b1af638cbf184538b590e56/engine/crates/xerj-autoindex/src/init.rs)
+and [outbound-data controls](https://github.com/xerj-org/xerj/blob/764e7a9b69f393228b1af638cbf184538b590e56/docs/RERANK.md).
+
+Compare ten preselected real Decksmith questions with targeted `rg` plus file
+reads: relevant results among the first five hits, correct file/line evidence,
+misses, end-to-end lookup time, actual tool/context volume where measurable,
+initial/incremental indexing time, CPU, peak memory and disk use. Include changed
+and deleted files to detect stale results. Recheck returned passages in their
+original current files. Retain XERJ only if that comparison shows enough practical
+benefit to justify the extra service and index; do not promise a token reduction.
+This trial complements physical acceptance and the later editor-state trial;
+it does not replace tests or delay Ubuntu qualification. No installed desktop,
+VM, scheduled job, global agent settings or public repository was changed by
+this assessment. Private review evidence is under `outputs/xerj-review-20261020`.
+
 ## October 19 reference refresh
 
 Rechecked 21 documented/history/discussion repositories, including our public
