@@ -5,6 +5,17 @@ and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
 
+## Paused — October 20, 2026
+
+Active development and manual testing are paused at the maintainer's request for
+about a week, until they return. Start with the
+[pause and resume checkpoint](checkpoints/2026-10-20-pause-and-resume.md): exact
+corrected signed candidates, prior Ubuntu/Debian evidence, remaining gates and
+safe handoff/restoration steps are recorded there. The first task is Ubuntu's
+physical Firefox-restart retest; Debian needs its own hardware acceptance.
+Existing scheduled server tests and failure/feedback monitors continue. No
+automatic development restart, installation or support promotion is scheduled.
+
 ## Development toolbox — Tuesday, October 20
 
 **XERJ: optional bounded development-search trial.** The maintainer requested an
