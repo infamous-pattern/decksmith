@@ -19,7 +19,14 @@ Keep automatic configuration changes, memory writes, external feedback and
 hosted processing off; source and reference licenses remain explicit. This is
 planned development tooling, with no runtime or release dependency. It does not
 delay corrected Ubuntu physical acceptance or the later editor-state trial.
-No installation, agent configuration, deployment or public publication occurred.
+The approved CLI-only AI-server trial is complete: expected-file retrieval was
+8/10 against 7/10 for targeted text search; latency favored the simpler baseline.
+Changed/deleted-file freshness and read-only access checks passed. Initial
+indexing reached the 2 GiB cgroup ceiling; a separate short settled-node check
+averaged 0.15% of one core and about 45 MiB RSS. Keep XERJ optional and on demand,
+with no default agent integration or application dependency. Both trial services
+are stopped; the desktop, guests and schedules are unchanged. See the toolbox
+for measurements, corpus pins, limitations and the retained harness correction.
 
 ## Current work — Monday, October 19
 

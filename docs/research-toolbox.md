@@ -7,15 +7,16 @@ Decksmith's application, daemon, installer and release dependencies.
 
 [XERJ](https://github.com/xerj-org/xerj) is an optional development-search trial
 candidate. The maintainer requested assessing its use in our development process
-or project. This entry records that assessment and a proposed bounded trial; it
-does not mark XERJ installed, integrated or qualified. It adds no application,
+or project. This entry records the assessment and subsequently approved CLI trial. XERJ
+remains optional, with no global/agent integration. It adds no application,
 daemon, installer or release dependency.
 
 Reviewed main at `764e7a9b69f393228b1af638cbf184538b590e56`; latest release observed
 was [v1.0.0-rc.97](https://github.com/xerj-org/xerj/releases/tag/v1.0.0-rc.97),
 from `e6216b6597ca11b816caa4e3e0ca2ffdf73d9a2b`. These are different revisions.
-The repository is Apache-2.0. No upstream binary or code was executed; current
-main documentation/source does not establish a released binary's exact behavior.
+The repository is Apache-2.0. The initial assessment executed no upstream code;
+the later trial below used the pinned release. Main documentation/source does
+not establish a released binary's exact behavior.
 
 Useful Decksmith questions are locating Rust dispatch and Python editor paths
 for one behavior, connecting qualification notes to selected failure evidence,
@@ -61,8 +62,61 @@ original current files. Retain XERJ only if that comparison shows enough practic
 benefit to justify the extra service and index; do not promise a token reduction.
 This trial complements physical acceptance and the later editor-state trial;
 it does not replace tests or delay Ubuntu qualification. No installed desktop,
-VM, scheduled job, global agent settings or public repository was changed by
-this assessment. Private review evidence is under `outputs/xerj-review-20261020`.
+VM, scheduled job or global agent settings was changed by the initial
+assessment. Private review evidence is under `outputs/xerj-review-20261020`.
+
+### Bounded CLI trial result — October 20
+
+After explicit maintainer approval, the assessment/plan was committed and pushed
+to both repositories, then rc.97 was trialled privately on the AI server. Its
+Linux musl release archive matched the published checksum and GitHub asset digest;
+this is integrity verification, not a signed-provenance claim. The corpus was
+385 files / 3,560,010 bytes: allowlisted tracked text from canonical source
+`35e235d76325dde06c200e59972a4681b4a02ecb` (public
+`fd49ffd1b749cc90cec70b0be1d59d8ec3d10205`) plus one sanitized candidate summary.
+No third-party reference corpus or private settings/transcripts was indexed.
+
+- Initial indexing completed in 25.73 seconds. Across ten preselected questions,
+  an expected implementation file appeared among the first five XERJ results
+  for eight, versus seven for targeted `rg` plus bounded file reads. XERJ missed
+  the expected stale-meter and permanent-device-enrollment targets. Both tools
+  can require query refinement; file retrieval is not a solved-task score.
+- Median process/query latency was 7.01 ms for XERJ versus 5.85 ms for `rg` and
+  bounded reads. Natural-language queries and expert regexes require different
+  prior knowledge, so this small comparison does not establish overall coding
+  speed or token/cost savings. No actual model token usage was measured.
+- Forty-nine of fifty passages matched source text exactly; one Python property
+  signature normalized indentation and was checked against its file/definition
+  line. Returned evidence still requires current-source verification.
+- A separate disposable fixture passed changed/deleted-file reconciliation:
+  the old symbol disappeared, the new symbol appeared, then deletion removed it.
+  This does not qualify every file format, watcher or corpus-update pattern.
+- Anonymous reads returned 401. A scoped reader could search, while document
+  writes, index deletion and memory writes returned 403. The processes had only
+  loopback in a separate network namespace and could not see the host home.
+  No MCP client, automatic init, hosted processing, reporting or memory store
+  was connected; the copied corpus and binaries were mounted read-only.
+- The indexing/comparison cgroup reached its 2 GiB memory ceiling and completed;
+  that peak includes CLI/indexing helpers and cache, not just server RSS. An
+  immediate post-index sample was busy and is not an idle benchmark. A separate
+  restart with no queries, ten seconds settling and three twenty-second samples
+  averaged 0.15% of one CPU core with about 45 MiB server RSS. This is a short
+  controlled check, not long-running production qualification. The retained
+  private directory occupied about 177 MiB including binaries, data and evidence.
+
+The first harness attempt used an unsuitable readiness endpoint; XERJ started
+and shut down normally. The corrected probe used its authenticated ES root.
+Both attempts are retained. Both trial services exited and were collected; no
+background XERJ process remains. Existing server schedules, guests, desktop
+controls and agent settings were unchanged. Private results and reproducible
+harnesses are in `outputs/xerj-trial-20261020`.
+
+**Decision:** retain as an optional on-demand CLI lookup aid for unfamiliar code
+and cross-document questions. Keep `rg` for exact/local lookups. The modest
+retrieval improvement does not justify making XERJ mandatory or always running.
+A later read-only agent integration or reference-corpus expansion remains a
+separate bounded decision; no runtime/release dependency or physical acceptance
+claim follows from this trial.
 
 ## October 19 reference refresh
 
