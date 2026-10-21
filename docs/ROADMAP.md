@@ -1,6 +1,6 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 20, 2026. The v0.4 product
+This is the implementation roadmap, updated October 21, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
@@ -15,6 +15,31 @@ safe handoff/restoration steps are recorded there. The first task is Ubuntu's
 physical Firefox-restart retest; Debian needs its own hardware acceptance.
 Existing scheduled server tests and failure/feedback monitors continue. No
 automatic development restart, installation or support promotion is scheduled.
+
+## Archify documentation trial — planned October 21
+
+The maintainer approved [Archify as an optional toolbox reference](research-toolbox.md#archify--reference-adopted-post-acceptance-trial-planned-october-21)
+and a bounded trial **after physical acceptance and active-work resumption**.
+Decksmith remains paused. Do not install or execute Archify, change the desktop,
+start tests or add a background process as part of this planning update.
+
+Produce only two initial artifacts: a paired-runtime architecture diagram and a
+selected-device editor assignment/Save and Apply lifecycle diagram. Support the
+already planned editor-state trial by documenting current source behavior;
+do not imply a refactor or unqualified recovery behavior is implemented.
+Compare with a simple Mermaid/static baseline for the same scope and perform
+one representative update. Record clarity of ownership/state/failure paths,
+source-reference accuracy, update effort/staleness, readable rendering, output
+size and resource/tool overhead. Keep typed source, HTML, pinned revision and
+receipts together; independently verify semantics as well as visual output.
+
+Use a disposable local tool copy with optional networking/update checks disabled,
+selected sanitized inputs and no global agent integration. Match web links to the
+actual public GitHub revision; use local-only evidence for private Gitea source.
+Retain the tool only if it adds enough clarity and maintainability over the
+simpler baseline. General recovery/release visualizations and CI/publishing
+integration remain separate follow-ups. This adds no runtime dependency and does
+not alter Ubuntu/Debian acceptance priorities, existing monitors or release gates.
 
 ## Development toolbox — Tuesday, October 20
 

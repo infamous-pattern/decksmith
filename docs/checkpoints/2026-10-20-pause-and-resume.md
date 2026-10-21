@@ -156,5 +156,12 @@ Linked navigation, multi-actions, OBS, soundboard and interactive virtual Decks
 retain their later/V2 boundaries. The XERJ CLI trial is complete; it remains
 optional/on demand, with its trial services stopped and no runtime integration.
 
+**Planning addendum — October 21:** the maintainer approved adding
+[Archify](../research-toolbox.md#archify--reference-adopted-post-acceptance-trial-planned-october-21)
+to the toolbox and a two-diagram documentation trial after physical acceptance
+and active-work resumption. Compare paired-runtime architecture and editor-save
+lifecycle artifacts with a simpler baseline before adoption. No installation,
+trial execution or change to the pause/acceptance order is part of that update.
+
 This is a saved resume record, not authorization to start tests during the pause,
 deploy a new desktop build, publish V1.5.2 or promote another supported OS.

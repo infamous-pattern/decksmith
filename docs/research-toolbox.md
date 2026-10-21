@@ -3,6 +3,79 @@
 Added October 11, 2026. These are optional development tools, separate from
 Decksmith's application, daemon, installer and release dependencies.
 
+## Archify — reference adopted; post-acceptance trial planned October 21
+
+[Archify](https://github.com/tt-a1i/archify) is an approved optional development
+and documentation reference. The maintainer approved a bounded trial after
+physical acceptance while keeping Decksmith paused. This entry authorizes no
+trial execution during the pause, global skill installation, agent hooks or
+application/daemon/installer dependency.
+
+Reviewed main at `25cf37080fc8b1dbe758a4efc3935b55f3327083`; the latest observed
+release was [v3.2.0](https://github.com/tt-a1i/archify/releases/tag/v3.2.0), and the
+reviewed package declares version 3.2.0. This is a pinned main-source assessment,
+not execution or release-artifact verification. The repository is MIT-licensed;
+retain applicable notices if source/assets are later reused and review bundled
+third-party notices separately. No Archify code was installed or run. Private
+source hashes and review material are in `outputs/archify-review-20261021`.
+
+Archify turns agent-authored typed diagram data into explorable HTML, including
+architecture, sequence, workflow and lifecycle views. It does not independently
+discover or certify Decksmith's architecture. Its
+[repository evidence implementation](https://github.com/tt-a1i/archify/blob/25cf37080fc8b1dbe758a4efc3935b55f3327083/archify/renderers/shared/repository-evidence.mjs)
+verifies source references against committed Git bytes. The
+[authoring reference](https://github.com/tt-a1i/archify/blob/25cf37080fc8b1dbe758a4efc3935b55f3327083/archify/references/repository-authoring.md)
+requires tracing actual ownership and preserving uncertainty. These checks can
+establish the cited revision/files/ranges, not that our explanation is complete,
+our inferred relationships are correct, or hardware behavior is qualified.
+
+Useful Decksmith subjects are the paired runtime (editor, coordinator, independent
+profiles and shared audio providers), selected-device draft/Save and Apply state,
+and later recovery/qualification workflows. Retain the native Rust/Python/GTK
+architecture and accepted interface. This is communication tooling, separate from
+XERJ retrieval, the proposed RepoWise assessment and the TCA-inspired state trial.
+Use a simpler existing diagram when interaction/source cards add little value.
+
+### Bounded trial after physical acceptance and active-work resumption
+
+Prepare two artifacts on a clean, pinned source copy: one multi-device runtime
+architecture diagram and one lifecycle diagram for the selected-device editor
+assignment/save flow. Keep editable diagram data, generated HTML, exact source
+revision and validation receipts together. Use only selected source and sanitized
+documentation; exclude private settings, credentials, recordings, transcripts and
+raw host/guest evidence. No hosted publishing or automatic workspace indexing.
+
+Compare both artifacts with a simple Mermaid/static baseline for the same scope.
+Check whether readers can identify control ownership, independent device state,
+the normal save path, failure/draft retention, stale replies and disconnect/recovery
+without misleading edges or excess detail. Recheck every asserted relationship
+in current source; the lifecycle must match observed/qualified behavior rather
+than imply the later state refactor already exists. Make one representative source
+change and measure update effort, stale references, useful interaction, readability,
+output size and tooling/resource overhead. Inspect the actual rendered artifacts
+and distinguish automated validation from human visual/semantic review.
+
+Use the exact sanitized public GitHub commit in a matching public checkout for
+web source links. Reviewed web providers include GitHub, Gitee and GitLab, not
+Gitea; private Gitea/SSH references use `local-only`. Do not relabel a canonical
+Gitea revision as its different public-history GitHub commit or rewrite origins
+merely to pass the validator. Reconfirm this behavior against the chosen trial pin.
+
+The reviewed [package](https://github.com/tt-a1i/archify/blob/25cf37080fc8b1dbe758a4efc3935b55f3327083/archify/package.json)
+requires Node.js 18 or later; inspect browser-check requirements before the trial.
+Use a disposable local tool copy and output directory with optional update checks
+disabled through `ARCHIFY_UPDATE_CHECK_DISABLED=1`; no global installation,
+automatic updates or persistent preview watcher. A later explicit local preview
+may use its loopback mode, then must be stopped. Validate before replacing an
+existing artifact and retain the last usable output; the reviewed publication
+helper describes recoverable replacement, not guaranteed crash-atomic replacement.
+
+Retain Archify only if these two examples are clearer and reasonably maintainable
+compared with the simpler baseline. Otherwise keep the diagrams and existing tools
+without adopting another standard dependency. Broader release/recovery diagrams,
+CI integration and public visual documentation are separate follow-ups. Trial
+approval does not replace physical acceptance or authorize release promotion.
+
 ## Boatswain and metric-aware design — references adopted October 20
 
 The maintainer approved adding [Boatswain](https://gitlab.gnome.org/World/boatswain)
