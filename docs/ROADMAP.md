@@ -1,6 +1,6 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 21, 2026. The v0.4 product
+This is the implementation roadmap, updated October 22, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
@@ -15,6 +15,17 @@ safe handoff/restoration steps are recorded there. The first task is Ubuntu's
 physical Firefox-restart retest; Debian needs its own hardware acceptance.
 Existing scheduled server tests and failure/feedback monitors continue. No
 automatic development restart, installation or support promotion is scheduled.
+
+October 22 narrow reliability exception: the maintainer authorized the
+[launcher protocol isolation source correction](checkpoints/2026-10-22-launcher-protocol-isolation.md)
+and regression tests after ordinary website/app/system keys became blocked.
+The temporary installed child-output patch passed an immediate maintainer
+check. The source correction also isolates parent/library output and adds
+privacy-safe failure reasons, while retaining authorization and no-replay
+safeguards. The maintainer subsequently authorized committing/pushing the fix
+and testing notes and building/verifying a signed Fedora V1.5.2 candidate.
+Desktop installation still requires approval; physical acceptance and public
+release remain outstanding. Ubuntu/Debian testing and other work stay paused.
 
 ## Archify documentation trial — planned October 21
 

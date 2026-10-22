@@ -6,7 +6,15 @@ gi.require_version('Gio', '2.0')
 from gi.repository import Gio,GLib
 
 def independent_child(*_):
-    try:os.setsid()
+    try:
+        os.setsid()
+        # A launched application outlives this helper, but must never read its
+        # requests or write into its JSON reply channel (including via stderr).
+        null_fd = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2):
+            os.dup2(null_fd, fd)
+        if null_fd > 2:
+            os.close(null_fd)
     except OSError:os._exit(126)  # Do not exec in our helper's group if isolation fails.
 
 

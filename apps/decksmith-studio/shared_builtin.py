@@ -3,12 +3,13 @@
 Each underlying adapter requests a grant after discovery and immediately before
 an external effect. Legacy launch/system entry points do not use this protocol.
 """
+import os
 import re
 import sys
-from shared_audio_native import authorize, message, send
 
 
 def execute(action, source, output, *, launcher=None, controls=None, grant=None):
+    from shared_audio_native import authorize
     grant=grant or (lambda:authorize(source,output))
     if not isinstance(action, dict):raise ValueError('Unsupported built-in')
     kind=action.get('type')
@@ -37,6 +38,7 @@ def execute(action, source, output, *, launcher=None, controls=None, grant=None)
 
 
 def serve(source, output):
+    from shared_audio_native import authorize, message, send
     # Sharing one system adapter avoids duplicated persistent GSettings caches.
     from system_controls import Controls,GLib
     controls=Controls()
@@ -66,4 +68,21 @@ def serve(source, output):
         send(output,reply)
         if reply['status']=='error':return
 
-if __name__=='__main__':serve(sys.stdin,sys.stdout)
+def main():
+    # Keep the reply pipe on a private, close-on-exec descriptor before importing
+    # adapters/GIO. Python prints and native libraries writing directly to fd 1
+    # must not become protocol replies. Children also close this duplicate at exec.
+    reply_fd = os.dup(sys.stdout.fileno())
+    try:
+        os.set_inheritable(reply_fd, False)
+        with open(os.devnull, 'wb') as sink:
+            os.dup2(sink.fileno(), sys.stdout.fileno())
+        with os.fdopen(reply_fd, 'w', encoding='utf-8') as output:
+            reply_fd = None
+            serve(sys.stdin, output)
+    finally:
+        if reply_fd is not None:
+            os.close(reply_fd)
+
+
+if __name__=='__main__':main()

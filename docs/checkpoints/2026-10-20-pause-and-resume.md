@@ -9,6 +9,14 @@ monitor wakes up.
 
 ## Resume here
 
+October 22 exception: the maintainer authorized a narrow source correction for
+ordinary built-in launcher output corrupting its JSON helper channel. See the
+[launcher isolation checkpoint](2026-10-22-launcher-protocol-isolation.md) for
+the reproduced defect, temporary installed patch's immediate physical result,
+source regression coverage and retained release gates. General development and
+Ubuntu/Debian physical testing remain paused. Existing signed candidates below
+predate that correction; source tests do not replace new candidate acceptance.
+
 1. Re-read this checkpoint, the [qualification history](2026-10-17-ubuntu-debian-support.md)
    and the [roadmap](../ROADMAP.md). Inspect current source, retained candidates,
    desktop/VM state and any monitor incidents before changing anything.

@@ -37,7 +37,10 @@ class SharedBuiltinTests(unittest.TestCase):
         # PyGObject's child setup bridge requires tuple user_data; None silently
         # skips the callback with a TypeError. Verified by the private GI fixture.
         self.assertEqual(args[4],())
-        with patch.object(launch.os,'setsid') as detach:args[3](*args[4])
+        with patch.object(launch.os,'setsid') as detach, \
+             patch.object(launch.os,'open',return_value=9), \
+             patch.object(launch.os,'dup2'),patch.object(launch.os,'close'):
+            args[3](*args[4])
         detach.assert_called_once_with()
         with patch.object(launch.os,'setsid',side_effect=OSError),patch.object(launch.os,'_exit',side_effect=SystemExit(126)) as terminate:
             with self.assertRaises(SystemExit):args[3](*args[4])
@@ -52,6 +55,18 @@ class SharedBuiltinTests(unittest.TestCase):
             launch.launch('website','https://example.com/')
         invoke.assert_called_once_with('https://example.com/',None)
         discover.assert_not_called()
+
+    def test_child_stdio_isolation_failure_prevents_exec(self):
+        for operation in ('open', 'dup2', 'close'):
+            with self.subTest(operation=operation), \
+                 patch.object(launch.os,'setsid'), \
+                 patch.object(launch.os,'open',return_value=9) as open_fd, \
+                 patch.object(launch.os,'dup2') as duplicate, \
+                 patch.object(launch.os,'close') as close_fd, \
+                 patch.object(launch.os,'_exit',side_effect=SystemExit(126)) as terminate:
+                {'open':open_fd,'dup2':duplicate,'close':close_fd}[operation].side_effect=OSError
+                with self.assertRaises(SystemExit):launch.independent_child()
+                terminate.assert_called_once_with(126)
 
     def test_launch_helper_aborts_after_read_without_executing(self):
         writes=[]
