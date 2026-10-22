@@ -12,15 +12,18 @@ monitor wakes up.
 October 22 exception: the maintainer authorized a narrow source correction for
 ordinary built-in launcher output corrupting its JSON helper channel. See the
 [launcher isolation checkpoint](2026-10-22-launcher-protocol-isolation.md) for
-the reproduced defect, temporary installed patch's immediate physical result,
-source regression coverage and retained release gates. General development and
-Ubuntu/Debian physical testing remain paused. Existing signed candidates below
-predate that correction; source tests do not replace new candidate acceptance.
+the reproduced defect, source/package tests and approved installation of signed
+Fedora **1.5.2-f49eb0631053**, with successful targeted physical checks. Its prior
+patched build and full rollback/configuration backups are retained. General
+development and Ubuntu/Debian testing remain paused. The October 19 candidates
+below predate the launcher correction and remain historical qualification inputs.
 
 1. Re-read this checkpoint, the [qualification history](2026-10-17-ubuntu-debian-support.md)
    and the [roadmap](../ROADMAP.md). Inspect current source, retained candidates,
    desktop/VM state and any monitor incidents before changing anything.
-2. Revalidate the corrected signed Ubuntu candidate and repeat the physical
+2. Review whether a fresh signed Ubuntu/Debian candidate should carry the now
+   accepted launcher correction; obtain authorization before rebuilding or
+   installing it. Revalidate the selected Ubuntu candidate and repeat the physical
    Firefox-restart case in the desktop's Ubuntu VM. This is the first blocking
    acceptance item, not another broad feature implementation task.
 3. Finish Ubuntu's remaining lifecycle, accessibility, delivery and resource
@@ -37,25 +40,29 @@ predate that correction; source tests do not replace new candidate acceptance.
 - Public release remains **V1.5.1**, with Fedora 44 GNOME/Wayland as the supported
   setup. Ubuntu/Debian public previews have not been promoted to supported V1.5.2
   releases. Candidate signing does not publish a release or change installer pins.
-- Last synchronized source before saving this checkpoint: canonical/Gitea
+- Original October 20 source snapshot (historical): canonical/Gitea
   `8eb5fdd648efe905a4d4c48c525fc6d47616cc20`, sanitized GitHub
   `b4f6c2efc91f3c3a3c9e82595115e550579c3e5d`, identical tree
   `8e3447c8bd4a68d8bcfea692b91a5cf2b60c9cbb`. Both remote heads were rechecked
   while saving this checkpoint. [Quality run 39427666159](https://github.com/infamous-pattern/decksmith/actions/runs/39427666159)
   completed successfully. Later commits since the Firefox correction are
-  documentation-only; they do not create new signed runtime candidates.
-- The desktop's current-build symlink was re-read as **1.5.2-46ed033e0491**.
-  This is the Fedora Homebridge-assignment/cross-Deck-copy candidate already
-  physically accepted; it does **not** contain the later Firefox correction.
+  documentation-only at that point. The October 22 launcher correction and
+  signed Fedora candidate supersede that runtime/source snapshot; see its
+  [exact build and acceptance record](2026-10-22-launcher-protocol-isolation.md#signed-fedora-candidate-and-targeted-desktop-acceptance).
+- As of the approved October 22 installation, the desktop runs signed Fedora
+  **1.5.2-f49eb0631053**, including the Firefox and launcher corrections. Both
+  Decks and Homebridge passed targeted physical checks; the final read-only
+  check found no launcher uncertainty/block events or automatic service restarts.
+  The earlier locally patched **1.5.2-46ed033e0491** is retained for rollback.
 - Last completed handoff restoration, October 19: both Fedora Decks and companion
   recovered, original audio defaults/volume/mute restored with Wave:3 muted,
   all 492 backed-up saved files unchanged, temporary audio USB access removed,
   original local VM definition restored and Ubuntu shut down normally. The
   maintainer confirmed normal Fedora pages and controls on both Decks.
-- This checkpoint did not restart services or start a VM. Live user-bus/libvirt
-  status was unavailable in the current restricted execution context; the
-  preceding restoration states are dated evidence, not a fresh live-health claim.
-  Recheck them through the appropriate user session before the next handoff.
+- The original October 20 checkpoint did not restart services or start a VM.
+  October 22's separately approved installation restarted only Decksmith's
+  controls/companion; no Ubuntu/Debian guest/testing work resumed. Recheck dated
+  desktop/VM evidence through the appropriate user session before the next handoff.
 
 ## Corrected signed candidates ready for qualification
 

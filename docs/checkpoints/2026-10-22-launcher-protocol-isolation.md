@@ -4,8 +4,9 @@ This is a narrowly authorized reliability correction during the development
 pause. General Ubuntu/Debian qualification and feature work remain paused.
 After reviewing the source results, the maintainer authorized committing and
 pushing the fix/testing notes to both repositories and building/verifying a
-signed Fedora V1.5.2 candidate. Desktop installation requires a further approval;
-public-release publication and support promotion remain separate decisions.
+signed Fedora V1.5.2 candidate. They subsequently approved desktop installation
+and confirmed the targeted physical checks below. Public-release publication
+and support promotion remain separate decisions; Decksmith stays paused.
 
 ## Report and evidence boundary
 
@@ -34,9 +35,9 @@ the controlled service restart, the maintainer reported: “I've tried the websi
 key several times and it's working. The other keys and audio dials are working
 too.” This is immediate physical acceptance of that temporary patch, not a
 long-term stability result or acceptance of the broader source change below.
-That installed modification is local, does not match the original signed
-release manifest, and can be overwritten by a later installation. This source
-work did not change or restart that installation.
+That temporary modification did not match the original signed release manifest.
+It was preserved in the rollback backup before the later approved signed-candidate
+installation below. Source preparation itself did not change the desktop.
 
 Private diagnostic captures, original/modified installed-file hashes, rollback
 copy and full test logs remain outside public source. Do not publish raw logs,
@@ -94,19 +95,62 @@ ignored), strict all-target/all-feature Clippy, 249 Studio Python tests, 122
 installer/script tests, Rust formatting and diff whitespace checks. The Studio
 suite passed locally and on the AI server. Both new real-GIO regressions and
 the Rust privacy/no-replay checks passed. No ignored test was counted as passed,
-and these source checks do not establish exact signed-package or physical
-acceptance of the complete correction.
+and these source checks alone do not establish exact signed-package or physical
+acceptance. Those later checks are recorded separately below.
+
+## Signed Fedora candidate and targeted desktop acceptance
+
+The fix was published as canonical/Gitea
+`fd484e7f72a70373f588585d4f5b75c7a6155678` and sanitized GitHub
+`274ade4e2f42d9cf957a562352df6c253a02b61b`, with identical source tree
+`e25590a816f4395d0996cf1beee632890f11534d`. Committed runtime/test bytes match
+the passing AI-server source snapshot. [Quality run 39829838476](https://github.com/infamous-pattern/decksmith/actions/runs/39829838476)
+and [Fedora build/signing run 39829868860](https://github.com/infamous-pattern/decksmith/actions/runs/39829868860)
+both passed. This final testing-notes update is documentation-only and does not
+rebuild or change the candidate's signed source identity.
+
+Signed Fedora 44 candidate **`1.5.2-f49eb0631053`** was admitted against that full
+public source SHA. All six downloaded subjects passed provenance verification;
+checksums, archive metadata and all 502 manifest entries verified. Archive
+SHA-256: `65628b1ce534aafb91cc0bfcd2c4e8cc4301005869003cb479fde686deceec1a`.
+The exact package also passed its runtime self-check and both real-GIO launcher
+fixtures on the AI server. No guest was started for this package verification.
+
+After explicit saved-editor/installation approval, the candidate replaced the
+desktop build. The previous locally patched build was retained and copied byte
+for byte, with a verified whole-configuration snapshot, icon copy, normal backup
+archive and integration snapshots. A pre-install guard first encountered one
+pre-existing generated Python cache file outside the old manifest; it stopped
+before replacement and restored the old service. The retry preserved that file
+as backup data while checking every declared file and the known launcher override.
+The new candidate's manifest/signature checks were not relaxed. Raw rollback is
+available for the retained modified build; ordinary signed-manifest rollback
+validation must not be assumed to accept its local override.
+
+Machine checks confirmed both Decks connected with input/display ready, preserved
+saved layouts, pages, brightness and selection, unchanged startup enablement and
+the existing Homebridge companion ready. All 502 installed manifest files matched.
+The maintainer then confirmed repeated website/application/safe-system keys keep
+working, and both Decks' independent pages, displays, audio/media controls and
+Homebridge work correctly. A final read-only check found the same two service
+processes, zero automatic restarts and no launcher uncertainty/block events since
+candidate startup. This is immediate targeted acceptance, not a long-duration
+stability result or complete V1.5.2 release/distribution acceptance.
+
+Private receipts in `outputs/launch-protocol-20261022/` include
+`build-outcomes.json`, `candidates/fedora44/candidate-admission.json`,
+`signed-package-result.json`, `desktop-install-2/result.json`,
+`desktop-runtime-verification.json` and `physical-acceptance.json`. The initial
+guard-stop receipt and both rollback/configuration copies remain retained.
 
 ## Review and release boundary
 
-The maintainer authorized source publication and signed Fedora candidate
-preparation on October 22. Ask before installing that candidate on the desktop.
-The signed candidate must include both isolation layers and the diagnostics; the previously
-retained Firefox-corrected bundles do not include this new source correction.
-Retain the temporary installed patch and rollback evidence until a separately
-approved replacement is accepted. Repeat physical website/application/system
-keys on both Decks alongside audio, then observe ordinary use. Keep uncertain
-failures distinguishable from USB transport problems.
+The approved Fedora desktop now runs the signed candidate above, including both
+isolation layers and the diagnostics. Keep the previous patched build and complete
+backups; no cleanup or release publication was requested. Observe ordinary use
+without resuming development automatically. Further desktop replacements and
+public/support promotion require their own approval. Keep uncertain failures
+distinguishable from USB transport problems.
 
 After that targeted reliability work, resume the outstanding Ubuntu physical
 Firefox-restart retest and independent Debian qualification only when the

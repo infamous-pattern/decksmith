@@ -24,8 +24,14 @@ check. The source correction also isolates parent/library output and adds
 privacy-safe failure reasons, while retaining authorization and no-replay
 safeguards. The maintainer subsequently authorized committing/pushing the fix
 and testing notes and building/verifying a signed Fedora V1.5.2 candidate.
-Desktop installation still requires approval; physical acceptance and public
-release remain outstanding. Ubuntu/Debian testing and other work stay paused.
+They then approved installing signed Fedora **1.5.2-f49eb0631053** and confirmed
+the targeted physical launch/controls checks. Exact-package verification passed;
+both Decks and Homebridge are ready with saved settings preserved. The final
+read-only check found no launcher uncertainty/block events or automatic restarts.
+The previous patched build and complete backups remain retained. Ordinary-use
+observation and any later release decision remain separate; Ubuntu/Debian testing
+and other development stay paused. Revisit candidate selection when resuming
+Ubuntu/Debian acceptance, since their October 19 bundles lack the launcher fix.
 
 ## Archify documentation trial — planned October 21
 
