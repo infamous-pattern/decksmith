@@ -232,3 +232,18 @@ legacy Plus controller. Input mute/toggle binding compilation, canonical default
 app targets, persistent device association, native device API/editor and physical
 Plus/MK.2 acceptance remain gates. See the
 [guardian checkpoint](checkpoints/2026-10-13-shared-microphone-guardian.md).
+
+
+## USB microphone reconnection and shutdown — October 24
+
+The native adapter now permits mute-only revalidation after a source connection
+changes, requiring the exact saved named source and complete USB hardware serial,
+vendor/product and bus identity on the same server socket. It never rediscovers
+for Live/toggle. The owner confirms the old writer exited, cancels old holds and
+uncertain toggles, and waits for a verified mute before accepting fresh input.
+Continued hold heartbeats also trigger bounded connection checks. Three initial
+mute attempts are followed by slow single native reconnect attempts, rather than
+permanent stale-pin retries or a busy loop. Exhausted recovery stops promptly
+without claiming a successful mute; the packaged service now allows 30 seconds
+for teardown. See the [dated checkpoint](checkpoints/2026-10-24-microphone-recovery.md)
+for precise limits, opt-in private-audio tests and remaining physical gates.

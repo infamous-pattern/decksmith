@@ -1,6 +1,6 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 22, 2026. The v0.4 product
+This is the implementation roadmap, updated October 24, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
@@ -32,6 +32,15 @@ The previous patched build and complete backups remain retained. Ordinary-use
 observation and any later release decision remain separate; Ubuntu/Debian testing
 and other development stay paused. Revisit candidate selection when resuming
 Ubuntu/Debian acceptance, since their October 19 bundles lack the launcher fix.
+
+October 24 narrow reliability exception: finish and test
+[microphone reconnection and shutdown recovery](checkpoints/2026-10-24-microphone-recovery.md)
+on the AI server after USB loss exposed stale microphone identity and a stop
+cleanup timeout. Recovery must verify the same USB hardware, restore mute first,
+retire old writers and invalidate old holds/toggles. The maintainer subsequently
+authorized publishing the fixes/notes to both repositories and building/verifying
+a signed Fedora candidate. Desktop installation requires a separate approval.
+Ubuntu/Debian testing and other development remain paused.
 
 ## Archify documentation trial — planned October 21
 

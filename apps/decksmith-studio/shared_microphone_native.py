@@ -1,6 +1,8 @@
 """Opt-in shared microphone guardian; legacy V1 ptt_guard is unchanged.
 
-One private pin survives helper restarts. Writes use the same libpulse context
+One private pin survives helper restarts. Only a mute retry may revalidate the
+same USB hardware serial after re-enumeration, once the host retired its writer.
+Writes use the same libpulse context
 that checked source index/serial, never a named/default-device fallback. Manual
 unmute needs a separate host commit; EOF before that commit returns to Muted.
 """
@@ -11,6 +13,7 @@ from pathlib import Path
 import select
 import signal
 import sys
+import time
 
 from audio_targets import validate
 from system_sounds import Client as PulseClient, ChannelMap, Volume
@@ -59,12 +62,17 @@ class Client(PulseClient):
                 completed.append(eol > 0)
             elif pointer:
                 info = pointer.contents
+                def prop(key):
+                    value = self.property(info.proplist, key.encode('ascii')) if info.proplist else None
+                    return value.decode('utf-8') if value else ''
                 serial = self.property(info.proplist, b'object.serial') if info.proplist else None
                 if info.name and serial and info.monitor_of_sink == 2**32 - 1:
                     try:
                         found.append({'name': info.name.decode('utf-8'),
                                       'index': int(info.index), 'serial': serial.decode('utf-8'),
-                                      'muted': bool(info.mute)})
+                                      'muted': bool(info.mute),
+                                      'hardware': usb_identity({key: prop(key) for key in
+                                          ('device.bus', 'device.serial', 'device.vendor.id', 'device.product.id')})})
                     except UnicodeError:
                         completed.append(False)
         operation = self.source_index(self.context, selector, callback, None) if type(selector) is int else self.source_name(self.context, selector.encode('utf-8'), callback, None)
@@ -91,7 +99,19 @@ def socket_identity():
     return [info.st_dev, info.st_ino]
 
 
-def pin_source(client, target, path, socket=socket_identity):
+def usb_identity(properties):
+    keys = ('device.bus', 'device.serial', 'device.vendor.id', 'device.product.id')
+    values = {key: properties.get(key, '') for key in keys}
+    if values['device.bus'] != 'usb' or any(
+            not isinstance(value, str) or not 0 < len(value) <= 256
+            or any(ord(char) < 32 for char in value) for value in values.values()):
+        return None
+    if values['device.serial'].lower() in ('0', 'none', 'unknown'):
+        return None
+    return values
+
+
+def pin_source(client, target, path, socket=socket_identity, *, recover=False):
     validate(target)
     if not target.startswith('input:'):
         raise ValueError('Choose a named microphone')
@@ -103,7 +123,7 @@ def pin_source(client, target, path, socket=socket_identity):
         if path.stat().st_size > 4096:
             raise ValueError('Invalid microphone pin')
         pin = json.loads(path.read_text())
-        if not isinstance(pin, dict) or set(pin) != {'server', 'name', 'index', 'serial'}:
+        if not isinstance(pin, dict) or set(pin) not in ({'server', 'name', 'index', 'serial'}, {'server', 'name', 'index', 'serial', 'hardware'}):
             raise ValueError('Invalid microphone pin')
         if pin['name'] != name or pin['server'] != server or type(pin['index']) is not int or not 0 <= pin['index'] < 2**32 or not isinstance(pin['serial'], str) or not 0 < len(pin['serial']) <= 128:
             raise ValueError('Microphone identity changed')
@@ -116,9 +136,30 @@ def pin_source(client, target, path, socket=socket_identity):
             node = client.read_source(name)
             if node['name'] != name or not node['serial'] or len(node['serial']) > 128 or socket() != server:
                 raise ValueError('Microphone identity changed')
-            pin = dict(server=server, name=name, index=node['index'], serial=node['serial'])
+            pin = dict(server=server, name=name, index=node['index'], serial=node['serial'], hardware=node.get('hardware'))
             json.dump(pin, output)
-    check_source(client, pin, socket)
+    try:
+        check_source(client, pin, socket)
+    except ValueError:
+        # This path is available only to a mute-only helper, after the host has
+        # confirmed that the old writer exited. Never reuse an old Live/toggle.
+        hardware = pin.get('hardware')
+        if not recover or not isinstance(hardware, dict) or usb_identity(hardware) != hardware:
+            raise
+        node = client.read_source(name)
+        if node['name'] != name or node.get('hardware') != hardware or socket() != server:
+            raise ValueError('Microphone hardware changed')
+        candidate = dict(server=server, name=name, index=node['index'], serial=node['serial'], hardware=hardware)
+        check_source(client, candidate, socket)
+        temporary = path.with_suffix('.reconnect')
+        try:
+            with temporary.open('x') as output:
+                os.chmod(temporary, 0o600)
+                json.dump(candidate, output)
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+        pin = candidate
     return pin
 
 
@@ -202,8 +243,14 @@ def execute(client, pin, mode, stream, report, socket=socket_identity):
                 if value != 'hold':
                     return
             raise ValueError('Invalid microphone commit')
+        next_check = 0.0
         while decision(stream) == 'hold':
-            pass
+            now = time.monotonic()
+            if now >= next_check:
+                # Heartbeats are lease authority, not evidence that this source
+                # still exists. Detect USB loss even while both Decks stay held.
+                check_source(client, pin, socket)
+                next_check = now + .25
     finally:
         if not committed:
             write(True)
@@ -215,7 +262,7 @@ def main():
     client = Client()
     try:
         client.ready()
-        pin = pin_source(client, sys.argv[1], Path(sys.argv[3]))
+        pin = pin_source(client, sys.argv[1], Path(sys.argv[3]), recover=sys.argv[2] == 'mute')
         def report(value):
             sys.stdout.write(value + '\n')
             sys.stdout.flush()

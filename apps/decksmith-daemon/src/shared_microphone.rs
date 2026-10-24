@@ -16,6 +16,7 @@ type Result<T> = std::result::Result<T, &'static str>;
 const GUARD_TIMEOUT_MS: u64 = 2500;
 const RETRY_MS: u64 = 250;
 const MAX_ATTEMPTS: u8 = 3;
+const RECONNECT_MS: u64 = 5000;
 
 /// A structurally validated named microphone. Aliases/labels are never identity.
 #[derive(Clone)]
@@ -52,6 +53,11 @@ pub trait Guardian: Send {
     }
 }
 pub trait Factory: Send + 'static {
+    /// Only adapters that can safely revalidate an exact physical target may
+    /// retry a disconnected target after the initial bounded mute attempts.
+    fn reconnectable(&self, _target: &str) -> bool {
+        false
+    }
     fn start(&mut self, target: &str, desired: DesiredMic) -> Result<Box<dyn Guardian>>;
     fn toggle(&mut self, _target: &str) -> Result<Box<dyn Guardian>> {
         Err("shared_mic_toggle_unsupported")
@@ -338,7 +344,9 @@ struct ManualSlot {
 impl Driver {
     fn fail(shared: &Shared, target: &TargetId, code: &'static str) {
         let mut state = shared.state.lock().unwrap();
-        let _ = state.holds.cancel_target(target);
+        // Manual failures also need a pending safe mute, never replay a toggle.
+        state.manual.remove(target);
+        let _ = state.holds.explicit_mute(target);
         state.blocked.insert(target.clone());
         if state.failures.contains_key(target) || state.failures.len() < MAX_TARGETS {
             state.failures.insert(target.clone(), code);
@@ -511,6 +519,16 @@ impl Driver {
                         slot.retry_at = now;
                         slot.retry_request = retry_request;
                     }
+                    // One slow mute-only probe after the initial burst. No writer
+                    // may remain, and stopping never schedules reconnection.
+                    if slot.attempts >= MAX_ATTEMPTS
+                        && update.desired == DesiredMic::Muted
+                        && !shared.state.lock().unwrap().stopped
+                        && now >= slot.retry_at.saturating_add(RECONNECT_MS)
+                        && self.factory.reconnectable(target.as_str())
+                    {
+                        slot.attempts = MAX_ATTEMPTS - 1;
+                    }
                     if now < slot.retry_at || slot.attempts >= MAX_ATTEMPTS {
                         continue;
                     }
@@ -682,7 +700,22 @@ fn run(shared: Arc<Shared>, current: Authority, factory: Box<dyn Factory>) {
         let state = shared.state.lock().unwrap();
         if state.stopped {
             let deadline = *stop_at.get_or_insert_with(|| Instant::now() + Duration::from_secs(10));
-            if driver.slots.is_empty() && driver.manual.is_empty() || Instant::now() >= deadline {
+            let exhausted = !driver.slots.is_empty()
+                && driver.manual.is_empty()
+                && driver
+                    .slots
+                    .values()
+                    .all(|slot| slot.guard.is_none() && slot.attempts >= MAX_ATTEMPTS);
+            if exhausted || Instant::now() >= deadline {
+                tracing::warn!(
+                    error_code = "shared_mic_shutdown_unconfirmed",
+                    "Microphone mute could not be confirmed before shutdown"
+                );
+            }
+            if driver.slots.is_empty() && driver.manual.is_empty()
+                || exhausted
+                || Instant::now() >= deadline
+            {
                 drop(state);
                 driver.quiesce();
                 return;
@@ -696,7 +729,20 @@ fn run(shared: Arc<Shared>, current: Authority, factory: Box<dyn Factory>) {
                         .values()
                         .all(|slot| slot.guard.is_none() && slot.attempts >= MAX_ATTEMPTS))
         {
-            drop(shared.wake.wait(state).unwrap());
+            if driver
+                .slots
+                .keys()
+                .any(|target| driver.factory.reconnectable(target.as_str()))
+            {
+                drop(
+                    shared
+                        .wake
+                        .wait_timeout(state, Duration::from_millis(RECONNECT_MS))
+                        .unwrap(),
+                );
+            } else {
+                drop(shared.wake.wait(state).unwrap());
+            }
         } else {
             drop(
                 shared
@@ -748,6 +794,9 @@ impl Drop for NativeFactory {
     }
 }
 impl Factory for NativeFactory {
+    fn reconnectable(&self, target: &str) -> bool {
+        self.pins.contains_key(target)
+    }
     fn start(&mut self, target: &str, desired: DesiredMic) -> Result<Box<dyn Guardian>> {
         let pin = self.pin(target)?;
         NativeGuardian::start(
@@ -904,7 +953,17 @@ impl Guardian for NativeGuardian {
             libc::killpg(self.child.id() as libc::pid_t, libc::SIGKILL);
         }
         let _ = self.child.kill();
-        self.child.wait().is_ok()
+        // A killed helper may be waiting in the kernel. Never block the owner
+        // forever in wait(); retain ownership if exit cannot yet be confirmed.
+        let deadline = Instant::now() + Duration::from_millis(250);
+        loop {
+            match self.child.try_wait() {
+                Ok(Some(_)) => return true,
+                Err(_) => return false,
+                Ok(None) if Instant::now() >= deadline => return false,
+                Ok(None) => std::thread::sleep(Duration::from_millis(5)),
+            }
+        }
     }
 }
 impl Drop for NativeGuardian {
@@ -935,11 +994,15 @@ mod tests {
     struct Trace {
         guards: Vec<Arc<Mutex<Fake>>>,
         fail: bool,
+        reconnect: bool,
         starts: Vec<DesiredMic>,
     }
     struct FakeFactory(Arc<Mutex<Trace>>);
     struct FakeGuard(Arc<Mutex<Fake>>);
     impl Factory for FakeFactory {
+        fn reconnectable(&self, _target: &str) -> bool {
+            self.0.lock().unwrap().reconnect
+        }
         fn toggle(&mut self, target: &str) -> Result<Box<dyn Guardian>> {
             let fake = Arc::new(Mutex::new(Fake {
                 target: target.into(),
@@ -1822,5 +1885,242 @@ mod tests {
         service.join();
         assert!(muted());
         assert!(!pin_directory.exists());
+    }
+    #[test]
+    fn exhausted_mute_retries_stop_promptly_without_claiming_success() {
+        let trace = Arc::new(Mutex::new(Trace {
+            fail: true,
+            reconnect: true,
+            ..Default::default()
+        }));
+        let service = Service::start(
+            id(99),
+            &[id(1), id(2)],
+            Arc::new(|_| true),
+            Box::new(FakeFactory(trace.clone())),
+        )
+        .unwrap();
+        service
+            .mute(Microphone::named("input:disconnected-fixture").unwrap())
+            .unwrap();
+        until(|| trace.lock().unwrap().starts.len() >= MAX_ATTEMPTS as usize);
+        let observed = service.shared.clone();
+        let began = Instant::now();
+        service.join();
+        assert!(began.elapsed() < Duration::from_secs(1));
+        let state = observed.state.lock().unwrap();
+        assert!(
+            !state.holds.states().is_empty(),
+            "unconfirmed mute must not be acknowledged"
+        );
+        assert!(!state.blocked.is_empty());
+        assert!(
+            state
+                .failures
+                .values()
+                .any(|code| *code == "shared_mic_spawn_failed")
+        );
+        assert_eq!(trace.lock().unwrap().starts.len(), MAX_ATTEMPTS as usize);
+    }
+    #[test]
+    fn disconnected_target_uses_slow_mute_only_probes_and_never_replays_old_hold() {
+        let mut r = Rig::new();
+        r.trace.lock().unwrap().reconnect = true;
+        let held = token(1, 1, 1);
+        r.acquire(held, "input:mic", 0).unwrap();
+        r.step(0);
+        r.live(0);
+        r.step(1);
+        r.guard(0).lock().unwrap().event.exited = Some(false);
+        r.trace.lock().unwrap().fail = true;
+        r.step(2);
+        for now in [252, 502, 752, 1002, 2000, 5000] {
+            r.step(now);
+        }
+        assert_eq!(r.held(), 0);
+        assert_eq!(
+            r.trace.lock().unwrap().starts,
+            vec![
+                DesiredMic::Live,
+                DesiredMic::Muted,
+                DesiredMic::Muted,
+                DesiredMic::Muted
+            ]
+        );
+        r.step(6002);
+        assert_eq!(r.trace.lock().unwrap().starts.len(), 5);
+        r.step(6003);
+        r.step(10000);
+        assert_eq!(r.trace.lock().unwrap().starts.len(), 5);
+        r.trace.lock().unwrap().fail = false;
+        r.step(11252);
+        r.step(11253);
+        assert!(r.driver.slots.is_empty());
+        assert!(r.shared.state.lock().unwrap().blocked.is_empty());
+        assert!(r.acquire(held, "input:mic", 11254).is_err());
+        r.acquire(token(1, 2, 1), "input:mic", 11255).unwrap();
+        r.step(11255);
+        assert_eq!(r.guard(2).lock().unwrap().desired, Some(DesiredMic::Live));
+    }
+    #[test]
+    fn failed_manual_toggle_schedules_mute_instead_of_replaying_toggle() {
+        let mut r = Rig::new();
+        let target = TargetId::new("input:mic").unwrap();
+        r.shared.state.lock().unwrap().manual.insert(
+            target.clone(),
+            ManualRequest {
+                scope: token(1, 1, 1).scope,
+                sequence: 1,
+            },
+        );
+        r.step(0);
+        r.guard(0).lock().unwrap().event.exited = Some(false);
+        r.step(1);
+        assert!(r.guard(0).lock().unwrap().terminated);
+        assert!(r.driver.manual.is_empty());
+        assert!(r.shared.state.lock().unwrap().manual.is_empty());
+        assert_eq!(r.guard(1).lock().unwrap().desired, Some(DesiredMic::Muted));
+        r.step(2);
+        assert!(r.driver.slots.is_empty());
+        r.step(10000);
+        assert_eq!(r.trace.lock().unwrap().guards.len(), 2);
+    }
+    #[test]
+    fn no_reconnect_probe_replaces_an_unretired_writer_or_runs_while_stopping() {
+        let mut r = Rig::new();
+        r.trace.lock().unwrap().reconnect = true;
+        let t = token(1, 1, 1);
+        r.acquire(t, "input:mic", 0).unwrap();
+        r.step(0);
+        r.guard(0).lock().unwrap().delayed = true;
+        r.release(t, 1);
+        r.step(1);
+        assert_eq!(r.trace.lock().unwrap().starts.len(), 1);
+        r.step(2501);
+        assert!(r.guard(0).lock().unwrap().terminated);
+        r.trace.lock().unwrap().fail = true;
+        for now in [2751, 3001, 3251] {
+            r.step(now);
+        }
+        r.shared.state.lock().unwrap().stopped = true;
+        r.step(20000);
+        assert_eq!(r.trace.lock().unwrap().starts.len(), 4);
+    }
+    #[test]
+    #[ignore = "requires an explicitly isolated PipeWire reconnection fixture"]
+    fn private_native_microphone_reconnection_acceptance() {
+        let runtime = std::env::var("XDG_RUNTIME_DIR").unwrap();
+        assert!(runtime.starts_with("/tmp/ds-mic-"));
+        assert_eq!(
+            std::env::var("DECKSMITH_PRIVATE_MIC_TEST").as_deref(),
+            Ok("1")
+        );
+        assert_eq!(
+            std::env::var("PULSE_SERVER").unwrap(),
+            format!("unix:{runtime}/pulse/native")
+        );
+        let factory = NativeFactory::new().unwrap();
+        let pins = factory.root.clone();
+        let service = Service::start(
+            id(99),
+            &[id(1), id(2)],
+            Arc::new(|_| true),
+            Box::new(factory),
+        )
+        .unwrap();
+        let mic = Microphone::named("input:fixture-mic").unwrap();
+        let control = |action| {
+            assert!(
+                std::process::Command::new("python3")
+                    .arg("-B")
+                    .arg(crate::runtime_paths::root().join("tests/private_microphone_recovery.py"))
+                    .args(["control", action])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        };
+        let muted = || {
+            let output = std::process::Command::new("pactl")
+                .args(["get-source-mute", "fixture-mic"])
+                .env("LC_ALL", "C")
+                .output()
+                .unwrap();
+            assert!(output.status.success());
+            match output.stdout.as_slice() {
+                b"Mute: yes\n" => true,
+                b"Mute: no\n" => false,
+                _ => panic!("unexpected mute state"),
+            }
+        };
+        let wait = |condition: &dyn Fn() -> bool| {
+            let end = Instant::now() + Duration::from_secs(12);
+            while !condition() {
+                assert!(Instant::now() < end, "private reconnection deadline");
+                service.heartbeat(id(1)).unwrap();
+                service.heartbeat(id(2)).unwrap();
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        };
+        let a = token(1, 1, 1);
+        let b = token(2, 1, 1);
+        service.acquire(a, mic.clone()).unwrap();
+        service.acquire(b, mic.clone()).unwrap();
+        wait(&|| !muted());
+        control("remove");
+        wait(&|| service.held() == 0 && !service.shared.state.lock().unwrap().blocked.is_empty());
+        std::thread::sleep(Duration::from_secs(6));
+        control("different");
+        std::thread::sleep(Duration::from_secs(6));
+        assert!(!service.quiet());
+        assert_eq!(service.held(), 0);
+        control("same");
+        wait(&|| muted() && service.quiet());
+        assert_eq!(
+            service.acquire(a, mic.clone()),
+            Err("hold_requires_fresh_press")
+        );
+        assert_eq!(
+            service.acquire(b, mic.clone()),
+            Err("hold_requires_fresh_press")
+        );
+        let fresh = token(2, 2, 1);
+        service.acquire(fresh, mic.clone()).unwrap();
+        wait(&|| !muted());
+        service.release(fresh).unwrap();
+        wait(&|| muted() && service.quiet());
+        service.toggle(a.scope, mic.clone()).unwrap();
+        wait(&|| !muted() && service.shared.state.lock().unwrap().manual.is_empty());
+        control("same");
+        service.toggle(a.scope, mic.clone()).unwrap();
+        wait(&|| muted() && service.quiet());
+        assert_eq!(service.held(), 0);
+        let began = Instant::now();
+        service.join();
+        assert!(began.elapsed() < Duration::from_secs(1));
+        assert!(muted());
+        assert!(!pins.exists());
+        eprintln!("native recovered-mic join: {:?}", began.elapsed());
+        let failed = Service::start(
+            id(99),
+            &[id(1), id(2)],
+            Arc::new(|_| true),
+            Box::new(NativeFactory::new().unwrap()),
+        )
+        .unwrap();
+        failed
+            .mute(Microphone::named("input:missing-fixture").unwrap())
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(1500));
+        let observed = failed.shared.clone();
+        let began = Instant::now();
+        failed.join();
+        assert!(began.elapsed() < Duration::from_secs(1));
+        assert!(!observed.state.lock().unwrap().holds.states().is_empty());
+        assert!(!observed.state.lock().unwrap().blocked.is_empty());
+        eprintln!(
+            "native unavailable-mic join: {:?}; mute remains unconfirmed",
+            began.elapsed()
+        );
     }
 }

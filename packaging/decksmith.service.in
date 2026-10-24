@@ -11,7 +11,7 @@ ExecStart=@DAEMON@ --multi-device --config @CONFIG@ --run
 Environment=PYTHONDONTWRITEBYTECODE=1
 Restart=on-failure
 RestartSec=2
-TimeoutStopSec=10
+TimeoutStopSec=30
 
 [Install]
 WantedBy=graphical-session.target
