@@ -114,3 +114,51 @@ These fixtures establish software recovery behavior, not physical Wave:3/USB
 acceptance or long-term desktop stability. A signed Fedora build and separately
 approved desktop installation/physical checks remain later gates. Keep Ubuntu
 and Debian paused; do not infer broader distribution acceptance from host tests.
+
+
+## Signed Fedora delivery and approved desktop installation
+
+The reviewed fixes and testing notes were committed to canonical/Gitea
+`67a3b4d84ae16fdd5bd8fa3c5d82a7e9263bdd60` and exported to sanitized GitHub
+`a5f6e7d8442bd9c4e08deca6c32fc354821ba314`, with identical tree
+`e073f6dd2c5aaa55ba0365293319b81577b7dc29`.
+[Quality run 40124370873](https://github.com/infamous-pattern/decksmith/actions/runs/40124370873)
+and [Fedora build/signing run 40124386651](https://github.com/infamous-pattern/decksmith/actions/runs/40124386651)
+completed successfully. No other distribution candidate workflow was started.
+
+Candidate **1.5.2-73f516e5e660** passed independent verification of all six signed
+subjects, exact workflow/source identity, checksums, archive metadata and all
+**503 manifest files**. Archive SHA-256:
+`ae4579944e407f038e6c38df4ef939300f1d14d73f0483466360317672e5867c`.
+On the AI server, the exact signed package passed runtime self-check/VirtualDeck,
+20 packaged-helper tests and native private-audio removal/re-enumeration checks,
+including ten successive muted recoveries, different-device/server refusal and
+unrelated microphone state preservation. Its helper and unit bytes matched the
+tested source, including the 30-second service stop allowance. No guest or
+physical host microphone was used for those checks.
+
+After the maintainer explicitly confirmed saved/closed Studio and approved the
+installation, this candidate replaced desktop **1.5.2-f49eb0631053**. A fresh
+complete **568-file** settings snapshot and archive were hash-verified before
+replacement; the previous signed build was copied and byte-verified and remains
+retained. Managed integrations, icon data, startup state and rollback receipts
+are preserved privately. Installation left saved layouts, pages, brightness,
+selection and audio devices/defaults/volume/mute unchanged, with the existing
+Homebridge companion retained and ready. All 503 installed manifest hashes
+matched; both Decks reported input/display ready, the effective stop allowance
+was 30 seconds, and both services had zero automatic restarts.
+
+The maintainer then confirmed: **“Both Decks and controls work normally”** after
+page changes on each Deck and a Plus volume/media check. This is immediate basic
+physical acceptance of the installed candidate, not physical microphone unplug/
+reconnect acceptance or long-term USB stability. Do not deliberately disconnect
+an active microphone or unmute it automatically to broaden that result.
+
+Private evidence includes `delivery-result.json`, `candidates/fedora44/`,
+`signed-package-verification/`, `desktop-install/`,
+`desktop-runtime-verification.json` and `physical-acceptance.json` under
+`outputs/microphone-recovery-20261024/`. Keep the current/previous builds and
+complete backups. Public release remains V1.5.1; no release or support promotion
+occurred. Ubuntu/Debian qualification and other development stay paused.
+The following documentation-only acceptance record does not change the signed
+candidate's source commit or runtime bytes.

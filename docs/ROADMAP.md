@@ -39,8 +39,11 @@ on the AI server after USB loss exposed stale microphone identity and a stop
 cleanup timeout. Recovery must verify the same USB hardware, restore mute first,
 retire old writers and invalidate old holds/toggles. The maintainer subsequently
 authorized publishing the fixes/notes to both repositories and building/verifying
-a signed Fedora candidate. Desktop installation requires a separate approval.
-Ubuntu/Debian testing and other development remain paused.
+a signed Fedora candidate. Signed **1.5.2-73f516e5e660** subsequently passed
+package verification and was installed after separate saved-editor approval. Both
+Decks passed the maintainer’s basic physical controls check; microphone replug and
+long-term USB stability remain separate gates. Current/previous builds and verified
+settings backups are retained. Ubuntu/Debian testing and other development remain paused.
 
 ## Archify documentation trial — planned October 21
 

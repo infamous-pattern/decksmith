@@ -21,9 +21,12 @@ below predate the launcher correction and remain historical qualification inputs
 October 24 exception: the maintainer authorized finishing microphone reconnection
 and shutdown fixes and testing them on the AI server after the desktop USB-loss
 incident. See the [recovery checkpoint](2026-10-24-microphone-recovery.md).
-The installed desktop build remains unchanged by this source/testing work;
-installation requires a separate approval. Incorporate the reviewed recovery
-correction into candidate selection before resuming physical qualification.
+Signed Fedora **1.5.2-73f516e5e660** was subsequently verified and installed
+after separate saved-editor approval. Both Decks passed the basic physical
+controls check, with complete backups and the previous signed build retained.
+Physical microphone reconnection and long-term USB stability remain unqualified.
+Incorporate this recovery correction into candidate selection before resuming
+broader physical qualification.
 Ubuntu/Debian work remains paused.
 
 1. Re-read this checkpoint, the [qualification history](2026-10-17-ubuntu-debian-support.md)
