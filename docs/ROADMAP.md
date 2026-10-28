@@ -11,10 +11,17 @@ Active development and manual testing are paused at the maintainer's request for
 about a week, until they return. Start with the
 [pause and resume checkpoint](checkpoints/2026-10-20-pause-and-resume.md): exact
 corrected signed candidates, prior Ubuntu/Debian evidence, remaining gates and
-safe handoff/restoration steps are recorded there. The first task is Ubuntu's
-physical Firefox-restart retest; Debian needs its own hardware acceptance.
+safe handoff/restoration steps are recorded there. After the reliability gates
+below, Ubuntu needs a physical Firefox-restart retest and Debian needs its own
+hardware acceptance.
 Existing scheduled server tests and failure/feedback monitors continue. No
 automatic development restart, installation or support promotion is scheduled.
+
+October 28 decision: address the [reliability and recovery gates](#next-reliability-and-recovery-gates--october-28)
+before resuming broader Ubuntu and Debian qualification. Targeted investigation
+and tests needed to resolve these gates are distinct from that paused broader
+testing. Use isolated checks where possible and obtain the existing desktop or
+physical-hardware approval when a test requires a disruptive change.
 
 October 22 narrow reliability exception: the maintainer authorized the
 [launcher protocol isolation source correction](checkpoints/2026-10-22-launcher-protocol-isolation.md)
@@ -44,6 +51,67 @@ package verification and was installed after separate saved-editor approval. Bot
 Decks passed the maintainer’s basic physical controls check; microphone replug and
 long-term USB stability remain separate gates. Current/previous builds and verified
 settings backups are retained. Ubuntu/Debian testing and other development remain paused.
+
+The later [code-review checkpoint](checkpoints/2026-10-28-code-review-testing.md)
+records the currently installed signed Fedora candidate **1.5.2-7478100d4b04**,
+its AI-server checks and the maintainer's paired-device interaction results.
+The October 22 and 24 candidate records above are historical; previous builds
+and verified backups are retained. Physical microphone reconnection, the cause
+of the intermittent USB incident and long-term stability remain open questions.
+
+## Next reliability and recovery gates — October 28
+
+The maintainer requested these as the next project steps and deferred broader
+Ubuntu/Debian testing until the issues have been resolved. Build on existing
+lifecycle, backup and qualification work; record evidence, unresolved limits and
+an explicit disposition for each gate before deciding to resume.
+
+1. **Observe the intermittent USB issue and distinguish cause from recovery.**
+   Review existing evidence and the current motherboard-port setup. Agree a
+   privacy-conscious, lightweight ordinary-use observation period that can
+   correlate device disconnects, Decksmith service events and relevant system
+   events. Preserve timestamps and the user's account; do not change cabling,
+   reset devices or disrupt a working session just to collect data. If a
+   recurrence or independent evidence identifies a concrete cause, make and
+   verify a targeted correction. Otherwise record the observation window and
+   uncertainty and ask the maintainer how to proceed; a quiet window alone does
+   not prove a root cause or permanent fix. Physical microphone unplug/reconnect
+   and mute-first behavior need separately approved, controlled acceptance.
+2. **Rehearse recovery without a working application.** With disposable data,
+   exercise a service that cannot start, an unreadable layout and an unavailable
+   editor. Verify a person can understand the failure, preserve settings and
+   restore a known-good build without needing the failed application to launch.
+   Document the steps and verify the restored state; keep live configuration and
+   installed builds intact during the exercise.
+3. **Qualify upgrade and downgrade compatibility.** Using representative versions
+   and disposable configuration copies, exercise upgrades, older-version rollback,
+   interrupted saves and restoration. Verify exact retained layouts and settings,
+   or an understandable refusal that preserves the original data. An intact
+   backup or a rollback between identical engines does not prove older-schema
+   compatibility. Never overwrite the only recoverable copy.
+4. **Make uncertain control outcomes understandable.** Review the Deck display
+   and Studio messages for failed or unconfirmed actions, including Homebridge.
+   Check that they distinguish a known rejection from an uncertain effect, direct
+   the user to check the actual device when appropriate, avoid exposing private
+   details and preserve the existing no-replay and mute-first rules. Validate
+   any change with isolated failure cases and targeted usability checks.
+5. **Define and run a bounded ordinary-use soak.** Before running, specify the
+   duration, idle and active workloads, acceptable resource/response criteria,
+   evidence and stop conditions. Observe memory, helpers, responsiveness and
+   recovery under representative playback and reconnect conditions. Separate
+   synthetic/VM results from physical-device evidence and avoid claiming a
+   measured improvement without comparable before/after data.
+6. **Rehearse support and diagnose safely.** Using a realistic failure report,
+   determine whether version, OS, device model, service status and sanitized error
+   categories are sufficient for someone without access to the maintainer's
+   machine. Consider an opt-in diagnostic bundle only if the exercise establishes
+   a need; exclude layouts, URLs, credentials, account information and audio data
+   by default, and review proposed collection and export before implementation.
+
+After these gates have documented outcomes and the maintainer agrees that the
+issues are resolved or explicitly accepts a remaining uncertainty, return to the
+[Ubuntu/Debian resume sequence](checkpoints/2026-10-20-pause-and-resume.md#resume-here).
+Support and release promotion remain separate decisions.
 
 ## OpenDeck reliability follow-up — approved October 28
 

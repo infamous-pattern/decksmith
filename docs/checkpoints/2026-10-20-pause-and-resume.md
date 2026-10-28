@@ -9,6 +9,22 @@ monitor wakes up.
 
 ## Resume here
 
+**October 28 priority change:** the maintainer requested addressing the
+[reliability and recovery gates](../ROADMAP.md#next-reliability-and-recovery-gates--october-28)
+before resuming broader Ubuntu and Debian qualification. Start with the USB
+incident evidence and a safe recovery rehearsal, followed by the compatibility,
+uncertain-outcome, soak and support gates. Targeted investigation and tests
+needed to resolve those issues are separate from the paused broader qualification.
+Record results and uncertainty; seek the maintainer's decision if the cause
+remains unknown rather than declaring it fixed. The numbered Ubuntu/Debian
+sequence below is the subsequent qualification plan.
+
+The latest installed Fedora candidate is **1.5.2-7478100d4b04**. Its signed
+package, AI-server checks, verified backups and maintainer-confirmed basic paired
+controls are recorded in the [code-review checkpoint](2026-10-28-code-review-testing.md).
+Physical microphone reconnection and long-term USB stability remain unqualified.
+The October 22 and 24 candidates below are historical, not the current build.
+
 October 22 exception: the maintainer authorized a narrow source correction for
 ordinary built-in launcher output corrupting its JSON helper channel. See the
 [launcher isolation checkpoint](2026-10-22-launcher-protocol-isolation.md) for
@@ -32,8 +48,9 @@ Ubuntu/Debian work remains paused.
 1. Re-read this checkpoint, the [qualification history](2026-10-17-ubuntu-debian-support.md)
    and the [roadmap](../ROADMAP.md). Inspect current source, retained candidates,
    desktop/VM state and any monitor incidents before changing anything.
-2. Review whether a fresh signed Ubuntu/Debian candidate should carry the now
-   accepted launcher correction; obtain authorization before rebuilding or
+2. After the reliability gates above are resolved, review whether a fresh signed
+   Ubuntu/Debian candidate should carry the accepted launcher correction and later
+   recovery changes; obtain authorization before rebuilding or
    installing it. Revalidate the selected Ubuntu candidate and repeat the physical
    Firefox-restart case in the desktop's Ubuntu VM. This is the first blocking
    acceptance item, not another broad feature implementation task.
@@ -67,11 +84,13 @@ has begun; these items wait for physical acceptance and explicit work resumption
   documentation-only at that point. The October 22 launcher correction and
   signed Fedora candidate supersede that runtime/source snapshot; see its
   [exact build and acceptance record](2026-10-22-launcher-protocol-isolation.md#signed-fedora-candidate-and-targeted-desktop-acceptance).
-- As of the approved October 22 installation, the desktop runs signed Fedora
+- At the approved October 22 installation, the desktop ran signed Fedora
   **1.5.2-f49eb0631053**, including the Firefox and launcher corrections. Both
   Decks and Homebridge passed targeted physical checks; the final read-only
   check found no launcher uncertainty/block events or automatic service restarts.
-  The earlier locally patched **1.5.2-46ed033e0491** is retained for rollback.
+  The earlier locally patched **1.5.2-46ed033e0491** was retained for rollback.
+  The October 28 candidate and its retained previous build supersede this
+  historical desktop state; see the code-review checkpoint above.
 - Last completed handoff restoration, October 19: both Fedora Decks and companion
   recovered, original audio defaults/volume/mute restored with Wave:3 muted,
   all 492 backed-up saved files unchanged, temporary audio USB access removed,
