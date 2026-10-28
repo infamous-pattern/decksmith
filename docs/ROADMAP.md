@@ -1,6 +1,6 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 24, 2026. The v0.4 product
+This is the implementation roadmap, updated October 28, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
@@ -44,6 +44,35 @@ package verification and was installed after separate saved-editor approval. Bot
 Decks passed the maintainer’s basic physical controls check; microphone replug and
 long-term USB stability remain separate gates. Current/previous builds and verified
 settings backups are retained. Ubuntu/Debian testing and other development remain paused.
+
+## Hallmark design-review trial — planned October 28
+
+The maintainer approved [Hallmark as an optional toolbox reference](research-toolbox.md#hallmark--reference-adopted-post-acceptance-trial-planned-october-28)
+and one bounded trial **after physical acceptance and explicit active-work
+resumption**. Decksmith remains paused; no trial, installation, desktop change,
+additional test run or automatic development restart is part of this update.
+Corrected Ubuntu qualification and Debian's own physical acceptance retain
+priority, including the current candidate/recovery gates in the pause checkpoint.
+
+Audit one disposable, sanitized HTML mock-up and compare its findings with our
+existing Impeccable/manual review of the same artifact. Separate meaningful
+usability/accessibility findings from stylistic preferences, duplicate advice
+and false positives. Inspect representative widths, keyboard focus, long labels
+and implemented loading/empty/error/populated states. If useful, apply one small
+reversible polish change only to that copy; compare screenshots and before/after
+link/control inventories, then exercise affected interactions. Preserve the
+original, pinned tool/input revisions, findings, screenshots and effort/resource
+measurements. Retain the tool only if the additional findings or saved effort
+justify its overhead. No full redesign or production replacement is authorized.
+
+Use a reviewed local tool copy with no global agent installation, edit hooks,
+persistent service, hosted upload or optional Together API generation. Recheck
+Node/browser requirements before the trial; prefer existing supported browser
+tools where possible. Keep Hallmark outside runtime/release dependencies and CI
+requirements. Its web checker does not qualify GTK, physical Deck displays,
+USB/audio recovery or actual action correctness. Preserve Decksmith's accepted
+native navigation, previews, gauges and GNOME theme. Later website publication,
+native changes and plugin web-panel adoption require their own scoped work.
 
 ## Archify documentation trial — planned October 21
 

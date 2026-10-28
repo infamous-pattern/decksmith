@@ -3,6 +3,69 @@
 Added October 11, 2026. These are optional development tools, separate from
 Decksmith's application, daemon, installer and release dependencies.
 
+## Hallmark — reference adopted; post-acceptance trial planned October 28
+
+[Hallmark](https://github.com/Nutlope/hallmark) is an approved optional design
+reference, with one bounded trial after physical acceptance and explicit
+active-work resumption. Decksmith remains paused. This documentation update
+does not install or execute Hallmark, add agent hooks, alter the desktop, or add
+an application, daemon, installer or release dependency.
+
+Reviewed source at `65b5e4090ed95ee3dc2ff7db55b69aef8c5ff7b5`; its package and
+skill declare version 2.0.0. This is a pinned source assessment, not a verified
+release or demonstrated improvement. The reviewed repository has an
+[MIT license](https://github.com/Nutlope/hallmark/blob/65b5e4090ed95ee3dc2ff7db55b69aef8c5ff7b5/LICENSE);
+retain applicable notices if source is later reused. Photographs have separate
+licenses and attribution requirements. Private review receipts are in
+`outputs/hallmark-review-20261028`; no upstream programs were run.
+
+The useful addition to existing Impeccable guidance is its concrete web audit
+and before/after inventory of links, fields, handlers and script/test hooks.
+Its [redesign guidance](https://github.com/Nutlope/hallmark/blob/65b5e4090ed95ee3dc2ff7db55b69aef8c5ff7b5/skills/hallmark/references/redesign.md)
+distinguishes audit, polish, restyle and full redesign; its
+[app-screen guidance](https://github.com/Nutlope/hallmark/blob/65b5e4090ed95ee3dc2ff7db55b69aef8c5ff7b5/skills/hallmark/references/flow.md)
+sets aside marketing-page composition in favor of familiar controls and meaningful
+loading, empty, error and populated states. An inventory can detect omissions;
+it does not prove that controls still perform the correct actions.
+
+Best-fit subjects are the project website, walkthrough pages and HTML mock-ups;
+the future plugin web settings panel is a separate later possibility. The
+[checker](https://github.com/Nutlope/hallmark/blob/65b5e4090ed95ee3dc2ff7db55b69aef8c5ff7b5/skills/hallmark/scripts/sloplint.mjs)
+examines web source and browser output, not Decksmith's native GTK/libadwaita
+editor or physical Deck displays. Adapt useful hierarchy, wording, focus and
+state questions to native reviews, while preserving accepted navigation,
+device previews, gauge semantics, GNOME styling and saved/apply behavior.
+Opinionated aesthetic rules are not automatic requirements for our product.
+Hallmark does not diagnose USB/audio reliability or replace physical,
+accessibility, lifecycle or resource acceptance.
+
+### Bounded trial after physical acceptance and active-work resumption
+
+Audit one disposable copy of a sanitized Decksmith HTML mock-up, using a pinned,
+reviewed local tool copy. Compare findings with our existing Impeccable/manual
+review of exactly the same artifact. Separate actionable usability/accessibility
+findings from aesthetic preferences, duplicates and false positives. Inspect the
+actual rendering at representative desktop and narrow widths; check keyboard
+focus, long labels and the states the mock-up actually implements. Record
+unsupported or simulated behavior rather than treating it as product acceptance.
+
+If useful, make one small, reversible polish change in the disposable copy only.
+Compare screenshots and the before/after link/control inventory, then exercise
+each affected interaction. Keep the original artifact, exact tool/input revisions,
+findings, screenshots, elapsed effort and dependency/resource costs together.
+Retain Hallmark only if it adds useful findings or saves review effort beyond
+our existing process without encouraging disruptive or purely cosmetic changes.
+The bounded trial authorizes no full redesign or production replacement.
+
+The reviewed tools need Node.js 18 or later; browser rendering additionally
+requires Chrome/Chromium and Puppeteer tooling. Recheck requirements before the
+trial and use existing supported browser tools where possible. No global skill
+installation, automatic edit hooks, persistent browser/service or CI gate.
+Use sanitized inputs; do not enable optional Together API image generation,
+hosted integrations or external uploads. Website publication, native-editor
+changes and plugin-panel adoption remain separately scoped follow-ups. This
+trial does not change Ubuntu/Debian priorities or any release/support gate.
+
 ## Archify — reference adopted; post-acceptance trial planned October 21
 
 [Archify](https://github.com/tt-a1i/archify) is an approved optional development
