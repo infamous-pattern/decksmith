@@ -640,9 +640,15 @@ mod tests {
             t.runtime.host_lock(false, 10)?;
             t.ready()?;
             let before = t.context(0)?;
+            let old_view =
+                crate::live_profiles::snapshot(&t.runtime, Arc::new(t.runtime.catalog().clone()));
             t.runtime.host_lock(false, 12)?;
             t.ready()?;
             assert_ne!(before.lock_epoch, t.context(0)?.lock_epoch);
+            let new_view =
+                crate::live_profiles::snapshot(&t.runtime, Arc::new(t.runtime.catalog().clone()));
+            assert!(old_view.sessions == new_view.sessions);
+            assert!(new_view.changed(&old_view));
             assert_eq!(
                 t.runtime.key_feedback(before, &vec![7; 120 * 120 * 3]),
                 Err("stale_device_context")

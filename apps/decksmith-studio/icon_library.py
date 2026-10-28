@@ -6,6 +6,7 @@ import json,os,re
 import xml.etree.ElementTree as ET
 from PIL import Image,ImageOps
 from artwork import source_image,MAX_BYTES
+from import_file import read_limited
 ROOT=Path(__file__).resolve().parents[2]/'assets/icons/tabler'
 RUNE_ROOT=ROOT.parent/'rune'
 FULL_SET_URL='https://github.com/tabler/tabler-icons/releases/latest'
@@ -49,8 +50,10 @@ class Library:
         if self.root.exists():
             for path in sorted(self.root.glob('*.json')):
                 try:
-                    d=json.loads(path.read_text());digest=d['hash']
-                    if re.fullmatch('[a-f0-9]{64}',digest) and path.stem==digest and (self.root/(digest+'.png')).is_file():
+                    d=json.loads(path.read_text())
+                    if not isinstance(d,dict):continue
+                    digest=d.get('hash');name=d.get('name')
+                    if isinstance(digest,str) and isinstance(name,str) and re.fullmatch('[a-f0-9]{64}',digest) and path.stem==digest and (self.root/(digest+'.png')).is_file():
                         items.append(dict(d,id='local:'+digest,source='Imported',category='Imported',tags=d['name']))
                 except (OSError,ValueError,KeyError):continue
         words=query.lower().split()
@@ -79,8 +82,7 @@ class Library:
     def import_file(self,path):
         path=Path(path)
         if not path.is_file():raise ValueError('Choose an image file.')
-        if path.stat().st_size>MAX_BYTES:raise ValueError('Choose an icon smaller than 8 MB.')
-        raw=path.read_bytes()
+        raw=read_limited(path,MAX_BYTES,'Choose an icon smaller than 8 MB.')
         if path.suffix.lower()=='.svg':raw=svg_png(raw,512)
         # Store a generous normalized source; the key render is made from this once.
         image=source_image(raw);image.thumbnail((1024,1024),Image.Resampling.LANCZOS)

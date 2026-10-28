@@ -46,6 +46,13 @@ Ubuntu/Debian work remains paused.
    After physical acceptance, return to the bounded editor-state trial and
    approved usability work; keep V2 ideas separate.
 
+October 28 planning addition: the
+[OpenDeck reliability follow-up](../ROADMAP.md#opendeck-reliability-follow-up--approved-october-28)
+consolidates focused post-acceptance lifecycle review and V2 plugin-host ownership,
+connection, input, bounded-queue and recovery checks. Its released safeguards and
+unmerged proposals are distinguished in the toolbox. No implementation/testing
+has begun; these items wait for physical acceptance and explicit work resumption.
+
 ## Source, release and desktop boundary
 
 - Public release remains **V1.5.1**, with Fedora 44 GNOME/Wayland as the supported

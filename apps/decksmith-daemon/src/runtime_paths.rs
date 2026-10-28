@@ -49,6 +49,7 @@ pub fn check() -> Result<serde_json::Value, &'static str> {
         config("plus-default.json"),
         config("navigation.json"),
         helper("panel.py"),
+        helper("import_file.py"),
         helper("audio_targets.py"),
         helper("audio_meter.py"),
         helper("ptt_guard.py"),

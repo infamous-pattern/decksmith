@@ -86,9 +86,6 @@ class SharedAudioTests(unittest.TestCase):
         self.assertEqual(writes,[('set-sink-volume','3','51%')])
 
 
-if __name__ == '__main__':
-    unittest.main()
-
 class SharedAudioSelectionTests(unittest.TestCase):
     def test_exact_device_selection_uses_grant_after_fresh_identity(self):
         from unittest.mock import Mock
@@ -111,3 +108,7 @@ class SharedAudioSelectionTests(unittest.TestCase):
 
 
 def json_line(decision):return __import__('json').dumps({'decision':decision})+'\n'
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -45,6 +45,16 @@ class IconLibraryTests(unittest.TestCase):
             self.assertEqual(a['id'],b['id']);self.assertEqual(len(list((root/'store').glob('*.png'))),1)
             self.assertTrue(all(abs(a-b)<=1 for a,b in zip(Image.open(BytesIO(library.image(a))).getpixel((60,60)),(240,10,20,180))))
             self.assertEqual(len(library.items('My icon')),1)
+    def test_malformed_local_metadata_does_not_hide_other_icons(self):
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);source=root/'valid.png';Image.new('RGBA',(8,8),'red').save(source)
+            library=Library(root/'store');valid=library.import_file(source)
+            for index,metadata in enumerate(([],{'hash':4,'name':'bad'})):
+                (root/'store'/f'bad{index}.json').write_text(json.dumps(metadata))
+            (root/'store'/(('a'*64)+'.json')).write_text(json.dumps({'hash':'a'*64,'name':4}))
+            (root/'store'/(('a'*64)+'.png')).write_bytes(b'fixture')
+            self.assertIn(valid['id'],[item['id'] for item in library.items()])
+            self.assertTrue(library.items('microphone'))
     def test_svg_external_content_is_rejected(self):
         for raw in (b'<svg><script/></svg>',b'<svg><image href="file:///etc/passwd"/></svg>',b'<!DOCTYPE svg><svg/>',b'<svg><path style="fill:url(https://example.com)"/></svg>'):
             with self.assertRaises(ValueError):svg_png(raw)

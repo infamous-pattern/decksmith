@@ -283,7 +283,7 @@ class Draft:
                     validate(action.get('target'))
                     if action['type']=='push_to_talk' and not action['target'].startswith('input:'):raise ValueError(f"Key {index+1} on {page['name']}: Choose a named microphone for push to talk.")
                     if action['type']=='audio_select' and not action['target'].startswith(('output:','input:')):raise ValueError(f"Key {index+1} on {page['name']}: Choose an output or microphone device.")
-                if action['type'] in ('volume_adjust','audio_adjust') and (action['percent'] == 0 or not -20 <= action['percent'] <= 20):
+                if action['type'] in ('volume_adjust','audio_adjust') and (type(action.get('percent')) is not int or action['percent'] == 0 or not -20 <= action['percent'] <= 20):
                     raise ValueError(f"Key {index+1} on {page['name']}: Choose a volume step from −20 to 20, excluding zero.")
         dial_sets=[self.data.get('dials')]
         dial_sets.extend(page.get('dial_overrides') for page in self.data['pages'])
@@ -302,7 +302,7 @@ class Draft:
                 except (TypeError,ValueError):raise ValueError('Choose a valid 32-pixel audio application icon.')
             if not valid_label(dial['label']):
                 raise ValueError(f'Dial {index+1} needs 1–24 visible characters; emoji are supported.')
-            if dial.get('rotation') not in ('none','volume','brightness') or not isinstance(dial.get('step'),int) or not 1<=dial['step']<=10:raise ValueError('Invalid dial rotation or step.')
+            if dial.get('rotation') not in ('none','volume','brightness') or type(dial.get('step')) is not int or not 1<=dial['step']<=10:raise ValueError('Invalid dial rotation or step.')
             if dial.get('display_style','dual_arc') not in ('dual_arc','bar','single_arc'):raise ValueError('Choose a valid touch-strip display style.')
             from audio_targets import validate
             validate(dial.get('audio_target','system'))

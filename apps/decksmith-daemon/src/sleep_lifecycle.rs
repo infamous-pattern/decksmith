@@ -207,9 +207,18 @@ async fn connected(
         return Err("sleep_delay_too_short");
     }
     let mut inhibitor = Some(inhibit(&proxy).await?);
+    let epoch = state.lock().unwrap().snapshot.epoch;
     let preparing: bool = bounded(proxy.get_property("PreparingForSleep")).await?;
-    state.lock().unwrap().publish(true, preparing, None);
-    let mut deadline = preparing.then(|| Instant::now() + delay - Duration::from_millis(100));
+    let fresh = {
+        let mut current = state.lock().unwrap();
+        let fresh = current.snapshot.epoch == epoch;
+        if fresh {
+            current.publish(true, preparing, None);
+        }
+        fresh
+    };
+    let mut deadline =
+        (fresh && preparing).then(|| Instant::now() + delay - Duration::from_millis(100));
     loop {
         if commands.is_closed() {
             return Ok(());
@@ -239,7 +248,7 @@ async fn connected(
             ),
         )
         .await;
-        let preparing = match event {
+        let (preparing, sampled_epoch) = match event {
             Event::Command(Err(_)) => return Ok(()),
             Event::Command(Ok(Command::Acknowledge(epoch, success))) => {
                 let mut current = state.lock().unwrap();
@@ -273,19 +282,25 @@ async fn connected(
                 if connection.is_closed() {
                     return Err("sleep_bus_disconnected");
                 }
-                bounded(proxy.get_property::<bool>("PreparingForSleep")).await?
+                let epoch = state.lock().unwrap().snapshot.epoch;
+                let value = bounded(proxy.get_property::<bool>("PreparingForSleep")).await?;
+                (value, Some(epoch))
             }
-            Event::Signal(Some(message)) => {
+            Event::Signal(Some(message)) => (
                 message
                     .body()
                     .deserialize::<(bool,)>()
                     .map_err(|_| "sleep_signal_invalid")?
-                    .0
-            }
+                    .0,
+                None,
+            ),
             Event::Signal(None) | Event::Owner => return Err("sleep_owner_changed"),
         };
         if preparing {
             let mut current = state.lock().unwrap();
+            if sampled_epoch.is_some_and(|epoch| epoch != current.snapshot.epoch) {
+                continue;
+            }
             if !current.snapshot.preparing {
                 current.publish(
                     inhibitor.is_some(),
@@ -309,6 +324,9 @@ async fn connected(
                 current.snapshot.last_preparation_error = Some("sleep_preparation_timeout");
             }
         } else {
+            if sampled_epoch.is_some_and(|epoch| epoch != state.lock().unwrap().snapshot.epoch) {
+                continue;
+            }
             if deadline.take().is_some() {
                 inhibitor.take();
                 let mut current = state.lock().unwrap();
@@ -319,7 +337,10 @@ async fn connected(
             if inhibitor.is_none() {
                 inhibitor = Some(inhibit(&proxy).await?);
             }
-            state.lock().unwrap().publish(true, false, None);
+            let mut current = state.lock().unwrap();
+            if sampled_epoch.is_none_or(|epoch| epoch == current.snapshot.epoch) {
+                current.publish(true, false, None);
+            }
         }
     }
 }
@@ -345,15 +366,27 @@ mod tests {
         os::unix::net::UnixStream,
         sync::atomic::{AtomicBool, Ordering},
     };
+    type SampleGate = Arc<(Mutex<(bool, usize, usize)>, std::sync::Condvar)>;
     struct Probe {
         preparing: Arc<AtomicBool>,
         peers: Arc<Mutex<Vec<UnixStream>>>,
         delay: u64,
+        gate: SampleGate,
     }
     #[zbus::interface(name = "org.freedesktop.login1.Manager")]
     impl Probe {
         #[zbus(property(emits_changed_signal = "false"))]
         fn preparing_for_sleep(&self) -> bool {
+            let (lock, wake) = &*self.gate;
+            let mut gate = lock.lock().unwrap();
+            if gate.0 {
+                gate.1 += 1;
+                let request = gate.1;
+                wake.notify_all();
+                while gate.0 && gate.2 < request {
+                    gate = wake.wait(gate).unwrap();
+                }
+            }
             self.preparing.load(Ordering::Acquire)
         }
         #[zbus(property, name = "InhibitDelayMaxUSec")]
@@ -386,6 +419,7 @@ mod tests {
         server: zbus::Connection,
         preparing: Arc<AtomicBool>,
         peers: Arc<Mutex<Vec<UnixStream>>>,
+        gate: SampleGate,
         _bus: PrivateBus,
     }
     impl Rig {
@@ -406,6 +440,7 @@ mod tests {
             let bus = PrivateBus(child);
             let preparing = Arc::new(AtomicBool::new(false));
             let peers: Arc<Mutex<Vec<UnixStream>>> = Arc::default();
+            let gate = Arc::new((Mutex::new((false, 0, 0)), std::sync::Condvar::new()));
             let destination: &'static str = Box::leak(
                 format!(
                     "cc.senecal.Decksmith.SleepProbe{}",
@@ -422,6 +457,7 @@ mod tests {
                             preparing: preparing.clone(),
                             peers: peers.clone(),
                             delay,
+                            gate: gate.clone(),
                         },
                     )
                     .build(),
@@ -433,6 +469,7 @@ mod tests {
                 server,
                 preparing,
                 peers,
+                gate,
                 _bus: bus,
             }
         }
@@ -522,8 +559,43 @@ mod tests {
         let first = r.wait(|s| s.available && !s.blocked);
         r.observer.resumed();
         let pending = r.observer.snapshot();
-        assert!(!pending.available && pending.blocked);
+        // A fast uncached refresh may already have crossed the resume fence.
+        assert!(!pending.available && pending.blocked || pending.epoch > first.epoch + 2);
         assert!(pending.epoch > first.epoch);
-        r.wait(|s| s.available && !s.blocked && s.epoch > pending.epoch);
+        r.wait(|s| s.available && !s.blocked && s.epoch > first.epoch + 2);
+    }
+    #[test]
+    fn pre_resume_property_reply_cannot_clear_resume_fence() {
+        let r = Rig::new(2_000_000);
+        r.wait(|s| s.available && !s.blocked);
+        let (lock, wake) = &*r.gate;
+        lock.lock().unwrap().0 = true;
+        let wait_request = |n| {
+            let end = Instant::now() + Duration::from_secs(3);
+            let mut gate = lock.lock().unwrap();
+            while gate.1 < n {
+                let (next, timeout) = wake
+                    .wait_timeout(gate, end.saturating_duration_since(Instant::now()))
+                    .unwrap();
+                gate = next;
+                assert!(!timeout.timed_out(), "property request did not arrive");
+            }
+        };
+        wait_request(1);
+        r.observer.resumed();
+        {
+            let mut gate = lock.lock().unwrap();
+            gate.2 = 1;
+            wake.notify_all();
+        }
+        wait_request(2);
+        let pending = r.observer.snapshot();
+        assert!(!pending.available && pending.blocked);
+        {
+            let mut gate = lock.lock().unwrap();
+            gate.0 = false;
+            wake.notify_all();
+        }
+        r.wait(|s| s.available && !s.blocked);
     }
 }

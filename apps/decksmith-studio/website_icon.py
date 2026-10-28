@@ -10,9 +10,9 @@ class Icons(HTMLParser):
         super().__init__(); self.links=[]
     def handle_starttag(self,tag,attrs):
         attrs=dict(attrs)
-        if tag.lower()=='link' and 'icon' in attrs.get('rel','').lower() and attrs.get('href'):
+        if tag.lower()=='link' and 'icon' in (attrs.get('rel') or '').lower() and attrs.get('href'):
             sizes=[]
-            for size in attrs.get('sizes','').split():
+            for size in (attrs.get('sizes') or '').split():
                 try: sizes.append(min(map(int,size.lower().split('x'))))
                 except ValueError: pass
             score=max(sizes,default=180 if 'apple-touch-icon' in attrs.get('rel','') else 0)

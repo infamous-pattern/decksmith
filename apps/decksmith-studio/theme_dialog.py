@@ -1,6 +1,7 @@
 """Native appearance defaults, independently editable from action mappings."""
 from gi.repository import Gtk,Adw,GLib
 from themes import PRESETS,STYLE_FIELDS,FONTS,SIZES,COLORS,BACKGROUNDS,preset_defaults,set_theme,encode_theme,decode_theme
+from import_file import read_limited
 
 CHOICES={'font':(['Theme']+list(FONTS.values()),[None]+list(FONTS)),
          'size':(['Theme']+list(SIZES.values()),[None]+list(SIZES)),
@@ -104,8 +105,7 @@ class ThemeControls(Gtk.Box):
                 if not file:return
                 from pathlib import Path
                 path=Path(file.get_path())
-                if path.stat().st_size>65536:raise ValueError('Theme file is too large.')
-                theme=decode_theme(path.read_bytes());self.owner.draft.data['theme']=theme
+                theme=decode_theme(read_limited(path,65536,'Theme file is too large.'));self.owner.draft.data['theme']=theme
                 self.syncing=True;self.preset.set_selected(1+list(PRESETS).index(theme['preset']));self.syncing=False
                 self.defaults.set_sensitive(True);self.rows.sync();self.changed()
             except GLib.Error:pass

@@ -1,5 +1,5 @@
-//! Dormant multi-device execution bridge. One bounded service, never one copy
-//! per Deck. Native session wiring and microphone guardians are separate gates.
+//! Multi-device execution bridge. A bounded service coordinates actions across
+//! Decks; native session wiring and microphone guardians are separate gates.
 use crate::pages::Action;
 use decksmith_core::{
     device_context::DeviceId,
@@ -495,9 +495,9 @@ fn complete(
     shared.wake.notify_all();
 }
 
-/// Initial fixed native adapter, constructed lazily and never started by the
-/// current daemon. Named volume and output mute only. Input mute remains gated
-/// on the shared microphone guardian; media awaits a guarded MPRIS adapter.
+/// Native named-volume and output-mute adapter used by the shared backend.
+/// Input mute remains gated by the shared microphone guardian; media is handled
+/// by the separate guarded MPRIS adapter.
 #[derive(Default)]
 pub struct NamedAudioBackend;
 impl Backend for NamedAudioBackend {

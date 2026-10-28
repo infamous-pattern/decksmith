@@ -1,4 +1,4 @@
-"""Opt-in shared microphone guardian; legacy V1 ptt_guard is unchanged.
+"""Shared microphone guardian for named input devices.
 
 One private pin survives helper restarts. Only a mute retry may revalidate the
 same USB hardware serial after re-enumeration, once the host retired its writer.

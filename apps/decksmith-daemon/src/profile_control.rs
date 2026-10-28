@@ -1,5 +1,5 @@
-//! Device-addressed profile APIs. The virtual lab and saved-device workspace
-//! have separate endpoints; neither replaces Control1 or dispatches live actions.
+//! Device-addressed profile APIs. Isolated labs and the saved workspace have
+//! separate endpoints; connected and permanent workspaces can address live controls.
 use crate::{
     device_profiles::{Catalog, Controls, Enrollment, Store, random_device_id},
     pages::{Pages, TouchState},

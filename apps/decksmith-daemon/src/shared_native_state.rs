@@ -1,4 +1,4 @@
-//! One read-only observation owner for the initial native pair acceptance.
+//! Read-only audio and system observers shared by connected device sessions.
 use crate::{audio::State, audio_target::Client};
 use std::{
     sync::{Arc, Condvar, Mutex},

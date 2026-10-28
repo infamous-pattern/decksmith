@@ -1,5 +1,5 @@
-//! Guarded MPRIS session adapter for the opt-in connected native path.
-//! A selection is pinned before input: no discovery or player switching on keys.
+//! Guarded MPRIS session adapter for connected and daily native sessions.
+//! Each effect checks the selected player's exact owner and action scope.
 use crate::{
     pages::Action,
     shared_worker::{Backend, Fence, NamedAudioBackend},
@@ -243,8 +243,8 @@ impl Bus for NativeBus {
     }
 }
 
-/// One supplied executor for this initial native slice. Named audio and media
-/// are off the I/O/render owners. No input mute or alias/default resolution.
+/// Native action executor for built-ins, audio and media, separate from device
+/// I/O and rendering. Input mute remains with the microphone guardian.
 pub struct NativeBackend {
     audio: NamedAudioBackend,
     saved_audio: crate::shared_native_audio::Client,

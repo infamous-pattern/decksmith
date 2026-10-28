@@ -35,7 +35,7 @@ impl std::fmt::Debug for TargetId {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ActionScope {
-    /// Random host-startup nonce, supplied by the future host adapter. Tests use
+    /// Random host-startup nonce supplied by the host. Tests use
     /// explicit fixtures. Never derive from serials, PID or a device ID.
     pub runtime: DeviceId,
     pub device: DeviceContext,
@@ -48,7 +48,7 @@ impl ActionScope {
 }
 
 /// Internal scheduling classifications, not saved action IDs or a plugin wire
-/// contract. The future host compiles validated built-in settings into these.
+/// contract. The host compiles validated built-in settings into these.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Effect {
     Adjust(i16),

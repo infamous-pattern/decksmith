@@ -249,12 +249,14 @@ fn session_state(runtime: &Runtime) -> SavedState {
 }
 struct StateWriter {
     sender: Option<SyncSender<SavedState>>,
+    completed: Receiver<(SavedState, bool)>,
     thread: Option<JoinHandle<()>>,
     last: SavedState,
 }
 impl StateWriter {
     fn start(root: PathBuf, initial: SavedState) -> Result<Self> {
         let (send, receive) = mpsc::sync_channel::<SavedState>(1);
+        let (completion_send, completed) = mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("decksmith-device-state".into())
             .spawn(move || {
@@ -275,11 +277,13 @@ impl StateWriter {
                     if let Err(code) = result {
                         tracing::warn!(error_code = code, "Device page state could not be saved");
                     }
+                    let _ = completion_send.send((state, result.is_ok()));
                 }
             })
             .map_err(|_| "device_state_worker_failed")?;
         Ok(Self {
             sender: Some(send),
+            completed,
             thread: Some(thread),
             last: initial,
         })
@@ -290,13 +294,15 @@ impl StateWriter {
         }
     }
     fn publish(&mut self, state: SavedState) {
+        while let Ok((saved, success)) = self.completed.try_recv() {
+            if success {
+                self.last = saved;
+            }
+        }
         if state != self.last
-            && self
-                .sender
-                .as_ref()
-                .is_some_and(|s| s.try_send(state.clone()).is_ok())
+            && let Some(sender) = &self.sender
         {
-            self.last = state;
+            let _ = sender.try_send(state);
         }
     }
 }
@@ -1068,6 +1074,39 @@ mod tests {
         writer.finish(state.clone());
         drop(writer);
         assert!(read_state(&t.0).unwrap() == state);
+    }
+    #[test]
+    fn state_writer_retries_unchanged_state_after_write_failure() {
+        let t = Temp::new();
+        let root = t.0.join("temporarily-unavailable");
+        let state = SavedState {
+            version: 1,
+            devices: [(
+                random_device_id().unwrap(),
+                Selection {
+                    page: 1,
+                    brightness: 37,
+                },
+            )]
+            .into_iter()
+            .collect(),
+        };
+        let mut writer = StateWriter::start(root.clone(), SavedState::default()).unwrap();
+        writer.publish(state.clone());
+        let (_, success) = writer
+            .completed
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap();
+        assert!(!success);
+        crate::layout_store::mkdir(&root).unwrap();
+        writer.publish(state.clone());
+        let (saved, success) = writer
+            .completed
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap();
+        assert!(success);
+        assert!(saved == state);
+        assert!(read_state(&root).unwrap() == state);
     }
     #[test]
     fn daily_archival_preserves_previous_layout_through_many_selection_generations() {

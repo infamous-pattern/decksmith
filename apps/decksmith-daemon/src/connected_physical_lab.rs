@@ -1,5 +1,5 @@
-//! Explicit, timed native-HID acceptance of the connected runtime. Effects are
-//! memory-only diagnostics; no real audio, microphone, desktop bus or providers.
+//! Explicit, timed native-HID acceptance of the connected runtime. Diagnostic
+//! and separately selected native-effect trials use fresh test profiles.
 use crate::{
     device_execution::Runtime,
     device_profiles::{Catalog, Enrollment, Store, random_device_id},

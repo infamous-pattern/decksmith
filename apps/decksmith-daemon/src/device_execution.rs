@@ -1,6 +1,6 @@
-//! Connected supplied-adapter execution path. The normal V1 worker and saved-only
-//! workspace do not activate it. Canonical named audio/media are explicit;
-//! unsupported providers/aliases never fall back to another target.
+//! Device-addressed execution for connected and permanent-service sessions.
+//! The V1 worker and saved-only workspace do not activate it. Canonical named
+//! audio/media are explicit; unsupported providers and aliases never fall back.
 use crate::{
     device_profiles::{Catalog, Controls, random_device_id},
     device_render,

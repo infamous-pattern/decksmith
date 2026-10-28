@@ -5,6 +5,15 @@ class DraftTests(unittest.TestCase):
     def sample(self):
         return {'version': 1, 'audio_dial': True, 'pages': [{'name': 'HOME', 'background': [1,2,3],
             'keys': [{'label': 'HOME', 'action': {'type':'go_to_page','page':0}} for _ in range(8)]}]}
+    def test_boolean_volume_and_dial_steps_are_not_numbers(self):
+        draft=Draft(self.sample())
+        draft.data['pages'][0]['keys'][0]['action']={'type':'volume_adjust','percent':True}
+        with self.assertRaisesRegex(ValueError,'volume step'):draft.validate()
+        draft.data['pages'][0]['keys'][0]['action']={'type':'none'}
+        from dial_model import defaults
+        draft.data['dials']=defaults(draft.data)
+        draft.data['dials'][0]['step']=True
+        with self.assertRaisesRegex(ValueError,'dial rotation or step'):draft.validate()
     def test_page_name_case_digits_history_and_persistence(self):
         import json
         source=self.sample();draft=Draft(source)

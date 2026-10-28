@@ -921,7 +921,7 @@ impl Pages {
     pub fn parse(bytes: &[u8]) -> Result<Self, &'static str> {
         let config = Config::parse(bytes)?;
         // Control1 and the current renderer are Plus/V1-only. A validated V2
-        // document must use the future device-addressed API, never this path.
+        // document must use the device-addressed API, never this path.
         if config.version != 1 {
             return Err("layout_requires_device_api");
         }
@@ -1699,9 +1699,9 @@ impl Pages {
                 }
             }
         }
+        let feedback = self.device_feedback();
         for index in 0..4 {
-            if let Some(notice) = self
-                .device_feedback()
+            if let Some(notice) = feedback
                 .iter()
                 .find(|n| usize::from(n.check.slot) == index + 8)
             {
@@ -2135,16 +2135,7 @@ impl Pages {
                         }
                     }
                 }
-                let occupied: Vec<_> = icon
-                    .enumerate_pixels()
-                    .filter(|(_, _, p)| p[3] > 0)
-                    .map(|(x, y, _)| (x, y))
-                    .collect();
-                if !occupied.is_empty() {
-                    let left = occupied.iter().map(|p| p.0).min().unwrap();
-                    let right = occupied.iter().map(|p| p.0).max().unwrap();
-                    let upper = occupied.iter().map(|p| p.1).min().unwrap();
-                    let lower = occupied.iter().map(|p| p.1).max().unwrap();
+                if let Some((left, right, upper, lower)) = alpha_bounds(&icon) {
                     let content = image::imageops::crop_imm(
                         &icon,
                         left,
@@ -2291,6 +2282,19 @@ impl Pages {
         Ok(())
     }
 }
+fn alpha_bounds(icon: &image::RgbaImage) -> Option<(u32, u32, u32, u32)> {
+    icon.enumerate_pixels().filter(|(_, _, p)| p[3] > 0).fold(
+        None,
+        |bounds: Option<(u32, u32, u32, u32)>, (x, y, _)| {
+            Some(match bounds {
+                None => (x, x, y, y),
+                Some((left, right, upper, lower)) => {
+                    (left.min(x), right.max(x), upper.min(y), lower.max(y))
+                }
+            })
+        },
+    )
+}
 fn glyph(c: u8) -> [u8; 5] {
     match c {
         b'0' => [7, 5, 5, 5, 7],
@@ -2404,6 +2408,14 @@ fn frame(width: usize, height: usize, label: &str, bg: [u8; 3]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn alpha_bounds_cover_visible_pixels_without_including_transparent_edges() {
+        let mut icon = image::RgbaImage::new(8, 7);
+        assert_eq!(alpha_bounds(&icon), None);
+        icon.put_pixel(6, 1, image::Rgba([1, 2, 3, 1]));
+        icon.put_pixel(2, 5, image::Rgba([4, 5, 6, 255]));
+        assert_eq!(alpha_bounds(&icon), Some((2, 6, 1, 5)));
+    }
     #[test]
     fn unavailable_plugin_settings_survive_roundtrip_without_execution() {
         let mut raw: serde_json::Value =

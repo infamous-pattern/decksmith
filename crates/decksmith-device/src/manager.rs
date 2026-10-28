@@ -1,6 +1,5 @@
-//! Inert multi-device supervisor seam. Owns only adapters supplied by its caller;
-//! does not enumerate/open HID, acquire ownership, render layouts, start helpers
-//! or execute actions. The production Plus worker does not use this module yet.
+//! Multi-device supervisor. Owns only adapters supplied by its caller; the host
+//! handles discovery, ownership, rendering, helpers and action execution.
 use crate::{
     DeckDevice, DeviceError,
     registry::{Association, Discovery, MAX_DEVICES, Registry},
@@ -595,7 +594,7 @@ impl DeviceManager {
         output
     }
     /// Feedback is fenced before transport access; a failure closes only this
-    /// owner. Current action backends do not yet produce/consume this context.
+    /// owner.
     pub fn write_key(&mut self, context: &DeviceContext, frame: &[u8]) -> Result<()> {
         if !self.current(context) {
             return Err("stale_device_context");

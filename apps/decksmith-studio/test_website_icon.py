@@ -19,6 +19,12 @@ class IconTests(unittest.TestCase):
         large=png((128,128))
         with patch('website_icon.read',side_effect=[(b'<link rel="icon" href="/bad">','https://example.com/'),(b'not an image','https://example.com/bad'),(large,'https://example.com/favicon.ico')]):
             self.assertEqual(fetch('https://example.com/'),large)
+    def test_missing_attribute_values_do_not_discard_valid_icons(self):
+        large=png((144,144))
+        html=b'<link rel href="/ignored"><link rel="icon" sizes href="/unsized"><link rel="icon" href="/large" sizes="144x144">'
+        with patch('website_icon.read',side_effect=[(html,'https://example.com/'),(large,'https://example.com/large')]) as read:
+            self.assertEqual(fetch('https://example.com/'),large)
+            self.assertEqual(read.call_args.args[0],'https://example.com/large')
     def test_failure_keeps_text_fallback(self):
         with patch('website_icon.read',side_effect=OSError):
             self.assertIsNone(fetch('https://example.com/'))

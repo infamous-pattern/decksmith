@@ -33,8 +33,6 @@ class Runtime(unittest.TestCase):
         vendor=ROOT/'dist/plugin-runtime'/release/'vendor'
         subprocess.run(['/usr/bin/python3','-I','-c',f'import sys;sys.path.insert(0,{str(vendor)!r});from websockets.asyncio.server import serve'],check=True)
 
-if __name__=='__main__':unittest.main()
-
 class Installation(unittest.TestCase):
     def test_failed_activation_restores_previous_integration(self):
         from unittest.mock import patch
@@ -50,3 +48,5 @@ class Installation(unittest.TestCase):
                 with self.assertRaises(RuntimeError):installer.install(release('new'),home,True)
             self.assertEqual(unit.read_text(),prior)
             self.assertEqual((home/'.local/share/decksmith/plugin-runtime/current').resolve().name,'old')
+
+if __name__=='__main__':unittest.main()

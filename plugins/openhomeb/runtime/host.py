@@ -1,4 +1,4 @@
-"""Isolated OpenAction compatibility experiment. No physical-device/app access."""
+"""OpenAction compatibility host with virtual device and bounded plugin messages."""
 import asyncio
 import collections
 import copy

@@ -1,4 +1,5 @@
-//! Experimental per-user Unix bridge. Separate bounded worker; no network on HID thread.
+//! Per-user Unix bridges for plugin actions and state. Bounded workers keep
+//! network operations off device-owner threads.
 use crate::{
     audio_worker::{Reply, Request},
     pages::Action,

@@ -26,6 +26,14 @@ pub(crate) struct View {
     pub contexts: BTreeMap<DeviceId, DeviceContext>,
     pub bindings: Vec<Session>,
 }
+impl View {
+    pub(crate) fn changed(&self, previous: &Self) -> bool {
+        self.sessions != previous.sessions
+            || self.catalog.generation != previous.catalog.generation
+            || self.bindings != previous.bindings
+            || self.contexts != previous.contexts
+    }
+}
 enum Operation {
     Reserve(DeviceContext),
     Cancel(EditTicket),
@@ -201,15 +209,12 @@ impl Service {
             Arc::new(runtime.catalog().clone())
         };
         let next = snapshot(runtime, catalog);
-        if next.sessions != old.sessions
-            || next.catalog.generation != old.catalog.generation
-            || next.bindings != old.bindings
-        {
+        if next.changed(&old) {
             *self.view.lock().unwrap() = Arc::new(next);
         }
     }
 }
-fn snapshot(runtime: &Runtime, catalog: Arc<Catalog>) -> View {
+pub(crate) fn snapshot(runtime: &Runtime, catalog: Arc<Catalog>) -> View {
     let sessions = runtime.statuses();
     let contexts = sessions
         .iter()

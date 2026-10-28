@@ -3,6 +3,58 @@
 Added October 11, 2026. These are optional development tools, separate from
 Decksmith's application, daemon, installer and release dependencies.
 
+## OpenDeck — reliability references refreshed October 28
+
+The maintainer approved incorporating the October 28
+[OpenDeck](https://github.com/nekename/OpenDeck) review into project planning.
+This is reference adoption and acceptance planning, not authorization to resume
+development, run tests, install software or change the desktop. Decksmith remains
+paused. Consolidate these lessons with existing lifecycle and V2 plugin-host work;
+retain the native Rust/Python/GTK architecture and accepted interface.
+
+Compared the [October 19 pin](https://github.com/nekename/OpenDeck/commit/772189ca74c89a10bad219b67de620ecb07bf1f6)
+with main at `3ddecc1ce8952a423916cf066724356267b97410`: three additional commits,
+comprising two safeguards and a version bump. The latest release observed was
+[v2.14.2](https://github.com/nekename/OpenDeck/releases/tag/v2.14.2), published
+October 21. Its new device-event checks validate identifier bounds and the
+sending plugin's namespace ownership; connection registration rejects duplicate
+plugin/property-inspector identities. Extend our V2 host's explicit ownership,
+concurrent-registration and reconnect acceptance cases accordingly. A catalog
+entry or plugin-provided identifier never grants direct hardware ownership.
+
+The custom text/image precedence fix and MK.2 Scissor Keys Module support noted
+in the October 19 review are now released upstream. Preserve user-authored labels
+and artwork against late provider updates in our own regressions; this does not
+establish support for another Deck variant. The historical October 19 checkpoint
+retains its then-current released/unreleased distinction; this refresh supersedes
+that status for the reviewed changes.
+
+The following were **open, unmerged proposals at review time**, not released
+behavior or independently reproduced fixes. Recheck status and source before use.
+
+| Reference | Reviewed PR head | Lesson for Decksmith |
+| --- | --- | --- |
+| [#493: deadlock prevention](https://github.com/nekename/OpenDeck/pull/493) | `45fb8ab41f31fac6c5297c46fa78f057d90c404b` | Review lock ordering and shared guards across awaited operations, especially wake, app switching and device/plugin teardown. Snapshot only necessary data and revalidate session identity before applying delayed results. |
+| [#494: malformed-input resilience](https://github.com/nekename/OpenDeck/pull/494) | `26b7c7632ac67a8246ffb82463dafb64a2183155` | Reject malformed messages and asset URLs per client/request; bound handshake and first-message waits while keeping other clients available. |
+| [#495: stalled-plugin isolation and reconnect queues](https://github.com/nekename/OpenDeck/pull/495) | `e8051f2d634eb80efe8784b875a9f509b7b4ccef` | Separate plugin writers and prevent reconnect replay. Its proposed channels are unbounded: retain Decksmith's bounded queues, explicit overload handling and coalesced replaceable state. Distinguish fresh state synchronization from side-effecting actions. |
+| [#497: recoverable startup/exit errors](https://github.com/nekename/OpenDeck/pull/497) | `a1dfe9cfc8aa0098f8c6b1aa7214a613eddb4a36` | Clean up only initialized components, bound teardown and report failures. Preserve invalid settings and failed-save drafts; do not adopt automatic version-to-0.0.0 repair or imply a failed save succeeded. |
+| [#459: application-watcher D-Bus load](https://github.com/nekename/OpenDeck/pull/459) | `c1228b9a6d1d94d09ded7e1554f4d4c53e1ec7a8` | Later KDE/X11 reference for event-driven active-window tracking, deduplication and demand-based polling. This older proposal remains open; it is not a new GNOME support claim or a reason to replace our working app identity model. |
+| [#501: unnecessary executable permission changes](https://github.com/nekename/OpenDeck/pull/501) | `f32c91deb7b403c56a940bd1abfb4596fcc39654` | Already executable, read-only plugin packages should not require runtime chmod. Validate managed-install permissions without broadening access or making arbitrary paths writable. |
+
+Use these as focused scenarios in the
+[post-acceptance reliability and V2 host plan](ROADMAP.md#opendeck-reliability-follow-up--approved-october-28),
+after physical acceptance and explicit active-work resumption. A source finding
+does not establish the cause of the desktop USB/Wave incident or prove our code
+has the same defect. Preserve current microphone mute-first recovery and no-replay
+safeguards. Review any concrete gap before making a targeted change; no speculative
+refactor, interface redesign or model/support promotion follows from this review.
+
+OpenDeck's reviewed repository is GPL-3.0. Use the findings as references for
+independent implementation; no upstream code/assets were imported into Decksmith.
+Private source/PR receipts and limitations are in `outputs/opendeck-review-20261028`.
+No upstream program was built, installed or executed, and no new product test or
+hardware acceptance was performed during this research/planning update.
+
 ## Hallmark — reference adopted; post-acceptance trial planned October 28
 
 [Hallmark](https://github.com/Nutlope/hallmark) is an approved optional design

@@ -45,6 +45,41 @@ Decks passed the maintainer’s basic physical controls check; microphone replug
 long-term USB stability remain separate gates. Current/previous builds and verified
 settings backups are retained. Ubuntu/Debian testing and other development remain paused.
 
+## OpenDeck reliability follow-up — approved October 28
+
+The maintainer approved the [October 28 OpenDeck reference refresh](research-toolbox.md#opendeck--reliability-references-refreshed-october-28)
+as planning input. Consolidate the scenarios below with existing lifecycle and
+V2 plugin-host gates. Start only **after physical acceptance and explicit
+active-work resumption**; Decksmith remains paused. This update runs no tests,
+installs no software and makes no desktop, guest, service or release change.
+Ubuntu/Debian qualification and the saved candidate/recovery gates retain priority.
+
+OpenDeck v2.14.2 contains device-namespace ownership and duplicate-connection
+safeguards added since our October 19 review. The other references below are
+unmerged proposals at the October 28 source review; they are scenario inputs,
+not claims of upstream release behavior or confirmed defects in Decksmith.
+
+| Order / scope | Planned review or requirement | Completion evidence after work resumes |
+| --- | --- | --- |
+| Focused reliability review after physical acceptance | Review lock order and initialized-component cleanup around app switching, wake, device removal and shutdown, informed by OpenDeck #493/#497. Identify a concrete gap before changing working code. | Relevant shared guards do not span awaited I/O or conflicting nested acquisition. Delayed results revalidate current session identity. Partial startup and unavailable optional components permit bounded cleanup; failures remain visible and do not leave live holds or stale writers. Preserve existing mute-first recovery. |
+| Existing V2 host contract and OpenAction mapping | Specify provider/action/device ownership and one live connection per plugin or settings-panel identity. Reject malformed identifiers and cross-provider device events before changing state; keep physical hardware host-owned. | Short, empty and malformed IDs, foreign namespaces, duplicate and concurrent registrations fail safely. A valid reconnect creates a fresh session; an old connection's close or late message cannot remove or affect its replacement or another Deck. Rejection leaves other controls responsive. |
+| Existing V2 input and local settings/asset boundary | Validate message types, identifiers, URL encoding and size limits. Bound handshake/first-message time and concurrent clients, informed by #494. | Malformed, truncated, empty, unexpected binary or oversized input and invalid asset URLs fail per client/request. Stalled connections time out; subsequent valid clients and other plugins continue working without restarting the host. |
+| Existing V2 dispatch/resource isolation | Give plugins independent bounded outgoing work. Define saturation, timeout and recovery policy; coalesce only replaceable display/state updates. Use #495's isolation and replay scenarios, not its unbounded channel design. | A plugin that stops reading cannot block built-ins or another plugin, grow memory without limit or hold global locks during socket writes. Reconnect may request a fresh state snapshot but never replays old key/dial actions, toggles or uncertain external effects. Previously delivered events are not redelivered; held-input cleanup remains effective. |
+| Existing persistence and startup/exit gates | Handle recoverable errors without discarding configuration, informed by #497. Cleanup applies only to initialized components; failed saves retain the draft and accurate status. | Invalid version/settings bytes remain recoverable, with useful diagnostics and explicit verified recovery instead of silent version reset or migration. Save failure, partial initialization and unavailable optional services cannot claim success, corrupt the last good layout or make shutdown unbounded. |
+| V2 plugin package lifecycle | Avoid unnecessary runtime permission changes to already executable files, informed by #501. Set required permissions only through validated managed installation. | An eligible executable in a read-only package runs without chmod; a non-executable or invalid package gets a clear remedy. No broad permission grants, arbitrary-path mutation or weakened package verification. |
+| Later KDE/X11 desktop adapters | Consider #459's event-driven active-window tracking, deduplication and demand-based fallback polling when those adapters are in scope. Preserve the existing GNOME app identity and independent page rules. | Measure idle/active CPU and D-Bus traffic and check source restart/reconnect, fallback behavior and correct per-Deck app switching. An upstream proposal's measurements are not Decksmith results or desktop support acceptance. |
+
+Preserve custom labels/artwork against late asynchronous provider updates in the
+existing rendering regressions. That OpenDeck fix and Scissor Keys Module support
+are now released but were already identified in October; another hardware variant
+still needs separate model qualification. No new device support is claimed here.
+
+Retain the native architecture and accepted interface. Independently implement
+any justified change, keeping upstream GPL code/assets out of Decksmith source.
+These findings do not establish the cause of the earlier USB/Wave incident or
+replace physical, accessibility, resource or release acceptance. General UI
+features and catalog browsing retain their existing V2/deferred ordering.
+
 ## Hallmark design-review trial — planned October 28
 
 The maintainer approved [Hallmark as an optional toolbox reference](research-toolbox.md#hallmark--reference-adopted-post-acceptance-trial-planned-october-28)
@@ -1214,6 +1249,10 @@ saved-layout and lifecycle foundations before dependent feature work. Plugin
 delivery now targets V2; the limited managed experiment does not close the general
 host gates below. Use the current V1.5 feature overview to resume; the September 22
 sequence records an earlier reliability checkpoint.
+
+The [October 28 reliability follow-up](#opendeck-reliability-follow-up--approved-october-28)
+adds explicit ownership, connection, malformed-input, stalled-plugin and recovery
+scenarios to these same gates; it does not create a parallel host or resume work.
 
 1. **Review existing boundaries and write an architecture decision.** Map action
    definitions, saved layouts, dispatch, Auto-Lock/cancellation, rendering and

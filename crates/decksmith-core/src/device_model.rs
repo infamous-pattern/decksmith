@@ -58,7 +58,7 @@ pub struct DeviceCapabilities {
 
 /// Descriptors can only be constructed from the known, bounded model table.
 /// No deserialization or arbitrary geometry constructor can bypass those bounds.
-/// Physical identity and per-connection state belong to the future device manager.
+/// Physical identity and per-connection state belong to the device manager.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DeviceDescriptor {
     model: DeviceModel,

@@ -1,12 +1,42 @@
 """PipeWire's PulseAudio interface: stable application and device audio targets."""
-import json,subprocess,sys
+import json,os,selectors,subprocess,sys,time
 
 PROPERTIES=('application.id','application.process.binary','application.name')
 
+def _bounded_command(args,limit=2*1024*1024,timeout=.4):
+    """Read both pipes within the deadline and reap the child on every exit."""
+    child=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    stdout=bytearray();stderr=bytearray();deadline=time.monotonic()+timeout
+    try:
+        with selectors.DefaultSelector() as selector:
+            selector.register(child.stdout,selectors.EVENT_READ,stdout)
+            selector.register(child.stderr,selectors.EVENT_READ,stderr)
+            while selector.get_map():
+                remaining=deadline-time.monotonic()
+                if remaining<=0:raise subprocess.TimeoutExpired(args,timeout)
+                for key,_ in selector.select(remaining):
+                    data=os.read(key.fileobj.fileno(),65536)
+                    if not data:
+                        selector.unregister(key.fileobj);continue
+                    if key.data is stdout:
+                        if len(stdout)+len(data)>limit:raise ValueError('Audio inventory too large')
+                        stdout.extend(data)
+                    else:
+                        # Drain stderr even after the diagnostic prefix is full.
+                        stderr.extend(data[:max(0,65536-len(stderr))])
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise subprocess.TimeoutExpired(args,timeout)
+        code=child.wait(timeout=remaining)
+        text=stdout.decode();error=stderr.decode(errors='replace')
+        if code:raise subprocess.CalledProcessError(code,args,output=text,stderr=error)
+        return text
+    finally:
+        if child.poll() is None:child.kill()
+        child.wait()
+        child.stdout.close();child.stderr.close()
+
 def command(*args):
-    result=subprocess.run(['/usr/bin/pactl',*args],capture_output=True,text=True,timeout=.4,check=True)
-    if len(result.stdout)>2*1024*1024:raise ValueError('Audio inventory too large')
-    return result.stdout
+    return _bounded_command(['/usr/bin/pactl',*args])
 
 def listing(kind):return json.loads(command('--format=json','list',kind))
 

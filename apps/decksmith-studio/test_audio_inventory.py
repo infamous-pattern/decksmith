@@ -1,8 +1,34 @@
 import unittest
+import subprocess
+import sys
 from unittest.mock import Mock
 from audio_inventory import Inventory
 from audio_targets import Snapshot, execute, read
 from unittest.mock import patch
+
+
+class BoundedCommandTests(unittest.TestCase):
+    def test_reads_output_and_preserves_failure_diagnostics(self):
+        from audio_targets import _bounded_command
+        self.assertEqual(_bounded_command([sys.executable, '-c', 'print("ready")'], timeout=3), 'ready\n')
+        with self.assertRaises(subprocess.CalledProcessError) as failure:
+            _bounded_command([sys.executable, '-c', 'import sys;print("failure",file=sys.stderr);sys.exit(4)'], timeout=3)
+        self.assertEqual(failure.exception.returncode, 4)
+        self.assertIn('failure', failure.exception.stderr)
+
+    def test_limits_output_and_reaps_a_stalled_child(self):
+        from audio_targets import _bounded_command
+        children=[]
+        spawn=subprocess.Popen
+        def tracked(*args,**kwargs):
+            child=spawn(*args,**kwargs);children.append(child);return child
+        with patch('audio_targets.subprocess.Popen', side_effect=tracked):
+            with self.assertRaisesRegex(ValueError, 'too large'):
+                _bounded_command([sys.executable, '-c', 'import sys;sys.stdout.write("x"*10000)'], limit=128, timeout=3)
+            with self.assertRaises(subprocess.TimeoutExpired):
+                _bounded_command([sys.executable, '-c', 'import time;time.sleep(5)'], timeout=.1)
+        self.assertEqual(len(children),2)
+        self.assertTrue(all(child.poll() is not None for child in children))
 
 
 class InventoryTests(unittest.TestCase):

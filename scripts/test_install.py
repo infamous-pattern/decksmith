@@ -1,7 +1,7 @@
 import base64,importlib.util,io,json,os,stat,sys,tarfile,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
-from package_io import digest,write_archive,read_archive,release_files,atomic
+from package_io import digest,write_archive,read_archive,release_files,atomic,tree_files
 spec=importlib.util.spec_from_file_location('installer',Path(__file__).with_name('decksmith-install.py'));manager=importlib.util.module_from_spec(spec);sys.modules[spec.name]=manager;spec.loader.exec_module(manager)
 ROOT=Path(__file__).resolve().parents[1]
 class InstallTests(unittest.TestCase):
@@ -14,6 +14,35 @@ class InstallTests(unittest.TestCase):
         for name in ('decksmith.service.in','cc.senecal.Decksmith.Studio.desktop.in'):files['packaging/'+name]=(ROOT/'packaging'/name).read_bytes()
         manifest={'format':'decksmith-release','version':1,'id':identity,'architecture':__import__('platform').machine(),'files':{n:digest(d) for n,d in files.items()}}
         files['release.json']=json.dumps(manifest).encode();path=self.root/(identity+'.tar.gz');write_archive(path,files);return path
+    def test_directory_snapshots_enforce_total_limit_before_archive_creation(self):
+        folder=self.root/'snapshot';folder.mkdir()
+        (folder/'a').write_bytes(b'abcd');(folder/'b').write_bytes(b'ef')
+        with patch('package_io.LIMIT',6):
+            self.assertEqual(tree_files(folder),{'a':b'abcd','b':b'ef'})
+            (folder/'b').write_bytes(b'efg')
+            with self.assertRaisesRegex(ValueError,'too large'):tree_files(folder)
+            self.assertEqual((folder/'a').read_bytes(),b'abcd')
+            self.assertEqual((folder/'b').read_bytes(),b'efg')
+    def test_directory_snapshot_uses_archive_file_count_limit(self):
+        folder=self.root/'snapshot';folder.mkdir()
+        for name in ('a','b','c'):(folder/name).write_bytes(b'')
+        with patch('package_io.MAX_FILES',2):
+            with self.assertRaisesRegex(ValueError,'too large'):tree_files(folder)
+    def test_directory_snapshot_rejects_symlink_at_root(self):
+        folder=self.root/'real';folder.mkdir();(folder/'data').write_bytes(b'preserve')
+        link=self.root/'linked';link.symlink_to(folder, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError,'Links are not supported'):tree_files(link)
+        self.assertEqual((folder/'data').read_bytes(),b'preserve')
+        link.unlink();link.symlink_to(self.root/'missing', target_is_directory=True)
+        with self.assertRaisesRegex(ValueError,'Links are not supported'):tree_files(link)
+    def test_archive_writer_never_replaces_existing_archive_when_file_limit_is_exceeded(self):
+        path=self.root/'backup.tar.gz';path.write_bytes(b'previous backup')
+        with patch('package_io.MAX_FILES',2):
+            with self.assertRaisesRegex(ValueError,'file count'):
+                write_archive(path,{'a':b'','b':b'','c':b''})
+            self.assertEqual(path.read_bytes(),b'previous backup')
+            write_archive(path,{'a':b'','b':b''})
+            self.assertEqual(read_archive(path),{'a':b'','b':b''})
     def test_install_update_rollback_and_removal_preserve_data_and_do_not_manage_host_service(self):
         config=self.paths.config/'decksmith/layout.json';atomic(config,b'{"saved":"user"}')
         with patch.object(manager,'run',side_effect=AssertionError('Host command forbidden')):

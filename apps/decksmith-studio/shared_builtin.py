@@ -1,4 +1,4 @@
-"""Opt-in ordinary built-ins; no shell or plugin execution.
+"""Guarded ordinary built-ins; no shell or plugin execution.
 
 Each underlying adapter requests a grant after discovery and immediately before
 an external effect. Legacy launch/system entry points do not use this protocol.

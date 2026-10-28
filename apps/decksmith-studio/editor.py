@@ -1,4 +1,4 @@
-"""Native eight-key editor. Saving is an explicit daemon request."""
+"""Native device layout editor. Saving is an explicit daemon request."""
 import json
 from uuid import uuid4
 from concurrent.futures import ThreadPoolExecutor
@@ -13,6 +13,7 @@ from action_labels import default_label, uses_default
 from media_artwork import LABELS as MEDIA_LABELS, populate as populate_media
 from applications import installed, icon_png, website_png
 from artwork import dimensions
+from import_file import read_limited
 from website_icon import fetch as fetch_website_icon
 
 LABEL_COLORS = {'default':'#f0e6d7','white':'#ffffff','black':'#000000','red':'#ff4646','orange':'#ff9b3c','yellow':'#ffe13c','green':'#5ae678','blue':'#5aaaff','purple':'#c382ff'}
@@ -425,6 +426,7 @@ class Editor(Adw.ApplicationWindow):
             try: done(future.result())
             except Exception as error:
                 self.close_after_save=False
+                if hasattr(self,'shell'):self.shell.loading_layout=False
                 self.owner.quit_all=False
                 print(f'Editor request failed: {error}', flush=True)
                 self.status.set_text('Could not complete the request. Your draft is still here; check that Decksmith is running.')
@@ -973,8 +975,7 @@ class Editor(Adw.ApplicationWindow):
                 from pathlib import Path
                 from layout_package import decode,LIMIT
                 path=Path(file.get_path())
-                if path.stat().st_size>LIMIT:raise ValueError('Choose a layout package smaller than 2 MB.')
-                layout=decode(path.read_bytes())
+                layout=decode(read_limited(path,LIMIT,'Choose a layout package smaller than 2 MB.'))
                 payload=json.dumps(layout)
                 def validated(result):
                     normalized=json.loads(result[0])
@@ -1024,8 +1025,8 @@ class Editor(Adw.ApplicationWindow):
                 from pathlib import Path
                 from artwork_dialog import ArtworkDialog
                 path=Path(file.get_path())
-                if path.stat().st_size>8*1024*1024:raise ValueError('Choose an image smaller than 8 MB.')
-                data=path.read_bytes()
+                from artwork import MAX_BYTES
+                data=read_limited(path,MAX_BYTES,'Choose an image smaller than 8 MB.')
                 def apply(png):
                     if not any(key is k for p in self.draft.data['pages'] for k in p['keys']):return
                     self.icon_requests[id(key)]='custom'
@@ -1046,6 +1047,7 @@ class Editor(Adw.ApplicationWindow):
         expected_art = key.get("artwork")
         future = self.icon_pool.submit(fetch_website_icon,url)
         def finish():
+            if self.closed:return False
             if self.pending:
                 GLib.timeout_add(100,finish)
                 return False

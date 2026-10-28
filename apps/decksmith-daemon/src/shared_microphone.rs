@@ -1,4 +1,4 @@
-//! Dormant shared microphone owner. Releases update latest desired state outside
+//! Shared microphone owner. Releases update latest desired state outside
 //! the ordinary action queue; a separate owner drives at most eight guardians.
 use crate::shared_worker::Authority;
 use decksmith_core::{

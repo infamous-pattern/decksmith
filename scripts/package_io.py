@@ -3,6 +3,7 @@ from pathlib import Path,PurePosixPath
 from hashlib import sha256
 import io,json,tarfile,os,tempfile
 LIMIT=512*1024*1024
+MAX_FILES=10000
 
 def digest(data):return sha256(data).hexdigest()
 def safe_name(name):
@@ -27,24 +28,38 @@ def read_archive(path):
             if member.isdir():continue
             if not member.isfile() or name in files:raise ValueError('Package contains links, special files or duplicates')
             total+=member.size
-            if total>LIMIT or len(files)>=10000:raise ValueError('Package is too large')
+            if total>LIMIT or len(files)>=MAX_FILES:raise ValueError('Package is too large')
             files[name]=archive.extractfile(member).read()
     return files
 
 def write_archive(path,files):
     out=io.BytesIO()
     if sum(map(len,files.values()))>LIMIT:raise ValueError('Backup or package exceeds 512 MB')
+    if len(files)>MAX_FILES:raise ValueError('Backup or package exceeds the file count limit')
     with tarfile.open(fileobj=out,mode='w:gz') as archive:
         for name,data in sorted(files.items()):
             safe_name(name);info=tarfile.TarInfo(name);info.size=len(data);info.mode=0o600;archive.addfile(info,io.BytesIO(data))
     atomic(path,out.getvalue(),0o600)
 
 def tree_files(root):
-    root=Path(root);result={}
+    root=Path(root);result={};total=0
+    if root.is_symlink():raise ValueError(f'Links are not supported in managed data: {root.name}')
     if not root.exists():return result
     for path in sorted(root.rglob('*')):
         if path.is_symlink():raise ValueError(f'Links are not supported in managed data: {path.name}')
-        if path.is_file():result[path.relative_to(root).as_posix()]=path.read_bytes()
+        if path.is_file():
+            if len(result)>=MAX_FILES:raise ValueError('Package is too large')
+            # Limit the read itself: checking only after read_bytes() can allocate
+            # an arbitrarily large file before the archive size guard is reached.
+            data=io.BytesIO()
+            with path.open('rb') as source:
+                while True:
+                    chunk=source.read(min(1024*1024,LIMIT-total+1))
+                    if not chunk:break
+                    total+=len(chunk)
+                    if total>LIMIT:raise ValueError('Package is too large')
+                    data.write(chunk)
+            result[path.relative_to(root).as_posix()]=data.getvalue()
     return result
 
 def release_files(source):
