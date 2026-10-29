@@ -1,6 +1,6 @@
 # Decksmith remaining roadmap
 
-This is the implementation roadmap, updated October 28, 2026. The v0.4 product
+This is the implementation roadmap, updated October 29, 2026. The v0.4 product
 and architecture documents remain the broader design baseline. Items below are
 planned work unless explicitly marked implemented; this is not authorization to
 change system routing.
@@ -112,6 +112,51 @@ After these gates have documented outcomes and the maintainer agrees that the
 issues are resolved or explicitly accepts a remaining uncertainty, return to the
 [Ubuntu/Debian resume sequence](checkpoints/2026-10-20-pause-and-resume.md#resume-here).
 Support and release promotion remain separate decisions.
+
+## Firedies-inspired feature refinements — planned October 29
+
+The maintainer requested that the [Firedies reference review](research-toolbox.md#firedies-stream-deck-series--feature-reference-october-29)
+be incorporated into planning. Reliability and recovery gates above, physical
+acceptance and the existing Ubuntu/Debian resume sequence retain priority. Active
+development remains paused; these are independently designed Linux feature
+requirements and candidates, not implemented behavior or a release commitment.
+
+1. **Existing sequences:** extend the planned ordered-step editor with clear
+   progress and completed, failed, partial or uncertain outcome feedback. Explore
+   condition-based waits for an observable application state with explicit
+   deadlines and cancellation. Preserve no-replay, no automatic retry of uncertain
+   side effects, input cleanup, lock/page/disconnect handling and existing actions.
+2. **Existing Now Playing and Dial Stacks:** consider a visible selected mode for
+   skip, seek and volume. Retain the approved touch-to-cycle stack interaction;
+   do not silently change existing assignments, mute, hold-to-talk or gestures.
+   Show only actions supported by the selected MPRIS player, and explicitly show
+   missing timeline, artwork, stale metadata or unavailable player. Verify preview
+   and physical display parity, player changes and resource use.
+3. **Existing V2 system monitors:** preserve the shared, modest-rate sampler per
+   source, bounded history and visible-only rendering; distinguish activity from
+   capacity, label units and source, and show missing or stale readings honestly.
+   Verify Linux sensor and GPU capabilities independently without promising
+   availability or requiring privileged tools for basic metrics.
+4. **Local focus timer and stopwatch — later candidate:** evaluate a key/dial
+   countdown, count-up and optional focus/break cycles with clear remaining time,
+   pause and adjustable duration. Specify restart, sleep/resume, notification,
+   gesture conflicts and safe end behavior before implementation. No account,
+   calendar feed, cloud service or automatic power action is required.
+5. **Existing audio gauges:** preserve the accepted dual-arc and classic choices.
+   Refine the distinction between quiet, muted, unavailable and missing sources.
+   Consider peak-hold and clipping feedback only when the actual source and
+   measurement semantics support it. Defer spectrum, waveform and loudness to a
+   bounded readability, privacy and CPU/memory trial after reliability acceptance;
+   never record audio or change microphone state to drive a visualization.
+6. **Optional starter profiles — later candidate:** assess separate Work and Audio
+   examples that can be previewed and copied into a new layout. Preserve existing
+   user layouts, model compatibility, unsupported-action warnings and undo/backup.
+
+Calendar integration, network speed tests, gaming ranks and AI-driven macros are
+separate later feasibility decisions, not part of this scope. Before any calendar
+work, address credential storage and redaction, feed freshness and explicit
+privacy review. Do not copy Firedies assets, manuals or plugin implementation;
+recheck applicable license terms before any reuse of its separately licensed presets.
 
 ## OpenDeck reliability follow-up — approved October 28
 

@@ -3,6 +3,32 @@
 Added October 11, 2026. These are optional development tools, separate from
 Decksmith's application, daemon, installer and release dependencies.
 
+## Firedies Stream Deck series — feature reference October 29
+
+[Firedies Complete](https://marketplace.elgato.com/product/firedies-complete-c5190f21-f72d-4438-b9be-ab9f63853878)
+and its [public repository](https://github.com/FirediesProductions/stream-deck)
+are references for future feature design, not Linux dependencies or evidence of
+Decksmith compatibility. The reviewed repository contains manuals and example
+macros, but states that the actual plugins are distributed via the marketplace
+and are not included in the repository. The marketplace lists Windows and macOS.
+No plugin, helper or reference code is installed or executed by this review.
+
+Useful design inputs include observable sequence progress and failures; a
+clearly named media dial mode with capability-aware seek; a local focus timer;
+shared and demand-driven metric collection; honest audio silence/mute/unavailable
+states; and optional starter layouts. The corresponding [roadmap refinements](ROADMAP.md#firedies-inspired-feature-refinements--planned-october-29)
+are ordered after the reliability gates and existing qualification. Proposed
+advanced audio displays require their own bounded resource, privacy and readability
+evaluation. Calendar feeds, network speed tests, game ranks and AI-driven macros
+remain separate later decisions.
+
+The repository's [license](https://github.com/FirediesProductions/stream-deck/blob/main/LICENSE)
+applies MIT to `macro-x/presets/` and reserves other material. Its root README
+describes the helper skill as MIT while the root license lists that skill as
+reserved; resolve the discrepancy with the owner before reuse. Independently
+implement product behavior and do not copy manuals, branding or assets. Recheck
+current terms and obtain any necessary permissions before future reuse.
+
 ## OpenDeck — reliability references refreshed October 28
 
 The maintainer approved incorporating the October 28
