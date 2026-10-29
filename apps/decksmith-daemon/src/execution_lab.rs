@@ -507,6 +507,52 @@ pub fn run(args: &[String]) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn unchanged_unlocked_gate_does_not_repaint_either_device() {
+        let root = std::env::temp_dir().join(format!(
+            "decksmith-stable-lock-{}",
+            random_device_id().unwrap()
+        ));
+        let mut t = Trial::new(&root).unwrap();
+        let check = (|| -> Result<()> {
+            t.runtime.host_lock(false, 10)?;
+            t.ready()?;
+            let until = Instant::now() + Duration::from_millis(100);
+            while Instant::now() < until {
+                t.tick()?;
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            let before: Vec<_> = t
+                .probes
+                .iter()
+                .map(|p| p.data.lock().unwrap().key_writes)
+                .collect();
+            // Repeated observations of the same unlocked epoch must not fence
+            // the devices or trigger new key-frame writes.
+            for _ in 0..25 {
+                t.runtime.host_lock(false, 10)?;
+                t.tick()?;
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            let after: Vec<_> = t
+                .probes
+                .iter()
+                .map(|p| p.data.lock().unwrap().key_writes)
+                .collect();
+            assert_eq!(before, after);
+            assert!(
+                t.runtime
+                    .statuses()
+                    .iter()
+                    .all(|u| u.input_ready && u.display_ready)
+            );
+            Ok(())
+        })();
+        t.runtime.stop();
+        drop(t);
+        let _ = std::fs::remove_dir_all(root);
+        check.unwrap();
+    }
+    #[test]
     fn real_host_gate_cancels_holds_draws_each_model_and_restores_own_pages() {
         let root = std::env::temp_dir().join(format!(
             "decksmith-host-lock-{}",

@@ -2,6 +2,11 @@
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
+// Keep both queries within the existing one-second stale-state safety bound.
+// GNOME Shell may briefly stall while applying appearance changes.
+const GNOME_CALL_TIMEOUT: Duration = Duration::from_millis(650);
+const LOGIND_CALL_TIMEOUT: Duration = Duration::from_millis(250);
 #[derive(Clone, Serialize)]
 pub struct Snapshot {
     pub enabled: bool,
@@ -42,9 +47,16 @@ fn connect_lock_proxy(session: bool) -> Option<zbus::Proxy<'static>> {
     } else {
         zbus::connection::Builder::system()
     };
-    let connection =
-        futures_lite::future::block_on(builder.method_timeout(Duration::from_millis(250)).build())
-            .ok()?;
+    let connection = futures_lite::future::block_on(
+        builder
+            .method_timeout(if session {
+                GNOME_CALL_TIMEOUT
+            } else {
+                LOGIND_CALL_TIMEOUT
+            })
+            .build(),
+    )
+    .ok()?;
     if session {
         lock_proxy(
             &connection,
@@ -59,6 +71,38 @@ fn connect_lock_proxy(session: bool) -> Option<zbus::Proxy<'static>> {
             "/org/freedesktop/login1/session/auto",
             "org.freedesktop.login1.Session",
         )
+    }
+}
+
+// Poll independent buses in parallel. An explicit lock from either source
+// blocks immediately; an unlocked answer still requires the other source.
+async fn query_sources(
+    session: Option<&zbus::Proxy<'_>>,
+    system: Option<&zbus::Proxy<'_>>,
+) -> (Option<bool>, Option<bool>) {
+    let mut gnome = std::pin::pin!(async {
+        match session {
+            Some(p) => p.call::<_, _, bool>("GetActive", &()).await.ok(),
+            None => None,
+        }
+    });
+    let mut logind = std::pin::pin!(async {
+        let p = system?;
+        let kind = p.get_property::<String>("Type").await.ok()?;
+        if !matches!(kind.as_str(), "wayland" | "x11") {
+            return None;
+        }
+        p.get_property::<bool>("LockedHint").await.ok()
+    });
+    let first = futures_lite::future::race(async { (true, gnome.as_mut().await) }, async {
+        (false, logind.as_mut().await)
+    })
+    .await;
+    match first {
+        (true, Some(true)) => (Some(true), None),
+        (false, Some(true)) => (None, Some(true)),
+        (true, value) => (value, logind.await),
+        (false, value) => (gnome.await, value),
     }
 }
 
@@ -139,18 +183,11 @@ impl Gate {
                 if system.is_none() {
                     system = connect_lock_proxy(false);
                 }
-                let gnome = session.as_ref().and_then(|p| {
-                    futures_lite::future::block_on(p.call::<_, _, bool>("GetActive", &())).ok()
-                });
+                let (gnome, logind) = futures_lite::future::block_on(query_sources(
+                    session.as_ref(),
+                    system.as_ref(),
+                ));
                 gnome_seen |= gnome.is_some();
-                let logind = system.as_ref().and_then(|p| {
-                    let kind =
-                        futures_lite::future::block_on(p.get_property::<String>("Type")).ok()?;
-                    if !matches!(kind.as_str(), "wayland" | "x11") {
-                        return None;
-                    }
-                    futures_lite::future::block_on(p.get_property::<bool>("LockedHint")).ok()
-                });
                 let (value, source) = if gnome_seen {
                     (gnome.map(|v| v || logind == Some(true)), "GNOME")
                 } else {
@@ -223,6 +260,200 @@ mod tests {
         fn locked_hint(&self) -> bool {
             self.0.load(std::sync::atomic::Ordering::Acquire)
         }
+    }
+
+    struct SlowScreenSaver {
+        delay_ms: Arc<std::sync::atomic::AtomicU64>,
+        locked: Arc<std::sync::atomic::AtomicBool>,
+    }
+    #[zbus::interface(name = "cc.senecal.Decksmith.SlowScreenSaver")]
+    impl SlowScreenSaver {
+        async fn get_active(&self) -> bool {
+            let delay = self.delay_ms.load(std::sync::atomic::Ordering::Acquire);
+            async_io::Timer::after(Duration::from_millis(delay)).await;
+            self.locked.load(std::sync::atomic::Ordering::Acquire)
+        }
+    }
+
+    struct SlowLogind {
+        delay_ms: u64,
+        locked: bool,
+    }
+    #[zbus::interface(name = "cc.senecal.Decksmith.SlowLogind")]
+    impl SlowLogind {
+        #[zbus(property, name = "Type")]
+        async fn session_type(&self) -> &str {
+            async_io::Timer::after(Duration::from_millis(self.delay_ms)).await;
+            "wayland"
+        }
+        #[zbus(property)]
+        fn locked_hint(&self) -> bool {
+            self.locked
+        }
+    }
+
+    #[test]
+    #[ignore = "requires an isolated dbus-run-session"]
+    fn slow_independent_lock_sources_are_queried_in_parallel() {
+        let address = std::env::var("DBUS_SESSION_BUS_ADDRESS").unwrap_or_default();
+        assert!(address.starts_with("unix:path=/tmp/dbus-"));
+        let server = futures_lite::future::block_on(
+            zbus::connection::Builder::session()
+                .name("cc.senecal.Decksmith.SlowPair")
+                .serve_at(
+                    "/test/gnome",
+                    SlowScreenSaver {
+                        delay_ms: Arc::new(std::sync::atomic::AtomicU64::new(400)),
+                        locked: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    },
+                )
+                .serve_at(
+                    "/test/logind",
+                    SlowLogind {
+                        delay_ms: 400,
+                        locked: false,
+                    },
+                )
+                .serve_at(
+                    "/test/gnome_locked",
+                    SlowScreenSaver {
+                        delay_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+                        locked: Arc::new(std::sync::atomic::AtomicBool::new(true)),
+                    },
+                )
+                .serve_at(
+                    "/test/logind_locked",
+                    SlowLogind {
+                        delay_ms: 0,
+                        locked: true,
+                    },
+                )
+                .build(),
+        )
+        .unwrap();
+        let client = futures_lite::future::block_on(
+            zbus::connection::Builder::session()
+                .method_timeout(GNOME_CALL_TIMEOUT)
+                .build(),
+        )
+        .unwrap();
+        let gnome = lock_proxy(
+            &client,
+            "cc.senecal.Decksmith.SlowPair",
+            "/test/gnome",
+            "cc.senecal.Decksmith.SlowScreenSaver",
+        )
+        .unwrap();
+        let logind = lock_proxy(
+            &client,
+            "cc.senecal.Decksmith.SlowPair",
+            "/test/logind",
+            "cc.senecal.Decksmith.SlowLogind",
+        )
+        .unwrap();
+        let start = Instant::now();
+        let results = futures_lite::future::block_on(query_sources(Some(&gnome), Some(&logind)));
+        assert_eq!(results, (Some(false), Some(false)));
+        assert!(
+            start.elapsed() < Duration::from_millis(750),
+            "queries did not overlap: {:?}",
+            start.elapsed()
+        );
+        let locked_gnome = lock_proxy(
+            &client,
+            "cc.senecal.Decksmith.SlowPair",
+            "/test/gnome_locked",
+            "cc.senecal.Decksmith.SlowScreenSaver",
+        )
+        .unwrap();
+        let locked_logind = lock_proxy(
+            &client,
+            "cc.senecal.Decksmith.SlowPair",
+            "/test/logind_locked",
+            "cc.senecal.Decksmith.SlowLogind",
+        )
+        .unwrap();
+        let started = Instant::now();
+        assert_eq!(
+            futures_lite::future::block_on(query_sources(Some(&locked_gnome), Some(&logind))),
+            (Some(true), None)
+        );
+        assert!(started.elapsed() < Duration::from_millis(300));
+        let started = Instant::now();
+        assert_eq!(
+            futures_lite::future::block_on(query_sources(Some(&gnome), Some(&locked_logind))),
+            (None, Some(true))
+        );
+        assert!(started.elapsed() < Duration::from_millis(300));
+        drop(server);
+    }
+
+    #[test]
+    #[ignore = "requires an isolated dbus-run-session"]
+    fn slow_gnome_reply_does_not_fence_but_timeout_and_lock_still_fail_closed() {
+        let address = std::env::var("DBUS_SESSION_BUS_ADDRESS").unwrap_or_default();
+        assert!(address.starts_with("unix:path=/tmp/dbus-"));
+        let delay = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let locked = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let server = futures_lite::future::block_on(
+            zbus::connection::Builder::session()
+                .name("cc.senecal.Decksmith.SlowScreenSaver")
+                .serve_at(
+                    "/test/slow",
+                    SlowScreenSaver {
+                        delay_ms: delay.clone(),
+                        locked: locked.clone(),
+                    },
+                )
+                .build(),
+        )
+        .unwrap();
+        let client = futures_lite::future::block_on(
+            zbus::connection::Builder::session()
+                .method_timeout(GNOME_CALL_TIMEOUT)
+                .build(),
+        )
+        .unwrap();
+        let proxy = lock_proxy(
+            &client,
+            "cc.senecal.Decksmith.SlowScreenSaver",
+            "/test/slow",
+            "cc.senecal.Decksmith.SlowScreenSaver",
+        )
+        .unwrap();
+        let read =
+            || futures_lite::future::block_on(proxy.call::<_, _, bool>("GetActive", &())).ok();
+        let gate = Gate::new(true);
+        gate.observe(read(), "test");
+        let epoch = gate.snapshot().epoch;
+        assert!(!gate.snapshot().locked);
+        // Reproduce the observed 396 ms GNOME delay without changing lock state.
+        delay.store(400, std::sync::atomic::Ordering::Release);
+        let delayed = read();
+        assert_eq!(delayed, Some(false));
+        assert!(!gate.snapshot().locked);
+        assert_eq!(gate.snapshot().epoch, epoch);
+        gate.observe(delayed, "test");
+        assert_eq!(gate.snapshot().epoch, epoch);
+        assert!(!gate.snapshot().locked);
+        // Even a slow explicit lock blocks controls once its reply arrives.
+        locked.store(true, std::sync::atomic::Ordering::Release);
+        gate.observe(read(), "test");
+        assert!(gate.snapshot().locked);
+        locked.store(false, std::sync::atomic::Ordering::Release);
+        delay.store(0, std::sync::atomic::Ordering::Release);
+        gate.observe(read(), "test");
+        assert!(!gate.snapshot().locked);
+        // A query that exceeds the new bound must still fail closed.
+        delay.store(900, std::sync::atomic::Ordering::Release);
+        assert_eq!(read(), None);
+        gate.observe(None, "test");
+        assert!(gate.snapshot().locked);
+        assert!(!gate.snapshot().available);
+        delay.store(0, std::sync::atomic::Ordering::Release);
+        gate.observe(read(), "test");
+        assert!(!gate.snapshot().locked);
+        drop(server);
     }
 
     #[test]

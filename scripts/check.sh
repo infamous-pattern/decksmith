@@ -10,4 +10,10 @@ fi
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked
+# Lock-latency regressions must use a private bus, never the desktop session.
+if ! command -v dbus-run-session >/dev/null 2>&1; then
+    echo 'Install dbus-run-session to run the isolated lock-latency checks.' >&2
+    exit 1
+fi
+dbus-run-session -- cargo test -p decksmithd --all-features --locked session_lock::tests::slow_ -- --ignored
 "$checker" --all-features --locked check
