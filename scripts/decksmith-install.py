@@ -235,9 +235,14 @@ def validate_install(paths,release):
             run('systemd-analyze','--user','verify',str(unit))
     return desired
 
+def validate_layout_file(release,layout,label):
+    try:run(str(release/'bin/decksmithd'),'--validate-layout',str(layout))
+    except subprocess.CalledProcessError as error:
+        raise ValueError(f'{label} could not be validated; it may be invalid or incompatible with this Decksmith build. No settings were changed. Preserve your current data and use a verified compatible backup before retrying.') from error
+
 def validate_saved(paths,release):
     layout=paths.config/'decksmith/layout.json'
-    if layout.exists():run(str(release/'bin/decksmithd'),'--validate-layout',str(layout))
+    if layout.exists():validate_layout_file(release,layout,'The saved layout')
 
 def wait_ready(paths,release):
     if paths.staged:return
@@ -347,7 +352,7 @@ def restore(paths,archive):
     with tempfile.TemporaryDirectory() as tmp:
         for name in ('layout.json','layout.previous.json'):
             if 'config/'+name in files:
-                file=Path(tmp)/name;file.write_bytes(files['config/'+name]);run(str(root/'bin/decksmithd'),'--validate-layout',str(file))
+                file=Path(tmp)/name;file.write_bytes(files['config/'+name]);validate_layout_file(root,file,'The backup '+name)
         if 'config/control-panel.json' in files:
             settings=json.loads(files['config/control-panel.json'])
             if set(settings)-{'layout','brightness'} or settings.get('layout') not in ('audio','navigation','custom') or (settings.get('brightness') is not None and (type(settings['brightness']) is not int or not 0<=settings['brightness']<=100)):raise ValueError('Invalid saved settings')

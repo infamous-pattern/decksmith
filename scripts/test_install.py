@@ -83,11 +83,18 @@ class InstallTests(unittest.TestCase):
     def test_corrupt_backup_and_invalid_saved_layout_do_not_write_configuration(self):
         manager.install(self.paths,self.bundle('one'));config=self.paths.config/'decksmith/layout.json';atomic(config,b'current');archive=manager.backup(self.paths)
         with patch.object(manager,'run',side_effect=__import__('subprocess').CalledProcessError(1,['validate'])):
-            with self.assertRaises(__import__('subprocess').CalledProcessError):manager.restore(self.paths,archive)
+            with self.assertRaisesRegex(ValueError,'backup layout.json could not be validated.*No settings were changed'):manager.restore(self.paths,archive)
         self.assertEqual(config.read_bytes(),b'current')
         files=read_archive(archive);files['config/layout.json']=b'corrupt';write_archive(archive,files)
         with self.assertRaises(ValueError):manager.restore(self.paths,archive)
         self.assertEqual(config.read_bytes(),b'current')
+
+    def test_invalid_saved_layout_gives_recovery_guidance_and_preserves_data(self):
+        config=self.paths.config/'decksmith/layout.json';atomic(config,b'invalid but preserved')
+        with patch.object(manager,'run',side_effect=__import__('subprocess').CalledProcessError(1,['validate'])):
+            with self.assertRaisesRegex(ValueError,'saved layout could not be validated.*No settings were changed.*verified compatible backup'):
+                manager.validate_saved(self.paths,self.root/'release')
+        self.assertEqual(config.read_bytes(),b'invalid but preserved')
 
     def test_release_rejects_parent_identity_and_missing_empty_file(self):
         archive=self.bundle('safe');files=read_archive(archive);manifest=json.loads(files['release.json'])
