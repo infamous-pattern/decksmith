@@ -107,6 +107,7 @@ pub struct Runtime {
     mics: Option<shared_microphone::Service>,
     mic_fatal_reported: bool,
     mirror: Arc<RwLock<View>>,
+    display_diagnostics: bool,
     dirty: BTreeSet<DeviceId>,
     strip_dirty: BTreeSet<DeviceId>,
     render_pending: BTreeSet<DeviceId>,
@@ -202,6 +203,8 @@ impl Runtime {
             mics,
             mic_fatal_reported: false,
             mirror,
+            display_diagnostics: std::env::var_os("DECKSMITH_DISPLAY_DIAGNOSTICS").as_deref()
+                == Some(std::ffi::OsStr::new("1")),
             dirty: ids.into_iter().collect(),
             strip_dirty: BTreeSet::new(),
             render_pending: BTreeSet::new(),
@@ -284,7 +287,7 @@ impl Runtime {
         if !self.controls.manager().current(&context) {
             return Err("stale_device_context");
         }
-        self.revoke(context.device);
+        self.revoke(context.device, "edit_reservation");
         let binding = self.controls.fence_input(context.device, context.binding)?;
         let ticket = EditTicket {
             context: DeviceContext { binding, ..context },
@@ -307,7 +310,7 @@ impl Runtime {
             .find(|s| s.id == id)
             .ok_or("unknown_device")?
             .binding;
-        self.revoke(id);
+        self.revoke(id, "edit_cancel");
         self.controls.fence_input(id, binding)?;
         self.edits.remove(&id);
         self.sync();
@@ -373,6 +376,7 @@ impl Runtime {
         self.edits.remove(&id);
         self.touch.get_mut(&id).unwrap().levels.clear();
         self.next_meter = Instant::now();
+        self.trace_display(id, "invalidate", "edit_apply");
         self.dirty.insert(id);
         self.sync();
         Ok(())
@@ -433,7 +437,15 @@ impl Runtime {
             })
             .collect()
     }
-    fn revoke(&mut self, id: DeviceId) {
+    fn trace_display(&self, id: DeviceId, event: &'static str, reason: &'static str) {
+        if self.display_diagnostics
+            && let Some(slot) = self.layouts.keys().position(|candidate| *candidate == id)
+        {
+            tracing::info!(target: "decksmith::display_diagnostics", device_slot = slot, event, reason, "display diagnostic");
+        }
+    }
+    fn revoke(&mut self, id: DeviceId, reason: &'static str) {
+        self.trace_display(id, "invalidate", reason);
         // Connection/page/desktop fences cancel any old edit reservation too.
         // reserve_edit installs its new ticket only after this revocation.
         self.edits.remove(&id);
@@ -538,7 +550,7 @@ impl Runtime {
             .map(|s| s.id)
             .collect();
         for id in lost {
-            self.revoke(id);
+            self.revoke(id, "discovery_lost");
         }
         let revision = self.controls.discover(discovery)?;
         self.sync();
@@ -571,14 +583,14 @@ impl Runtime {
             .spawn(id, device)
             .map_err(|_| "device_actor_unavailable")?;
         let lease = proxy.lease();
-        self.revoke(id);
+        self.revoke(id, "device_attach");
         let attached = self.controls.attach(revision, slot, Box::new(proxy))?;
         self.leases.insert(id, lease);
         self.sync();
         Ok(attached)
     }
     pub fn disconnect(&mut self, id: DeviceId) -> Result<()> {
-        self.revoke(id);
+        self.revoke(id, "device_disconnect");
         let result = self.controls.disconnect(id);
         self.sync();
         result
@@ -587,7 +599,7 @@ impl Runtime {
         if self.edits.contains_key(&context.device) {
             return Err("profile_update_pending");
         }
-        self.revoke(context.device);
+        self.revoke(context.device, "page_navigation");
         let result = self.controls.navigate(context, page).map(|_| ());
         self.sync();
         result
@@ -715,7 +727,7 @@ impl Runtime {
             .ok_or("profile_update_epoch_exhausted")?;
         let ids: Vec<_> = self.layouts.keys().copied().collect();
         for id in ids {
-            self.revoke(id);
+            self.revoke(id, "desktop_gate");
         }
         self.controls.fence_gate(state.0, state.1)?;
         // Reservations cannot survive a desktop lifecycle fence. A worker that
@@ -768,7 +780,7 @@ impl Runtime {
             .checked_add(1)
             .ok_or("profile_update_epoch_exhausted")?;
         for status in self.statuses() {
-            self.revoke(status.id);
+            self.revoke(status.id, "foreground_change");
             self.controls.fence_input(status.id, status.binding)?;
         }
         self.mirror.write().unwrap().foreground = revision;
@@ -788,7 +800,7 @@ impl Runtime {
         } else {
             None
         };
-        self.revoke(id);
+        self.revoke(id, "profile_apply");
         self.controls.apply_saved_profile(&catalog, id, binding)?;
         self.layouts
             .insert(id, Arc::from(catalog.profile(id)?.document().bytes()));
@@ -882,6 +894,7 @@ impl Runtime {
                     })
                     .is_some_and(|page| page.homebridge)
             {
+                self.trace_display(unit.id, "invalidate", "plugin_state");
                 self.dirty.insert(unit.id);
             }
         }
@@ -921,6 +934,7 @@ impl Runtime {
                 && touch.system != state
             {
                 touch.system = state;
+                self.trace_display(unit.id, "invalidate", "system_state");
                 self.dirty.insert(unit.id);
             }
         }
@@ -930,6 +944,7 @@ impl Runtime {
             return Err("render_state_too_large");
         }
         *self.touch.get_mut(&id).ok_or("unknown_device")? = state;
+        self.trace_display(id, "invalidate", "touch_state");
         self.dirty.insert(id);
         Ok(())
     }
@@ -989,6 +1004,7 @@ impl Runtime {
                     .brightness;
                 self.controls
                     .brightness(event.context, (i16::from(b) + percent).clamp(0, 100) as u8)?;
+                self.trace_display(id, "invalidate", "brightness_action");
                 self.dirty.insert(id);
                 Ok(None)
             }
@@ -1154,6 +1170,7 @@ impl Runtime {
                     state.targets = wanted;
                     state.audio = audio;
                     if keys_changed {
+                        self.trace_display(status.id, "invalidate", "audio_state");
                         self.dirty.insert(status.id);
                     } else if status.model == decksmith_core::device_model::DeviceModel::Plus {
                         self.strip_dirty.insert(status.id);
@@ -1230,6 +1247,7 @@ impl Runtime {
                             result: Err(e),
                         });
                     } else {
+                        self.trace_display(reply.scope.device.device, "frame_submitted", "full");
                         self.painted
                             .insert(reply.scope.device.device, reply.scope.device);
                     }
@@ -1244,6 +1262,8 @@ impl Runtime {
                             scope: reply.scope,
                             result: Err(e),
                         });
+                    } else {
+                        self.trace_display(reply.scope.device.device, "frame_submitted", "touch");
                     }
                 }
                 Err(e) => feedback.push(Feedback {
@@ -1280,6 +1300,7 @@ impl Runtime {
                 )
                 .is_ok()
             {
+                self.trace_display(id, "render_requested", if full { "full" } else { "touch" });
                 self.render_pending.insert(id);
                 self.dirty.remove(&id);
                 self.strip_dirty.remove(&id);
@@ -1293,6 +1314,7 @@ impl Runtime {
                 .context(status.id, ControlAddress::Key(0))
                 && self.painted.get(&status.id).is_some_and(|c| *c != context)
             {
+                self.trace_display(status.id, "invalidate", "device_context_changed");
                 self.dirty.insert(status.id);
             }
         }
@@ -1387,6 +1409,104 @@ mod meter_tests {
         fn execute(&mut self, _: &crate::pages::Action, _: &shared_worker::Fence) -> Result<()> {
             Err("fixture_no_effects")
         }
+    }
+    #[test]
+    fn display_diagnostics_report_foreground_redraw_without_private_data() {
+        #[derive(Clone)]
+        struct Capture(Arc<std::sync::Mutex<Vec<u8>>>);
+        impl std::io::Write for Capture {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let bytes = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let writer = Capture(bytes.clone());
+        let subscriber = tracing_subscriber::fmt()
+            .without_time()
+            .with_writer(move || writer.clone())
+            .finish();
+        tracing::subscriber::with_default(subscriber, || {
+            let root = std::env::temp_dir().join(format!(
+                "decksmith-display-diag-{}",
+                random_device_id().unwrap()
+            ));
+            let store = Store::create(&root).unwrap();
+            let ids = [random_device_id().unwrap(), random_device_id().unwrap()];
+            let models = [DeviceModel::Plus, DeviceModel::Mk2];
+            let discovery = Discovery::new(vec![
+                Candidate::new(0, models[0], Some("private-fixture-serial-0")),
+                Candidate::new(1, models[1], Some("private-fixture-serial-1")),
+            ])
+            .unwrap();
+            for (slot, id) in ids.into_iter().enumerate() {
+                store
+                    .enroll(
+                        slot as u64,
+                        &discovery,
+                        slot as u8,
+                        Enrollment::new(id, "private-fixture-name", 50, None),
+                    )
+                    .unwrap();
+            }
+            let mut runtime =
+                Runtime::start(store.load().unwrap(), vec![Box::new(NoEffects)], None).unwrap();
+            let revision = runtime
+                .discover(Discovery::new(discovery.candidates().to_vec()).unwrap())
+                .unwrap();
+            for (slot, model) in models.into_iter().enumerate() {
+                runtime
+                    .attach(
+                        revision,
+                        &discovery,
+                        slot as u8,
+                        Box::new(VirtualDeck::new(model)),
+                    )
+                    .unwrap();
+            }
+            let end = Instant::now() + Duration::from_secs(5);
+            while runtime
+                .statuses()
+                .iter()
+                .any(|s| !s.input_ready || !s.display_ready)
+            {
+                assert!(Instant::now() < end);
+                runtime.tick();
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            assert!(bytes.lock().unwrap().is_empty());
+            runtime.display_diagnostics = true;
+            runtime.foreground(2).unwrap();
+            while runtime
+                .statuses()
+                .iter()
+                .any(|s| !s.input_ready || !s.display_ready)
+            {
+                assert!(Instant::now() < end);
+                runtime.tick();
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            runtime.stop();
+            drop(runtime);
+            let _ = std::fs::remove_dir_all(root);
+        });
+        let log = String::from_utf8(bytes.lock().unwrap().clone()).unwrap();
+        assert!(log.contains("foreground_change"), "{log}");
+        assert!(
+            log.contains("render_requested")
+                && log.contains("frame_submitted")
+                && log.contains("full"),
+            "{log}"
+        );
+        assert!(
+            log.contains("device_slot=0") && log.contains("device_slot=1"),
+            "{log}"
+        );
+        assert_eq!(log.matches("foreground_change").count(), 2, "{log}");
+        assert!(!log.contains("private-fixture"), "{log}");
     }
     #[test]
     fn cached_system_and_plugin_feedback_follow_page_without_new_observer_sample() {

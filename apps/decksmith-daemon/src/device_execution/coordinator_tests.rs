@@ -165,7 +165,7 @@ fn idle_sync_keeps_actions_live_and_fences_reject_without_waiting_for_refresh() 
     assert!(f.runtime.mirror.read().unwrap().accepts(&partner));
     // Complete the normal owner transition: raw manager fencing alone does
     // not request the replacement frame (the public Runtime paths do both).
-    f.runtime.revoke(plus);
+    f.runtime.revoke(plus, "test_fence");
     f.runtime.sync();
     f.ready();
     let before_page = scope(&f.runtime, plus);
