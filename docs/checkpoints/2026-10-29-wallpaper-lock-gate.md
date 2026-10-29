@@ -23,8 +23,7 @@ The GNOME query deadline is now 650 ms. GNOME and logind queries run concurrentl
 so their independent deadlines do not add together. A positive lock result
 from either source blocks immediately, without waiting for the other query.
 Unknown and timed-out GNOME state continues to fail closed after the deadline,
-and the existing one-second
-stale-state cutoff is unchanged. The longer deadline can delay recognition of a
+and the existing one-second stale-state cutoff is unchanged. The longer deadline can delay recognition of a
 failed GNOME query by up to 400 ms compared with the prior 250 ms deadline; it
 does not ignore an explicit locked result. Delays longer than the new bound can
 still cause a safe gate transition and redraw.
@@ -44,6 +43,34 @@ project check now runs the slow-query regressions on a private D-Bus session. Th
 hardware-enabled daemon passed Clippy with warnings denied; formatting and diff
 checks passed.
 
-These are isolated results. The source change has not been installed on the
-desktop or physically verified. A signed candidate and explicit desktop approval
-are required before validating the fix against the actual slideshow and Decks.
+## Signed candidate and desktop verification
+
+The fix and these testing notes were committed to Gitea at
+`eee591c88f5422ac14955578d13c5158d9b9d8ff` and GitHub at
+`77316139c8a84bc952d3cad2015ea2ec7615b3b9`; their source trees matched. The
+[quality run](https://github.com/infamous-pattern/decksmith/actions/runs/40944234273)
+and [Fedora build and signing run](https://github.com/infamous-pattern/decksmith/actions/runs/40944239983)
+passed. The downloaded Fedora candidate **1.5.2-13e2b24be597** was independently
+verified against the retained signing bundle and public commit; checksums and all
+508 manifest files passed. Its archive SHA-256 is
+`075c21d4f13c3d8315ee28a54aea118ca9c2a2629e8008b89cb0ef86a7a91bba`.
+An isolated staging installation passed without activating desktop controls.
+
+After the maintainer saved and closed Studio and approved installation, the
+candidate was installed over **1.5.2-8a523b8af67f**. A fresh snapshot of the
+configuration, plugin data, service settings and previous build was hash-verified
+beforehand; all 618 configuration files matched afterward. Both Decks reported
+ready. The maintainer confirmed page and safe-key operation on both Decks, Plus
+audio and media controls, and an existing Homebridge control.
+
+At the 16:08:39 EDT wallpaper change, the maintainer observed neither Deck
+redraw. The GNOME lock reply took 262 ms: beyond the old 250 ms deadline and
+within the new deadline. The diagnostic recorded no lifecycle-gate or full-frame
+submission in the observed window. With separate maintainer approval, the
+high-volume temporary redraw diagnostics were disabled and controls restarted;
+both Decks again reported ready, the configuration remained unchanged, and the
+maintainer confirmed both work. Later the maintainer reported not noticing further
+refreshes. The exact duration and number of subsequent wallpaper transitions were
+not measured. This is encouraging physical evidence, not proof that delays beyond
+650 ms cannot still cause a fail-closed redraw or that all reliability gates are
+complete.

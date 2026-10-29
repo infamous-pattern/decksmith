@@ -60,10 +60,13 @@ Decks passed the maintainer’s basic physical controls check; microphone replug
 long-term USB stability remain separate gates. Current/previous builds and verified
 settings backups are retained. Ubuntu/Debian testing and other development remain paused.
 
-The later [code-review checkpoint](checkpoints/2026-10-28-code-review-testing.md)
-records the currently installed signed Fedora candidate **1.5.2-7478100d4b04**,
-its AI-server checks and the maintainer's paired-device interaction results.
-The October 22 and 24 candidate records above are historical; previous builds
+The [code-review checkpoint](checkpoints/2026-10-28-code-review-testing.md)
+records AI-server checks and paired-device interaction results for the earlier
+candidate **1.5.2-7478100d4b04**. The current desktop runs signed Fedora
+**1.5.2-13e2b24be597**; the [wallpaper lock-gate checkpoint](checkpoints/2026-10-29-wallpaper-lock-gate.md)
+records its verified installation, one physical wallpaper-change check and the
+maintainer's subsequent ordinary-use observation. Temporary diagnostics are off.
+The October 22, 24 and 28 candidate records above are historical; previous builds
 and verified backups are retained. Physical microphone reconnection, the cause
 of the intermittent USB incident and long-term stability remain open questions.
 
