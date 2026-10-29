@@ -23,6 +23,14 @@ and tests needed to resolve these gates are distinct from that paused broader
 testing. Use isolated checks where possible and obtain the existing desktop or
 physical-hardware approval when a test requires a disruptive change.
 
+October 29 priority: once the reliability work and the existing acceptance gates
+are complete and the maintainer resumes V2 feature work, **built-in system
+monitors are the first V2 feature priority**. Implement the necessary native
+action, state and rendering foundations for them; do not make third-party plugin
+compatibility or catalog delivery a prerequisite for local built-in monitors.
+Other V2 features follow under their existing qualification and dependency gates.
+The maintainer expects to resume testing later today; no automatic start is scheduled.
+
 October 22 narrow reliability exception: the maintainer authorized the
 [launcher protocol isolation source correction](checkpoints/2026-10-22-launcher-protocol-isolation.md)
 and regression tests after ordinary website/app/system keys became blocked.
@@ -1101,14 +1109,15 @@ stay in their feature tracks.
 
 ### Plugins and integrations — moved to V2 on October 15
 
+- **Built-in system monitors — first V2 feature priority:** ship local
+  system-information displays with Decksmith, including CPU, memory, storage,
+  network and uptime; expose available hardware temperatures/GPU metrics with
+  clear fallbacks. No third-party plugin download is required. See
+  [system monitor requirements](#built-in-system-monitors--v2-target).
 - **Native host foundations:** versioned contracts and saved settings, isolated
   processes, bounded dispatch, permissions, cancellation and recovery.
 - **Plugin management:** installation, enable/disable/removal, inline settings,
   reference plugin and developer documentation.
-- **Built-in system monitors:** ship local system-information displays with
-  Decksmith, including CPU, memory, storage, network and uptime; expose available
-  hardware temperatures/GPU metrics with clear fallbacks. No third-party plugin
-  download is required. See [system monitor requirements](#built-in-system-monitors--v2-target).
 - **Dependency diagnostics:** actionable missing/incompatible-provider information
   while retaining unavailable assignments and settings.
 - **Compatibility:** native host first, then the verified OpenAction subset and
@@ -1480,6 +1489,11 @@ and organize them in the Plugins section as built-in providers. These ship with
 the app, work locally without an account or marketplace download, and use the
 native action/state/rendering contracts. They are separate from the external
 OpenAction System Information plugin used for compatibility testing.
+
+October 29: the maintainer placed these monitors first among V2 features, after
+the current reliability and acceptance work. Build the native contracts needed by
+the built-ins first; external plugin compatibility and catalog work follow their
+own host-isolation and validation gates.
 
 Initial monitor choices:
 
