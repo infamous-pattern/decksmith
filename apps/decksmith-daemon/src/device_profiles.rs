@@ -1266,6 +1266,9 @@ impl Controls {
     pub fn paint_touch(&mut self, context: DeviceContext, frame: &[u8]) -> Result<()> {
         self.manager.write_touch(&context, frame)
     }
+    pub fn paint_meter(&mut self, context: DeviceContext, frame: &[u8]) -> Result<()> {
+        self.manager.write_meter(&context, frame)
+    }
     pub fn paint_key(&mut self, context: DeviceContext, frame: &[u8]) -> Result<()> {
         self.manager.write_key(&context, frame)
     }

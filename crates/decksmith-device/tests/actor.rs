@@ -25,6 +25,8 @@ struct Probe {
     data: Arc<Mutex<Data>>,
     stall: Arc<(Mutex<bool>, Condvar)>,
     entered: Arc<AtomicBool>,
+    touch_stall: Arc<(Mutex<bool>, Condvar)>,
+    touch_entered: Arc<AtomicBool>,
 }
 impl Probe {
     fn new(model: DeviceModel) -> Self {
@@ -33,11 +35,15 @@ impl Probe {
             data: Arc::default(),
             stall: Arc::default(),
             entered: Arc::default(),
+            touch_stall: Arc::default(),
+            touch_entered: Arc::default(),
         }
     }
     fn release(&self) {
         *self.stall.0.lock().unwrap() = false;
         self.stall.1.notify_all();
+        *self.touch_stall.0.lock().unwrap() = false;
+        self.touch_stall.1.notify_all();
     }
 }
 impl DeckDevice for Probe {
@@ -61,6 +67,14 @@ impl DeckDevice for Probe {
         Ok(())
     }
     fn set_touch_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError> {
+        let mut s = self.touch_stall.0.lock().unwrap();
+        if *s {
+            self.touch_entered.store(true, Ordering::Release);
+        }
+        while *s {
+            s = self.touch_stall.1.wait(s).unwrap();
+        }
+        drop(s);
         self.data.lock().unwrap().writes.push((255, rgb[0]));
         Ok(())
     }
@@ -74,6 +88,173 @@ impl DeckDevice for Probe {
         self.data.lock().unwrap().blank += 1;
         Ok(())
     }
+}
+#[test]
+fn live_meter_write_does_not_block_a_settled_page_but_full_page_still_fences() {
+    let p = Probe::new(DeviceModel::Plus);
+    let _unblock = Unblock(p.clone());
+    let mut pool = Pool::default();
+    let mut d = pool.spawn(id(1), Box::new(p.clone())).unwrap();
+    frame(&mut d, 1);
+    until(|| d.display_ready());
+    *p.touch_stall.0.lock().unwrap() = true;
+    d.set_meter_image(&vec![
+        2;
+        d.descriptor()
+            .capabilities()
+            .touch
+            .unwrap()
+            .rgb_bytes()
+    ])
+    .unwrap();
+    until(|| p.touch_entered.load(Ordering::Acquire));
+    assert!(
+        d.display_ready(),
+        "meter-only output must not gate an already painted page"
+    );
+    frame(&mut d, 3);
+    assert!(!d.display_ready(), "a new full page must remain fenced");
+    p.release();
+    until(|| d.display_ready());
+    assert!(
+        p.data
+            .lock()
+            .unwrap()
+            .writes
+            .iter()
+            .any(|(slot, value)| *slot == 255 && *value == 3)
+    );
+}
+#[test]
+fn meter_updates_cannot_bypass_a_guarded_touch_change() {
+    let p = Probe::new(DeviceModel::Plus);
+    let _unblock = Unblock(p.clone());
+    let mut pool = Pool::default();
+    let mut d = pool.spawn(id(1), Box::new(p.clone())).unwrap();
+    frame(&mut d, 1);
+    until(|| d.display_ready());
+    let size = d.descriptor().capabilities().touch.unwrap().rgb_bytes();
+    *p.touch_stall.0.lock().unwrap() = true;
+    d.set_touch_image(&vec![2; size]).unwrap();
+    until(|| p.touch_entered.load(Ordering::Acquire));
+    assert!(!d.display_ready());
+    d.set_meter_image(&vec![3; size]).unwrap();
+    assert!(
+        !d.display_ready(),
+        "a newer meter must not clear the state-change fence"
+    );
+    p.release();
+    until(|| d.display_ready());
+    assert_eq!(p.data.lock().unwrap().writes.last(), Some(&(255, 3)));
+}
+
+#[test]
+fn meter_superseding_new_page_waits_for_first_new_page_strip_write() {
+    let p = Probe::new(DeviceModel::Plus);
+    let _unblock = Unblock(p.clone());
+    let mut pool = Pool::default();
+    let mut d = pool.spawn(id(1), Box::new(p.clone())).unwrap();
+    frame(&mut d, 1);
+    until(|| d.display_ready());
+    let size = d.descriptor().capabilities().touch.unwrap().rgb_bytes();
+    *p.touch_stall.0.lock().unwrap() = true;
+    d.set_meter_image(&vec![2; size]).unwrap();
+    until(|| p.touch_entered.load(Ordering::Acquire));
+    frame(&mut d, 3);
+    d.set_meter_image(&vec![4; size]).unwrap();
+    assert!(!d.display_ready());
+    p.release();
+    until(|| d.display_ready());
+    let writes = &p.data.lock().unwrap().writes;
+    assert!(
+        writes
+            .iter()
+            .any(|(slot, value)| *slot == 255 && *value == 4)
+    );
+    assert_eq!(
+        writes
+            .iter()
+            .filter(|(slot, value)| *slot < 8 && *value == 3)
+            .count(),
+        8
+    );
+}
+
+#[test]
+fn meter_only_pending_keeps_manager_input_ready_and_queued_edges_deliver() {
+    use decksmith_core::RawEvent;
+    use decksmith_device::{
+        manager::{DeviceManager, SessionLayout},
+        registry::{Candidate, Discovery, Registry},
+    };
+    let p = Probe::new(DeviceModel::Plus);
+    let _unblock = Unblock(p.clone());
+    let mut pool = Pool::default();
+    let mut device = pool.spawn(id(1), Box::new(p.clone())).unwrap();
+    frame(&mut device, 1);
+    until(|| device.display_ready() && device.input_drained());
+    let discovery = Discovery::new(vec![Candidate::new(
+        0,
+        DeviceModel::Plus,
+        Some("meter-fixture"),
+    )])
+    .unwrap();
+    let mut registry = Registry::default();
+    registry
+        .associate(0, id(1), "Plus", 50, &discovery, 0)
+        .unwrap();
+    let mut manager = DeviceManager::new(registry).unwrap();
+    manager
+        .configure(
+            id(1),
+            0,
+            SessionLayout::new(DeviceModel::Plus, 1, 0).unwrap(),
+        )
+        .unwrap();
+    let revision = manager.reconcile(discovery).unwrap();
+    manager.attach(revision, 0, Box::new(device)).unwrap();
+    manager.poll_round();
+    let context = manager
+        .context(id(1), decksmith_core::device_model::ControlAddress::Touch)
+        .unwrap();
+    p.data.lock().unwrap().input.push_back(InputEvent {
+        timestamp_ms: 1,
+        event: RawEvent::Key {
+            index: 0,
+            pressed: true,
+        },
+    });
+    // The adapter consumes this edge into the actor mailbox before the write.
+    until(|| p.data.lock().unwrap().input.is_empty());
+    *p.touch_stall.0.lock().unwrap() = true;
+    manager
+        .write_meter(
+            &context,
+            &vec![
+                2;
+                DeviceDescriptor::for_model(DeviceModel::Plus)
+                    .capabilities()
+                    .touch
+                    .unwrap()
+                    .rgb_bytes()
+            ],
+        )
+        .unwrap();
+    until(|| p.touch_entered.load(Ordering::Acquire));
+    assert!(manager.statuses()[0].input_ready);
+    let mut events = Vec::new();
+    until(|| {
+        events.extend(manager.poll_round());
+        !events.is_empty()
+    });
+    assert!(matches!(
+        events[0].input.event,
+        RawEvent::Key {
+            index: 0,
+            pressed: true
+        }
+    ));
+    p.release();
 }
 struct Unblock(Probe);
 impl Drop for Unblock {

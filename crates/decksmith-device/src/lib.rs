@@ -76,6 +76,11 @@ pub trait DeckDevice {
     }
     fn set_key_image(&mut self, index: u8, rgb: &[u8]) -> Result<(), DeviceError>;
     fn set_touch_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError>;
+    /// A meter-only replacement cannot change page, target or control labels.
+    /// Synchronous adapters retain the ordinary touch write behavior.
+    fn set_meter_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError> {
+        self.set_touch_image(rgb)
+    }
     fn set_brightness(&mut self, percent: u8) -> Result<(), DeviceError>;
     fn poll_event(&mut self) -> Result<Option<InputEvent>, DeviceError>;
     /// Read ready input without waiting for a new report. The worker uses this
@@ -122,7 +127,9 @@ pub trait DeckDevice {
     fn input_drained(&self) -> bool {
         true
     }
-    /// Accepted/queued output is distinct from successfully transmitted output.
+    /// The current page and guarded control-state changes have been transmitted.
+    /// Replaceable meter-only frames may still be pending; this is not an
+    /// acknowledgement that every intermediate meter sample was transmitted.
     fn display_ready(&self) -> bool {
         true
     }

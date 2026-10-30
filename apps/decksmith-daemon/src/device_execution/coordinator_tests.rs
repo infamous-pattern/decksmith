@@ -94,6 +94,46 @@ impl Drop for Fixture {
     }
 }
 #[test]
+fn meter_invalidation_does_not_mark_a_settled_page_unready() {
+    let mut f = Fixture::new();
+    let plus = f.ids[0];
+    f.runtime
+        .update_levels(plus, [("output:A".to_owned(), Some(42))].into())
+        .unwrap();
+    let state = f
+        .runtime
+        .statuses()
+        .into_iter()
+        .find(|s| s.id == plus)
+        .unwrap();
+    assert!(state.connected && state.input_ready && state.display_ready);
+}
+#[test]
+fn meter_bursts_cannot_supersede_a_pending_full_page_render() {
+    let mut f = Fixture::new();
+    let plus = f.ids[0];
+    f.runtime.dirty.insert(plus);
+    f.runtime.tick();
+    assert!(f.runtime.full_render_pending.contains(&plus));
+    assert!(
+        !f.runtime
+            .statuses()
+            .into_iter()
+            .find(|s| s.id == plus)
+            .unwrap()
+            .display_ready
+    );
+    for value in 0..20 {
+        f.runtime
+            .update_levels(plus, [("output:A".to_owned(), Some(value))].into())
+            .unwrap();
+        f.runtime.tick();
+    }
+    f.ready();
+    assert!(!f.runtime.full_render_pending.contains(&plus));
+    assert!(!f.runtime.guarded_render_pending.contains(&plus));
+}
+#[test]
 #[ignore = "read-only synthetic coordinator cost diagnostic; run explicitly"]
 fn idle_coordinator_diagnostic() {
     let mut f = Fixture::new();

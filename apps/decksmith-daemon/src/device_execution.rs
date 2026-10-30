@@ -110,7 +110,9 @@ pub struct Runtime {
     display_diagnostics: bool,
     dirty: BTreeSet<DeviceId>,
     strip_dirty: BTreeSet<DeviceId>,
-    render_pending: BTreeSet<DeviceId>,
+    guarded_strip_dirty: BTreeSet<DeviceId>,
+    guarded_render_pending: BTreeSet<DeviceId>,
+    full_render_pending: BTreeSet<DeviceId>,
     painted: BTreeMap<DeviceId, DeviceContext>,
     holds: BTreeMap<(DeviceId, ControlAddress), HoldToken>,
     press: u64,
@@ -207,7 +209,9 @@ impl Runtime {
                 == Some(std::ffi::OsStr::new("1")),
             dirty: ids.into_iter().collect(),
             strip_dirty: BTreeSet::new(),
-            render_pending: BTreeSet::new(),
+            guarded_strip_dirty: BTreeSet::new(),
+            guarded_render_pending: BTreeSet::new(),
+            full_render_pending: BTreeSet::new(),
             painted: BTreeMap::new(),
             holds: BTreeMap::new(),
             press: 0,
@@ -428,8 +432,8 @@ impl Runtime {
                 }
                 if !(self.gate_state.0 || self.gate_state.1)
                     && (self.dirty.contains(&s.id)
-                        || self.strip_dirty.contains(&s.id)
-                        || self.render_pending.contains(&s.id))
+                        || self.guarded_strip_dirty.contains(&s.id)
+                        || self.guarded_render_pending.contains(&s.id))
                 {
                     s.display_ready = false;
                 }
@@ -452,7 +456,9 @@ impl Runtime {
         self.gated_painted.remove(&id);
         self.mirror.write().unwrap().entries.remove(&id);
         self.renders.invalidate(id);
-        self.render_pending.remove(&id);
+        self.guarded_render_pending.remove(&id);
+        self.full_render_pending.remove(&id);
+        self.guarded_strip_dirty.remove(&id);
         self.painted.remove(&id);
         self.dirty.insert(id);
         self.actions.invalidate();
@@ -1174,6 +1180,7 @@ impl Runtime {
                         self.dirty.insert(status.id);
                     } else if status.model == decksmith_core::device_model::DeviceModel::Plus {
                         self.strip_dirty.insert(status.id);
+                        self.guarded_strip_dirty.insert(status.id);
                     }
                 }
             }
@@ -1235,7 +1242,10 @@ impl Runtime {
             }
         }
         for reply in self.renders.poll() {
-            self.render_pending.remove(&reply.scope.device.device);
+            let guarded = self
+                .guarded_render_pending
+                .remove(&reply.scope.device.device);
+            self.full_render_pending.remove(&reply.scope.device.device);
             match reply.frame {
                 Ok(device_render::Update::Full(frame)) => {
                     if let Err(e) =
@@ -1257,7 +1267,12 @@ impl Runtime {
                         control: ControlAddress::Touch,
                         ..reply.scope.device
                     };
-                    if let Err(e) = self.controls.paint_touch(context, &bytes) {
+                    let result = if guarded {
+                        self.controls.paint_touch(context, &bytes)
+                    } else {
+                        self.controls.paint_meter(context, &bytes)
+                    };
+                    if let Err(e) = result {
                         feedback.push(Feedback {
                             scope: reply.scope,
                             result: Err(e),
@@ -1286,6 +1301,14 @@ impl Runtime {
                 continue;
             }
             let full = self.dirty.contains(&id) || self.painted.get(&id) != Some(&context);
+            let guarded = full || self.guarded_strip_dirty.contains(&id);
+            // A meter update must never supersede an in-flight page or state render.
+            if !full && self.full_render_pending.contains(&id) {
+                continue;
+            }
+            if !guarded && self.guarded_render_pending.contains(&id) {
+                continue;
+            }
             let mut state = self.touch[&id].clone();
             state.brightness = Some(status.brightness);
             if self
@@ -1301,9 +1324,15 @@ impl Runtime {
                 .is_ok()
             {
                 self.trace_display(id, "render_requested", if full { "full" } else { "touch" });
-                self.render_pending.insert(id);
+                if guarded {
+                    self.guarded_render_pending.insert(id);
+                }
+                if full {
+                    self.full_render_pending.insert(id);
+                }
                 self.dirty.remove(&id);
                 self.strip_dirty.remove(&id);
+                self.guarded_strip_dirty.remove(&id);
             }
         }
         // A reconnect or a completed post-fence drain requests a fresh frame.

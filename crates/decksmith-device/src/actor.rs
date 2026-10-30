@@ -20,7 +20,11 @@ struct State {
     error: Option<DeviceError>,
     stop: bool,
     full_frame: bool,
-    writing: bool,
+    key_count: usize,
+    writing: Option<usize>,
+    full_pending: Vec<bool>,
+    frame_revision: u64,
+    touch_guarded: bool,
     cursor: usize,
     last_read: Instant,
 }
@@ -48,9 +52,12 @@ impl Lease {
         let s = self.0.state.lock().unwrap();
         self.0.alive.load(Ordering::Acquire)
             && s.full_frame
-            && !s.writing
+            && !s.full_pending.iter().any(|pending| *pending)
+            && !s.writing.is_some_and(|slot| slot < s.key_count)
             && s.brightness.is_none()
-            && s.desired == s.sent
+            && s.writing != Some(usize::MAX)
+            && !s.touch_guarded
+            && s.desired[..s.key_count] == s.sent[..s.key_count]
     }
 }
 pub struct Device {
@@ -112,7 +119,26 @@ impl DeckDevice for Device {
         if rgb.len() != surface.rgb_bytes() {
             return Err(DeviceError::InvalidTouchImage);
         }
-        self.state()?.desired[usize::from(self.descriptor.key_count())] = Some(Arc::from(rgb));
+        let mut s = self.state()?;
+        let slot = usize::from(self.descriptor.key_count());
+        s.desired[slot] = Some(Arc::from(rgb));
+        s.touch_guarded = s.desired[slot] != s.sent[slot] || s.writing == Some(slot);
+        drop(s);
+        self.shared.wake.notify_one();
+        Ok(())
+    }
+    fn set_meter_image(&mut self, rgb: &[u8]) -> Result<(), DeviceError> {
+        let surface = self
+            .descriptor
+            .capabilities()
+            .touch
+            .ok_or(DeviceError::InvalidTouchImage)?;
+        if rgb.len() != surface.rgb_bytes() {
+            return Err(DeviceError::InvalidTouchImage);
+        }
+        let mut s = self.state()?;
+        s.desired[usize::from(self.descriptor.key_count())] = Some(Arc::from(rgb));
+        drop(s);
         self.shared.wake.notify_one();
         Ok(())
     }
@@ -135,7 +161,17 @@ impl DeckDevice for Device {
             frames.push(Some(Arc::from(touch)))
         }
         let mut s = self.state()?;
+        s.frame_revision = s
+            .frame_revision
+            .checked_add(1)
+            .ok_or(DeviceError::Transport)?;
+        s.full_pending = frames
+            .iter()
+            .enumerate()
+            .map(|(i, frame)| *frame != s.sent[i] || s.writing == Some(i))
+            .collect();
         s.desired = frames;
+        s.touch_guarded = false;
         s.full_frame = true;
         drop(s);
         self.shared.wake.notify_one();
@@ -172,6 +208,8 @@ impl DeckDevice for Device {
         s.desired.fill(None);
         s.sent.fill(None);
         s.full_frame = false;
+        s.full_pending.fill(false);
+        s.touch_guarded = false;
         // Keep queued edges for the manager's held-control drain. Only an actual
         // empty adapter read acknowledges this new epoch, not an empty mailbox.
         drop(s);
@@ -214,7 +252,11 @@ impl Pool {
                 error: None,
                 stop: false,
                 full_frame: false,
-                writing: false,
+                key_count: usize::from(descriptor.key_count()),
+                writing: None,
+                full_pending: vec![false; surfaces],
+                frame_revision: 0,
+                touch_guarded: false,
                 cursor: 0,
                 last_read: Instant::now(),
             }),
@@ -371,18 +413,21 @@ fn run(
                 Some(Output::Brightness(b))
             } else {
                 let count = s.desired.len();
-                let found = (0..count)
-                    .map(|n| (s.cursor + n) % count)
-                    .find(|i| s.desired[*i].is_some() && s.desired[*i] != s.sent[*i]);
+                let found = (0..count).map(|n| (s.cursor + n) % count).find(|i| {
+                    s.desired[*i].is_some() && (s.desired[*i] != s.sent[*i] || s.full_pending[*i])
+                });
                 found.map(|i| {
                     s.cursor = (i + 1) % count;
                     Output::Image(i, s.desired[i].as_ref().unwrap().clone())
                 })
             };
-            s.writing = out.is_some();
-            out.map(|o| (shared.epoch.load(Ordering::Acquire), o))
+            s.writing = out.as_ref().map(|o| match o {
+                Output::Brightness(_) => usize::MAX,
+                Output::Image(i, _) => *i,
+            });
+            out.map(|o| (shared.epoch.load(Ordering::Acquire), s.frame_revision, o))
         };
-        if let Some((epoch, output)) = output {
+        if let Some((epoch, revision, output)) = output {
             // A superseding fence can cancel selected work, but not an issued
             // USB call. Completion is never credited to a later generation.
             if shared.epoch.load(Ordering::Acquire) == epoch && shared.alive.load(Ordering::Acquire)
@@ -404,14 +449,22 @@ fn run(
                 let mut s = shared.state.lock().unwrap();
                 if shared.epoch.load(Ordering::Acquire) == epoch {
                     if let Output::Image(i, bytes) = output {
-                        s.sent[i] = Some(bytes)
+                        s.sent[i] = Some(bytes.clone());
+                        if revision == s.frame_revision {
+                            s.full_pending[i] = false;
+                        }
+                        if i == usize::from(descriptor.key_count())
+                            && s.desired[i].as_ref() == Some(&bytes)
+                        {
+                            s.touch_guarded = false;
+                        }
                     }
                 } else {
                     s.sent.fill(None)
                 }
-                s.writing = false;
+                s.writing = None;
             } else {
-                shared.state.lock().unwrap().writing = false;
+                shared.state.lock().unwrap().writing = None;
             }
         } else {
             let s = shared.state.lock().unwrap();

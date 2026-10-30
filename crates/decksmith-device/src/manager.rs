@@ -619,6 +619,18 @@ impl DeviceManager {
         Ok(())
     }
     pub fn write_touch(&mut self, context: &DeviceContext, bytes: &[u8]) -> Result<()> {
+        self.write_touch_inner(context, bytes, false)
+    }
+    /// Meter-only frames do not alter the current page or control assignment.
+    pub fn write_meter(&mut self, context: &DeviceContext, bytes: &[u8]) -> Result<()> {
+        self.write_touch_inner(context, bytes, true)
+    }
+    fn write_touch_inner(
+        &mut self,
+        context: &DeviceContext,
+        bytes: &[u8],
+        meter: bool,
+    ) -> Result<()> {
         if !self.current(context) {
             return Err("stale_device_context");
         }
@@ -633,12 +645,13 @@ impl DeviceManager {
         if bytes.len() != surface.rgb_bytes() {
             return Err("invalid_touch_image");
         }
-        if let Err(error) = s
-            .device
-            .as_mut()
-            .ok_or("device_not_ready")?
-            .set_touch_image(bytes)
-        {
+        let device = s.device.as_mut().ok_or("device_not_ready")?;
+        let result = if meter {
+            device.set_meter_image(bytes)
+        } else {
+            device.set_touch_image(bytes)
+        };
+        if let Err(error) = result {
             s.failed(error);
             return Err("device_write_failed");
         }
