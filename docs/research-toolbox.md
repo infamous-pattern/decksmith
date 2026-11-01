@@ -621,6 +621,25 @@ license, permissions and resource use, then test it in isolation. No server,
 automatic MCP configuration or Decksmith integration is enabled by listing it
 here. Keep the catalog outside runtime and installer requirements.
 
+## Uiverse Galaxy — V2 visual reference
+
+[Galaxy](https://github.com/uiverse-io/galaxy) is a collection of community-made
+HTML and CSS interface elements. Consult it during V2 design for visual ideas
+for audio and system-monitor controls, device connection and recovery states,
+and clear editor selection and action feedback. Select examples for a specific
+design question; listing the collection here does not adopt its components.
+
+Decksmith's editor uses GTK4/libadwaita, so web examples require native design
+adaptation. Favor legibility, keyboard and screen-reader access, reduced motion,
+and consistency with desktop settings over decorative effects. Review each
+chosen example's behavior and accessibility before considering it. Galaxy is
+an optional visual reference, not a runtime, installer, or build dependency.
+
+The repository states that its elements use the MIT license. If code is reused,
+retain the applicable copyright and permission notice and verify provenance;
+crediting the creator is encouraged. No component has been selected or
+integrated. Return to this reference after the current reliability work.
+
 ## Agents Towards Production — educational reference
 
 Consult the tracing, evaluation, secure tool-calling and failure-recovery tutorials
