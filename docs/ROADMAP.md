@@ -204,6 +204,25 @@ These findings do not establish the cause of the earlier USB/Wave incident or
 replace physical, accessibility, resource or release acceptance. General UI
 features and catalog browsing retain their existing V2/deferred ordering.
 
+## Interface skills and Keysmith reviews — planned November 1
+
+The maintainer approved both [research references](research-toolbox.md#interface-skills-and-keysmith--references-adopted-reviews-planned)
+and bounded reviews **after physical acceptance and explicit active-work
+resumption**. Current testing remains paused; this plan does not authorize
+installation, desktop changes, a product dependency or release promotion.
+
+Review one editor assignment-and-save flow with one applicable Jakub Krehel
+interface skill, adapting web-oriented guidance to native GTK accessibility.
+Compare useful findings, false positives and review effort with the existing
+native approach before deciding whether to adopt it.
+
+Separately compare one key-artwork workflow with Viaduct's Keysmith: icon
+discovery, background and label composition, device-size preview, and applying
+artwork without disturbing the assignment. Verify the live app and asset rights
+before drawing conclusions or proposing reuse. Record what Decksmith already
+does and any evidence-backed improvement; no Keysmith capability beyond the
+maker's description has yet been verified.
+
 ## Hallmark design-review trial — planned October 28
 
 The maintainer approved [Hallmark as an optional toolbox reference](research-toolbox.md#hallmark--reference-adopted-post-acceptance-trial-planned-october-28)

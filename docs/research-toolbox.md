@@ -621,6 +621,38 @@ license, permissions and resource use, then test it in isolation. No server,
 automatic MCP configuration or Decksmith integration is enabled by listing it
 here. Keep the catalog outside runtime and installer requirements.
 
+## Interface skills and Keysmith — references adopted; reviews planned
+
+[Jakub Krehel's interface skills](https://github.com/jakubkrehel/skills) offer
+optional review guidance for accessibility, layout, interface writing and other
+design concerns. Their examples include web-specific techniques; adapt applicable
+questions to Decksmith's GTK4/libadwaita editor, keyboard use and Orca rather
+than assuming browser checks prove native behavior. No skill has been installed
+or run for this assessment, and the collection adds no product dependency.
+
+After physical acceptance and explicit active-work resumption, review one editor
+assignment-and-save flow against a single relevant skill. Compare its findings,
+false positives and effort with the project's existing native review guidance;
+retain it only if it adds useful evidence. Inspect the selected skill and its
+requirements before any isolated trial. Do not install hooks or change agent
+configuration as part of this planned review.
+
+[Viaduct's Keysmith](https://keysmith.viaduct.io/) is described by its maker as
+a browser-based Stream Deck icon studio with background, icon and label choices
+and PNG or clipboard output ([product description](https://viaduct.io/streamdeck)).
+The app itself was inaccessible during the initial assessment, so its actual
+workflow, export format and asset terms remain unverified. Decksmith already
+supports custom artwork, labels, colors and fonts; do not assume a missing
+feature based on the product description.
+
+After physical acceptance and explicit active-work resumption, compare one
+representative key-design workflow with Decksmith: finding an icon, composing a
+background and label, previewing at device size, and applying the result while
+preserving its existing assignment. Record verified differences and accessibility
+considerations. Check icon provenance and licenses before proposing asset reuse;
+do not copy assets or introduce a web dependency as a consequence of this review.
+No Keysmith component or asset has been incorporated.
+
 ## Uiverse Galaxy — V2 visual reference
 
 [Galaxy](https://github.com/uiverse-io/galaxy) is a collection of community-made
