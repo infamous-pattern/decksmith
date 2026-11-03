@@ -672,6 +672,32 @@ retain the applicable copyright and permission notice and verify provenance;
 crediting the creator is encouraged. No component has been selected or
 integrated. Return to this reference after the current reliability work.
 
+## Awesome AI Apps — optional development references
+
+[Awesome AI Apps](https://github.com/Arindam200/awesome-ai-apps) collects
+independent examples of AI agents, retrieval and workflows. The maintainer
+approved it as an optional development reference, not as a Decksmith feature or
+runtime, installer, release or CI dependency.
+
+Consult the [Coding Harness Starter](https://github.com/Arindam200/awesome-ai-apps/tree/main/starter_ai_agents/coding_harness_starter)
+when a concrete AI-server development workflow needs review of bounded file
+access, complete change previews, explicit approval and fixed checks. It is a
+teaching example, not an operating-system sandbox; approved changes can remain
+after a failed test. Compare its ideas with the existing workflow rather than
+replacing established controls.
+
+Consult [Trustworthy RAG](https://github.com/Arindam200/awesome-ai-apps/tree/main/rag_apps/trustworthy_rag)
+when considering evidence-linked documentation answers. Its example uses a
+hosted provider and model-generated claim assessments; a score or citation does
+not prove a claim. Check the underlying sources and compare any proposed
+retrieval workflow with existing XERJ and planned RepoWise work before adoption.
+
+Both examples were assessed from documentation, not executed or audited. Review
+the selected version, dependencies, data handling, permissions and license before
+any separate isolated trial. Do not send project data to a hosted service or
+install these examples merely by listing them here. Use the references when a
+specific need arises after the current testing pause is lifted.
+
 ## Agents Towards Production — educational reference
 
 Consult the tracing, evaluation, secure tool-calling and failure-recovery tutorials
