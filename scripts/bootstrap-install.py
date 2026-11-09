@@ -46,8 +46,8 @@ RELEASES = {
     },
 }
 
-# Arch has no signed bundle: build this fork's main branch on the machine.
-SOURCE_REPOSITORY = 'https://github.com/zackkitzmiller/decksmith.git'
+# Arch has no signed bundle: build the main branch on the machine.
+SOURCE_REPOSITORY = 'https://github.com/infamous-pattern/decksmith.git'
 # Command -> package, skipped when the command exists (e.g. rustup's cargo).
 BUILD_TOOLS = {'git': 'git', 'cargo': 'rust', 'cc': 'gcc', 'pkgconf': 'pkgconf',
                'strip': 'binutils'}
@@ -207,7 +207,7 @@ def source_packages(release):
 
 
 def source_install(packages, *, no_deps=False, stage_root=None):
-    """Clone, build and install this fork; the per-user installer never activates."""
+    """Clone, build and install main; the per-user installer never activates."""
     print('Decksmith: building ' + SOURCE_REPOSITORY + ' (main) for ' + ARCH['label'], flush=True)
     print('Saved data and startup preferences are preserved; background controls will not restart.',
           flush=True)
