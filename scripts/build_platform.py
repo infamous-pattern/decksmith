@@ -7,7 +7,8 @@ def bundle_platform():
         raise ValueError('Decksmith bundles must be built on Linux.')
     release = platform.freedesktop_os_release()
     distribution = release.get('ID', '')
-    version = release.get('VERSION_ID', '')
+    # Rolling releases such as Arch have no VERSION_ID, only BUILD_ID=rolling.
+    version = release.get('VERSION_ID') or release.get('BUILD_ID', '')
     if not distribution or not version:
         raise ValueError('The build environment must identify its distribution and version.')
     names = {'fedora': 'Fedora', 'debian': 'Debian', 'ubuntu': 'Ubuntu'}

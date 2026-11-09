@@ -1,8 +1,11 @@
-import unittest
+import os,unittest
 from unittest.mock import Mock,patch
 from system_controls import Controls,COMMANDS,LABELS
 from system_confirm import confirmed_power
 class SystemControlTests(unittest.TestCase):
+ def setUp(self):
+  env=patch.dict('os.environ');env.start();self.addCleanup(env.stop)
+  os.environ.pop('HYPRLAND_INSTANCE_SIGNATURE',None)
  def test_non_gnome_dnd_never_claims_or_changes_gnome_notification_settings(self):
   c=Controls();c.call=Mock(return_value=(False,));c.setting=Mock()
   self.assertEqual(c.state('dnd'),{'available':False,'active':False,'text':'Unavailable'})
@@ -15,6 +18,25 @@ class SystemControlTests(unittest.TestCase):
   self.assertEqual(c.state('dnd'),{'available':True,'active':False,'text':'Off'})
   with patch('system_controls.Gio.Settings.sync'):c.execute('dnd')
   setting.set_boolean.assert_called_once_with('show-banners',False)
+ @patch.dict('os.environ',{'HYPRLAND_INSTANCE_SIGNATURE':'test'})
+ def test_hyprland_uses_omarchy_and_logind_instead_of_gnome(self):
+  calls=[]
+  def run(*argv):
+   calls.append(argv);return {'isDnd':'off','temperature':'4000'}.get(argv[2] if len(argv)>2 else '','ok')
+  c=Controls();c.call=Mock();c.setting=Mock()
+  with patch('system_controls.run',side_effect=run),patch('system_controls.shutil.which',return_value='/usr/bin/x'),patch('system_controls.Gio.Settings.sync'):
+   self.assertEqual(c.state('dnd'),{'available':True,'active':False,'text':'Off'})
+   self.assertEqual(c.state('night_light'),{'available':True,'active':True,'text':'On'})
+   c.execute('dnd');c.execute('night_light');c.execute('lock')
+  self.assertIn(('omarchy-shell','notifications','setDnd','on'),calls)
+  self.assertIn(('omarchy-toggle-nightlight',),calls)
+  self.assertEqual(c.call.call_args.args[3:5],('org.freedesktop.login1.Session','Lock'))
+  c.setting.assert_not_called()
+ @patch.dict('os.environ',{'HYPRLAND_INSTANCE_SIGNATURE':'test'})
+ def test_hyprland_without_notification_daemon_is_unavailable(self):
+  with patch('system_controls.run',return_value=None),patch('system_controls.shutil.which',return_value=None):
+   self.assertFalse(Controls().state('dnd')['available'])
+   self.assertFalse(Controls().state('night_light')['available'])
  def test_unknown_command_rejected_before_bus_access(self):
   c=Controls();c.call=Mock()
   with self.assertRaises(ValueError):c.execute('run_shell')

@@ -17,6 +17,7 @@ if ! command -v python3 >/dev/null 2>&1; then
     case "$(. /etc/os-release; echo "${ID:-}")" in
         fedora) echo 'Install it with sudo dnf install python3, then retry.' >&2;;
         debian|ubuntu|pop) echo 'Install it with sudo apt-get install python3, then retry.' >&2;;
+        arch|omarchy) echo 'Install it with sudo pacman -S python, then retry.' >&2;;
     esac
     exit 1
 fi

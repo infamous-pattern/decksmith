@@ -1,9 +1,14 @@
-"""Allowlisted GNOME system controls. Persistent JSON-lines worker; no shell execution."""
-import json,sys,os
+"""Allowlisted GNOME/Hyprland system controls. Persistent JSON-lines worker; no shell execution."""
+import json,sys,os,shutil,subprocess
 from pathlib import Path
 from gi.repository import Gio,GLib
 COMMANDS={'lock','suspend','reboot','shutdown','dnd','night_light','bluetooth','power_cycle','power_saver','power_balanced','power_performance'}
 LABELS={'lock':'Lock Desktop','suspend':'Suspend','reboot':'Reboot','shutdown':'Shutdown','dnd':'Do Not Disturb','night_light':'Night Light','bluetooth':'Bluetooth','power_cycle':'Power Mode','power_saver':'Power Saver','power_balanced':'Balanced','power_performance':'Performance'}
+def hyprland():return bool(os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'))
+def run(*argv):
+    if not shutil.which(argv[0]):return None
+    r=subprocess.run(argv,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=5)
+    return r.stdout.strip() if r.returncode==0 else None
 class Controls:
     def __init__(self,authorize=None):self.buses={};self.settings={};self.authorize=authorize or (lambda:None);self.guarded=authorize is not None
     def call(self,system,name,path,iface,method,args=None,timeout=1500):
@@ -25,6 +30,7 @@ class Controls:
         return self.prop(True,name,path,name,'Profiles'),self.prop(True,name,path,name,'ActiveProfile')
     def state(self,command):
         if command not in COMMANDS:raise ValueError('Unsupported system action')
+        if hyprland() and command in ('dnd','night_light','lock'):return self.hypr_state(command)
         if command=='dnd':
             if not self.call(False,'org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','NameHasOwner',GLib.Variant('(s)',('org.gnome.Shell',)))[0]:
                 return dict(available=False,active=False,text='Unavailable')
@@ -53,7 +59,8 @@ class Controls:
         if command not in COMMANDS:raise ValueError('Unsupported system action')
         state=self.state(command)
         if not state['available']:raise ValueError('Control unavailable')
-        if command=='lock':self.call(False,'org.gnome.ScreenSaver','/org/gnome/ScreenSaver','org.gnome.ScreenSaver','Lock')
+        if hyprland() and command in ('dnd','night_light','lock'):self.hypr_execute(command,state['active'])
+        elif command=='lock':self.call(False,'org.gnome.ScreenSaver','/org/gnome/ScreenSaver','org.gnome.ScreenSaver','Lock')
         elif command=='suspend':self.call(True,'org.freedesktop.login1','/org/freedesktop/login1','org.freedesktop.login1.Manager','Suspend',GLib.Variant('(b)',(True,)))
         elif command in ('reboot','shutdown'):
             import subprocess
@@ -72,6 +79,34 @@ class Controls:
             if desired not in names:raise ValueError('Profile unavailable')
             self.put(True,'net.hadess.PowerProfiles','/net/hadess/PowerProfiles','net.hadess.PowerProfiles','ActiveProfile',GLib.Variant('s',desired))
         Gio.Settings.sync()
+    def hypr_state(self,command):
+        on=lambda active:dict(available=True,active=active,text='On' if active else 'Off')
+        if command=='lock':return dict(available=True,active=False,text='Ready')
+        if command=='dnd':
+            value=run('omarchy-shell','notifications','isDnd')
+            if value in ('on','off'):return on(value=='on')
+            modes=run('makoctl','mode')
+            if modes is not None:return on('do-not-disturb' in modes.split())
+            return dict(available=False,active=False,text='Unavailable')
+        temp=run('hyprctl','hyprsunset','temperature')
+        if temp and temp.split()[0].isdigit():return on(int(temp.split()[0])<6000)
+        # Omarchy starts hyprsunset on demand, so a stopped one just means off.
+        if shutil.which('omarchy-toggle-nightlight'):return on(False)
+        return dict(available=False,active=False,text='Unavailable')
+    def hypr_execute(self,command,active):
+        if command=='lock':
+            # logind asks hypridle to run its lock_cmd (hyprlock, omarchy-system-lock, ...).
+            return self.call(True,'org.freedesktop.login1','/org/freedesktop/login1/session/auto','org.freedesktop.login1.Session','Lock')
+        self.authorize()
+        if command=='dnd' and shutil.which('omarchy-shell'):
+            ok=run('omarchy-shell','notifications','setDnd','off' if active else 'on')
+            run('omarchy-shell','-q','omarchy.indicators','refresh')
+        elif command=='dnd':ok=run('makoctl','mode','-t','do-not-disturb')
+        elif shutil.which('omarchy-toggle-nightlight'):ok=run('omarchy-toggle-nightlight')
+        else:
+            ok=run('hyprctl','hyprsunset','temperature','6500' if active else '4000')
+            if active and ok is not None:ok=run('hyprctl','hyprsunset','identity')
+        if ok is None:raise ValueError('Control unavailable')
     def night_light(self,on):
         s=self.setting('org.gnome.settings-daemon.plugins.color')
         keys=('night-light-schedule-automatic','night-light-schedule-from','night-light-schedule-to')
