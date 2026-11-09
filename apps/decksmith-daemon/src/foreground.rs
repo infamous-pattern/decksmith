@@ -94,10 +94,11 @@ fn hyprland(weak: std::sync::Weak<Mutex<Snapshot>>, dir: PathBuf) {
             let class = active_class(&dir).unwrap_or_default();
             let mut report = |class: &str| match weak.upgrade() {
                 Some(inner) => {
-                    let id = ids
-                        .entry(class.to_owned())
-                        .or_insert_with(|| desktop_id(class, &application_dirs()))
-                        .clone();
+                    let id = ids.entry(class.to_owned()).or_insert_with(|| {
+                        let dirs = application_dirs();
+                        desktop_id(class, &dirs)
+                    });
+                    let id = id.clone();
                     let _ = Foreground(inner).report(&id);
                     true
                 }
@@ -112,16 +113,14 @@ fn hyprland(weak: std::sync::Weak<Mutex<Snapshot>>, dir: PathBuf) {
                 match reader.read_line(&mut line) {
                     Ok(0) => break,
                     Ok(_) => {
-                        if let Some(event) = line.trim_end().strip_prefix("activewindow>>") {
-                            let class = event.split_once(',').map_or(event, |(c, _)| c);
-                            if !report(class) {
-                                return;
-                            }
+                        let class = event_class(&line);
+                        if class.is_some_and(|c| !report(c)) {
+                            return;
                         }
                         line.clear();
                     }
                     // Timeouts keep partial lines and only check for shutdown.
-                    Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                    Err(e) if timed_out(&e) => {
                         if weak.strong_count() == 0 {
                             return;
                         }
@@ -137,6 +136,14 @@ fn hyprland(weak: std::sync::Weak<Mutex<Snapshot>>, dir: PathBuf) {
         std::thread::sleep(Duration::from_secs(2));
     }
 }
+/// `activewindow>>CLASS,TITLE` -> CLASS.
+fn event_class(line: &str) -> Option<&str> {
+    let event = line.trim_end().strip_prefix("activewindow>>")?;
+    Some(event.split_once(',').map_or(event, |(class, _)| class))
+}
+fn timed_out(e: &std::io::Error) -> bool {
+    matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut)
+}
 fn active_class(dir: &Path) -> Option<String> {
     let mut s = UnixStream::connect(dir.join(".socket.sock")).ok()?;
     s.set_read_timeout(Some(Duration::from_secs(1))).ok()?;
@@ -149,7 +156,10 @@ fn active_class(dir: &Path) -> Option<String> {
 fn application_dirs() -> Vec<PathBuf> {
     let home = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")));
+        .or_else(|| {
+            let home = PathBuf::from(std::env::var_os("HOME")?);
+            Some(home.join(".local/share"))
+        });
     let system = std::env::var("XDG_DATA_DIRS")
         .ok()
         .filter(|d| !d.is_empty())
@@ -160,14 +170,16 @@ fn application_dirs() -> Vec<PathBuf> {
         .collect()
 }
 /// Maps a window class to its desktop entry: `<class>.desktop`, then
-/// StartupWMClass. shortcut: top-level entries only, add subdirectory ids if needed.
+/// StartupWMClass. shortcut: top-level entries only, add subdirectory
+/// ids if needed.
 fn desktop_id(class: &str, dirs: &[PathBuf]) -> String {
     if class.is_empty() {
         return String::new();
     }
     for name in [class.to_owned(), class.to_lowercase()] {
         let id = format!("{name}.desktop");
-        if crate::launch::valid_application(&id) && dirs.iter().any(|d| d.join(&id).is_file()) {
+        let installed = dirs.iter().any(|d| d.join(&id).is_file());
+        if crate::launch::valid_application(&id) && installed {
             return id;
         }
     }
@@ -197,11 +209,20 @@ fn desktop_id(class: &str, dirs: &[PathBuf]) -> String {
 mod tests {
     use super::*;
     #[test]
+    fn hyprland_event_line_yields_window_class() {
+        let line = "activewindow>>google-chrome,Inbox, mail\n";
+        assert_eq!(event_class(line), Some("google-chrome"));
+        assert_eq!(event_class("activewindow>>,\n"), Some(""));
+        assert_eq!(event_class("workspace>>2\n"), None);
+    }
+    #[test]
     fn hyprland_class_maps_to_desktop_entry() {
-        let root = std::env::temp_dir().join(format!("decksmith-apps-{}", std::process::id()));
+        let name = format!("decksmith-apps-{}", std::process::id());
+        let root = std::env::temp_dir().join(name);
         let apps = root.join("applications");
         std::fs::create_dir_all(&apps).unwrap();
-        std::fs::write(apps.join("brave-browser.desktop"), "[Desktop Entry]\n").unwrap();
+        let entry = "[Desktop Entry]\n";
+        std::fs::write(apps.join("brave-browser.desktop"), entry).unwrap();
         std::fs::write(
             apps.join("code.desktop"),
             "[Desktop Entry]\nStartupWMClass=Code\n",
