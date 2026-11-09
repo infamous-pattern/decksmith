@@ -101,7 +101,7 @@ Download and run as your normal desktop user:
 
 ```sh
 curl --fail --location --proto '=https' --proto-redir '=https' \
-  https://raw.githubusercontent.com/zackkitzmiller/decksmith/main/scripts/install.sh \
+  https://raw.githubusercontent.com/infamous-pattern/decksmith/main/scripts/install.sh \
   --output decksmith-install.sh && sh decksmith-install.sh
 ```
 
