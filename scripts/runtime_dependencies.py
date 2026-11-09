@@ -14,6 +14,13 @@ DEBIAN = {
                 'python3-gi', 'python3-gi-cairo', 'python3-pil', 'python3-cairo'),
     'libpulse.so.0': ('libpulse0',), 'libudev.so.1': ('libudev1',),
 }
+ARCH = {
+    'python3': ('python',), 'systemctl': ('systemd',), 'gdbus': ('glib2',),
+    'pactl': ('libpulse',), 'wpctl': ('wireplumber',),
+    'artwork': ('gtk4', 'libadwaita', 'python-gobject', 'python-pillow',
+                'python-cairo', 'librsvg'),
+    'libpulse.so.0': ('libpulse',), 'libudev.so.1': ('systemd-libs',),
+}
 
 
 def package_groups(release):
@@ -22,6 +29,8 @@ def package_groups(release):
         return DEBIAN
     if 'fedora' in ids:
         return FEDORA
+    if 'arch' in ids:
+        return ARCH
     return {}
 
 

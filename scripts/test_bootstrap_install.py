@@ -229,6 +229,38 @@ print('PASS terminal input',flush=True)
             self.assertNotIn('activate', kwargs)
             self.assertFalse(args[0].exists(), 'Temporary downloads were not cleaned up')
 
+    def test_arch_family_builds_fork_from_source_with_pacman(self):
+        release = {'ID': 'omarchy', 'ID_LIKE': 'arch', 'VERSION_ID': '4.0.0'}
+        self.assertIs(BOOT.select_release(release), BOOT.ARCH)
+        self.assertIs(BOOT.select_release({'ID': 'arch', 'BUILD_ID': 'rolling'}), BOOT.ARCH)
+        with patch.object(BOOT.subprocess, 'run', side_effect=[subprocess.CompletedProcess([], 0),
+                                                               subprocess.CompletedProcess([], 1)]):
+            self.assertEqual(BOOT.missing_packages(('gtk4', 'librsvg'), 'pacman'), ['librsvg'])
+        with patch.object(BOOT, 'missing_packages', return_value=['gtk4']):
+            with self.assertRaisesRegex(ValueError, 'sudo pacman -S --needed gtk4'):
+                BOOT.install_dependencies(('gtk4',), BOOT.ARCH, no_deps=True)
+        with patch.object(BOOT.shutil, 'which', return_value=None):
+            self.assertIn('rust', BOOT.source_packages(release))
+        with patch.object(BOOT.shutil, 'which', return_value='/usr/bin/cargo'):
+            self.assertNotIn('rust', BOOT.source_packages(release))
+
+    def test_arch_install_clones_builds_and_installs_without_activation(self):
+        def run(command, **kwargs):
+            if 'build-bundle.py' in ' '.join(command):
+                output = Path(command[command.index('--output') + 1]); output.mkdir()
+                (output / 'decksmith-1.5.1-abc.tar.gz').touch()
+            return subprocess.CompletedProcess(command, 0)
+        with patch.object(BOOT, 'install_dependencies'), \
+             patch.object(BOOT.subprocess, 'run', side_effect=run) as calls, \
+             patch('sys.stdout', new_callable=io.StringIO):
+            BOOT.source_install(('gtk4',), stage_root='/tmp/test-stage')
+        commands = [c.args[0] for c in calls.call_args_list]
+        self.assertEqual(commands[0][:2], ['git', 'clone'])
+        self.assertIn(BOOT.SOURCE_REPOSITORY, commands[0])
+        self.assertEqual(commands[2][-2], 'install')
+        self.assertIn('--stage-root', commands[2])
+        self.assertNotIn('--activate', commands[2])
+
     def test_dependency_hints_are_shared_and_unknown_distro_not_fedora(self):
         self.assertIn('python3-gi', runtime_packages({'ID': 'debian'}))
         self.assertIn('python3-gobject', runtime_packages({'ID': 'fedora'}))

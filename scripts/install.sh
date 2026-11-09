@@ -10,6 +10,7 @@ if ! command -v python3 >/dev/null 2>&1; then
     case "$(. /etc/os-release; echo "${ID:-}")" in
         fedora) echo 'Install it with sudo dnf install python3, then retry.' >&2;;
         debian|ubuntu|pop) echo 'Install it with sudo apt-get install python3, then retry.' >&2;;
+        arch|omarchy) echo 'Install it with sudo pacman -S python, then retry.' >&2;;
     esac
     exit 1
 fi
@@ -35,6 +36,13 @@ DEBIAN = {
                 'python3-gi', 'python3-gi-cairo', 'python3-pil', 'python3-cairo'),
     'libpulse.so.0': ('libpulse0',), 'libudev.so.1': ('libudev1',),
 }
+ARCH = {
+    'python3': ('python',), 'systemctl': ('systemd',), 'gdbus': ('glib2',),
+    'pactl': ('libpulse',), 'wpctl': ('wireplumber',),
+    'artwork': ('gtk4', 'libadwaita', 'python-gobject', 'python-pillow',
+                'python-cairo', 'librsvg'),
+    'libpulse.so.0': ('libpulse',), 'libudev.so.1': ('systemd-libs',),
+}
 
 
 def package_groups(release):
@@ -43,6 +51,8 @@ def package_groups(release):
         return DEBIAN
     if 'fedora' in ids:
         return FEDORA
+    if 'arch' in ids:
+        return ARCH
     return {}
 
 
@@ -289,6 +299,14 @@ RELEASES = {
     },
 }
 
+# Arch has no signed bundle: build this fork's main branch on the machine.
+SOURCE_REPOSITORY = 'https://github.com/zackkitzmiller/decksmith.git'
+# Command -> package, skipped when the command exists (e.g. rustup's cargo).
+BUILD_TOOLS = {'git': 'git', 'cargo': 'rust', 'cc': 'gcc', 'pkgconf': 'pkgconf',
+               'strip': 'binutils'}
+ARCH = {'target': 'arch', 'label': 'Arch Linux (source build)', 'version': 'main',
+        'source': SOURCE_REPOSITORY, 'manager': 'pacman', 'experimental': False}
+
 # Upstream's immutable v2.102.0 release fixes workflow identity verification.
 # Digest taken from cli/cli's official gh_2.102.0_checksums.txt, reviewed Oct 11.
 GH_VERSION = '2.102.0'
@@ -349,7 +367,13 @@ def verification_cli(directory, *, allow_portable=False):
     return str(executable)
 
 
+def arch_family(release):
+    return 'arch' in {release.get('ID', ''), *release.get('ID_LIKE', '').split()}
+
+
 def select_release(release, *, experimental=False):
+    if arch_family(release):
+        return ARCH
     key = (release.get('ID'), release.get('VERSION_ID'))
     if key not in RELEASES:
         raise ValueError('No verified download is configured for this OS/version. '
@@ -373,9 +397,10 @@ def missing_packages(packages, manager):
     missing = []
     for package in packages:
         command = (['rpm', '-q', package] if manager == 'dnf' else
+                   ['pacman', '-Q', package] if manager == 'pacman' else
                    ['dpkg-query', '-W', '-f=${Status}', package])
         result = subprocess.run(command, capture_output=True, text=True, timeout=15)
-        if result.returncode or (manager != 'dnf' and result.stdout.strip() != 'install ok installed'):
+        if result.returncode or (manager == 'apt-get' and result.stdout.strip() != 'install ok installed'):
             missing.append(package)
     return missing
 
@@ -384,7 +409,8 @@ def install_dependencies(packages, selected, *, no_deps=False):
     missing = missing_packages(packages, selected['manager'])
     if not missing:
         return
-    command = ['sudo', selected['manager'], 'install', *missing]
+    command = (['sudo', 'pacman', '-S', '--needed', *missing] if selected['manager'] == 'pacman'
+               else ['sudo', selected['manager'], 'install', *missing])
     print('Missing dependencies: ' + ', '.join(missing), flush=True)
     if no_deps:
         raise ValueError('Install these packages from your OS repositories, then retry: '
@@ -428,6 +454,32 @@ def download(url, destination, limit):
             outgoing.write(block)
 
 
+def source_packages(release):
+    tools = [package for command, package in BUILD_TOOLS.items() if not shutil.which(command)]
+    return tuple(dict.fromkeys((*runtime_packages(release), *tools)))
+
+
+def source_install(packages, *, no_deps=False, stage_root=None):
+    """Clone, build and install this fork; the per-user installer never activates."""
+    print('Decksmith: building ' + SOURCE_REPOSITORY + ' (main) for ' + ARCH['label'], flush=True)
+    print('Saved data and startup preferences are preserved; background controls will not restart.',
+          flush=True)
+    install_dependencies(packages, ARCH, no_deps=no_deps)
+    with tempfile.TemporaryDirectory(prefix='decksmith-source-') as temporary:
+        checkout, output = Path(temporary) / 'decksmith', Path(temporary) / 'dist'
+        subprocess.run(['git', 'clone', '--depth', '1', SOURCE_REPOSITORY, str(checkout)], check=True)
+        subprocess.run([sys.executable, '-B', str(checkout / 'scripts/build-bundle.py'),
+                        '--output', str(output)], check=True)
+        bundle = next(output.glob('decksmith-*.tar.gz'))
+        command = [sys.executable, '-B', str(output / 'decksmith-install.py')]
+        if stage_root is not None:
+            command += ['--stage-root', str(Path(stage_root).absolute())]
+        subprocess.run([*command, 'install', str(bundle)], check=True, timeout=120)
+    print('Open Decksmith from your application menu. Close other Stream Deck controllers, '
+          'then start Background controls when ready. For USB permissions, see the installation guide.')
+    return {'installed': True, 'staged': stage_root is not None, 'source': SOURCE_REPOSITORY}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--experimental', action='store_true', help='Opt into the matching Debian/Ubuntu/COSMIC preview')
@@ -447,6 +499,18 @@ def main(argv=None):
     selected = select_release(release, experimental=args.experimental)
     if args.verify_only and args.stage_root:
         raise ValueError('--stage-root cannot be combined with --verify-only')
+    if selected is ARCH:
+        packages = source_packages(release)
+        if args.check:
+            report = {'platform': ARCH['label'], 'source': SOURCE_REPOSITORY,
+                      'dependencies': list(packages),
+                      'missing_dependencies': missing_packages(packages, 'pacman'),
+                      'startup': 'unchanged; controls not started'}
+            print(json.dumps(report, indent=2))
+            return report
+        if args.verify_only:
+            raise ValueError('Arch builds from source; there is no signed download to verify.')
+        return source_install(packages, no_deps=args.no_deps, stage_root=args.stage_root)
     verifier = verifier_module()
     config = verifier.target_config(selected['target'])
     packages = runtime_packages(release)

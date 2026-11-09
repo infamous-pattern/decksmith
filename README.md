@@ -101,9 +101,13 @@ Download and run as your normal desktop user:
 
 ```sh
 curl --fail --location --proto '=https' --proto-redir '=https' \
-  https://raw.githubusercontent.com/infamous-pattern/decksmith/main/scripts/install.sh \
+  https://raw.githubusercontent.com/zackkitzmiller/decksmith/main/scripts/install.sh \
   --output decksmith-install.sh && sh decksmith-install.sh
 ```
+
+On Arch Linux and Arch-based systems like Omarchy, the same command installs
+missing packages with pacman, then builds this fork's `main` branch from source
+and installs it. There's no signed Arch download, so the build happens locally.
 
 On Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, opt into the experimental package:
 
