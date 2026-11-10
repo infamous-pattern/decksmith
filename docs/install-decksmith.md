@@ -13,13 +13,16 @@ If you already have a reviewed source checkout, run the same helper directly:
 sh scripts/install.sh
 ```
 
-On Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, read the corresponding
+On Fedora 45, Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, read the corresponding
 [preview limits](../README.md#downloads-and-compatibility) and add `--experimental`.
 
-Fedora 44 selects `v1.5.1`. Each experimental OS selects its own published preview
-and archive. Fedora 45 Beta, openSUSE, other versions and other architectures are
-not automatically routed to a different OS's download. The helper stops and
-explains the limitation.
+Fedora 44 selects `v1.5.1`. On Fedora 45 the experimental option selects the
+same signed Fedora 44 bundle. A later local 1.5.2 build has been used on the
+maintainer's Fedora 45 desktop with both supported Stream Deck models, audio,
+application switching and lock/unlock. The published v1.5.1 bundle has not had
+equivalent physical-session testing on Fedora 45. Debian, Ubuntu and COSMIC
+select their own published previews. Other versions and architectures are not
+automatically routed to a download.
 
 ## Downloadable shortcut
 

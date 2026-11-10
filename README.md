@@ -65,13 +65,17 @@ needed to run them.
 | Debian 13, GNOME/Wayland | Experimental native preview | [Debian preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-debian-preview.1) · [Guide and limits](docs/debian-preview-installation.md) |
 | Ubuntu 26.04, GNOME/Wayland | Experimental native preview | [Ubuntu preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1) · [Guide and limits](docs/ubuntu-preview-installation.md) |
 | Pop!_OS 24.04, COSMIC | Experimental preview; Ubuntu 24.04 library baseline | [COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1) · [Guide and limits](docs/popos-preview-installation.md) |
-| Fedora Workstation 45 Beta | Test environment | [Testing scope](docs/v1-release-scope.md); no separately supported release |
+| Fedora Workstation 45, GNOME/Wayland | Experimental installer using the Fedora 44 v1.5.1 bundle | Use `--experimental` with the [simplified installer](docs/install-decksmith.md) |
 | openSUSE Tumbleweed, GNOME/Wayland | Development test environment | [OS testing plan](docs/ROADMAP.md#os-testing-host-policy--october-10); no public package |
 
 [Retained Fedora V1 release](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) · [V1 manual guide](docs/v1-verified-installation.md).
 
-Preview VM checks do not establish physical USB/audio or lifecycle support on
-those platforms. COSMIC does not inherit GNOME-only integrations. Review the
+On Fedora 45, the maintainer reports that a later locally installed 1.5.2 build
+works with both Stream Deck models, audio controls, application switching and
+lock/unlock. The public v1.5.1 bundle is an earlier Fedora 44 build and has not
+received equivalent physical-session testing on Fedora 45. Preview VM checks on
+other platforms do not establish physical USB/audio or lifecycle support. COSMIC
+does not inherit GNOME-only integrations. Review the
 linked limits before installing. Broader supported compatibility remains separate
 from the focused V1.5 multi-device release.
 
@@ -105,7 +109,7 @@ curl --fail --location --proto '=https' --proto-redir '=https' \
   --output decksmith-install.sh && sh decksmith-install.sh
 ```
 
-On Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, opt into the experimental package:
+On Fedora 45, Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, opt into the experimental package:
 
 ```sh
 sh decksmith-install.sh --experimental

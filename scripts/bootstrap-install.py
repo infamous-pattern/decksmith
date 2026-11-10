@@ -29,6 +29,11 @@ RELEASES = {
         'version': 'v1.5.1', 'source': '4891555b388f1806ca0cda909d77af6dbd77a8ee',
         'manager': 'dnf', 'experimental': False,
     },
+    ('fedora', '45'): {
+        'target': 'fedora44', 'label': 'Fedora Workstation 45 GNOME/Wayland (Fedora 44 bundle)',
+        'version': 'v1.5.1', 'source': '4891555b388f1806ca0cda909d77af6dbd77a8ee',
+        'manager': 'dnf', 'experimental': True,
+    },
     ('debian', '13'): {
         'target': 'debian13', 'label': 'Debian 13 GNOME/Wayland',
         'version': 'v1.0.0-debian-preview.1', 'source': 'dee2f2c285041dc19388ed579b90886e4b58341a',
@@ -110,7 +115,7 @@ def select_release(release, *, experimental=False):
     key = (release.get('ID'), release.get('VERSION_ID'))
     if key not in RELEASES:
         raise ValueError('No verified download is configured for this OS/version. '
-                         'See the support table; Fedora 45 and openSUSE are test-only environments.')
+                         'See the support table for available platforms.')
     selected = RELEASES[key]
     if selected['experimental'] and not experimental:
         raise ValueError(selected['label'] + ' is experimental. Read its preview limits, '
@@ -187,7 +192,7 @@ def download(url, destination, limit):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--experimental', action='store_true', help='Opt into the matching Debian/Ubuntu/COSMIC preview')
+    parser.add_argument('--experimental', action='store_true', help='Opt into an experimental platform')
     parser.add_argument('--check', action='store_true', help='Show OS, release and dependency status; no network or changes')
     parser.add_argument('--allow-portable-gh', action='store_true', help='Allow the pinned temporary upstream GitHub CLI when the system CLI is absent or too old')
     parser.add_argument('--no-deps', action='store_true', help='Stop if dependencies are missing instead of offering to install them')
