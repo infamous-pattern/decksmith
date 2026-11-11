@@ -337,6 +337,14 @@ RELEASES = {
         "manager": "dnf",
         "experimental": False,
     },
+    ("fedora", "45"): {
+        "target": "fedora44",
+        "label": "Fedora Workstation 45 GNOME/Wayland (Fedora 44 bundle)",
+        "version": "v1.5.1",
+        "source": "4891555b388f1806ca0cda909d77af6dbd77a8ee",
+        "manager": "dnf",
+        "experimental": True,
+    },
     ("debian", "13"): {
         "target": "debian13",
         "label": "Debian 13 GNOME/Wayland",
@@ -512,8 +520,7 @@ def select_release(release, *, experimental=False):
     if key not in RELEASES:
         raise ValueError(
             "No verified download is configured for this OS/version. "
-            "See the support table; Fedora 45 and openSUSE are test-only "
-            "environments."
+            "See the support table for available platforms."
         )
     selected = RELEASES[key]
     if selected["experimental"] and not experimental:
@@ -689,7 +696,7 @@ def main(argv=None):
     parser.add_argument(
         "--experimental",
         action="store_true",
-        help="Opt into the matching Debian/Ubuntu/COSMIC preview",
+        help="Opt into an experimental platform",
     )
     parser.add_argument(
         "--check",

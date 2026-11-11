@@ -160,13 +160,22 @@ print('PASS terminal input',flush=True)
                 with self.assertRaisesRegex(ValueError, "experimental"):
                     BOOT.select_release(release)
         for release in (
-            {"ID": "fedora", "VERSION_ID": "45"},
+            {"ID": "fedora", "VERSION_ID": "46"},
             {"ID": "ubuntu", "VERSION_ID": "24.04"},
             {"ID": "opensuse-tumbleweed"},
             {"ID": "unknown", "ID_LIKE": "ubuntu", "VERSION_ID": "26.04"},
         ):
             with self.assertRaises(ValueError):
                 BOOT.select_release(release, experimental=True)
+
+    def test_fedora45_uses_verified_fedora44_bundle_only_with_opt_in(self):
+        release = {"ID": "fedora", "VERSION_ID": "45"}
+        with self.assertRaisesRegex(ValueError, "experimental"):
+            BOOT.select_release(release)
+        selected = BOOT.select_release(release, experimental=True)
+        self.assertEqual(selected["target"], "fedora44")
+        self.assertEqual(selected["source"], BOOT.RELEASES["fedora", "44"]["source"])
+        self.assertEqual(selected["version"], BOOT.RELEASES["fedora", "44"]["version"])
 
     def test_approved_release_archive_workflow_and_source_pins_match_guides(
         self,

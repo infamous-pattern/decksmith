@@ -109,7 +109,7 @@ On Arch Linux and Arch-based systems like Omarchy, the same command installs
 missing packages with pacman, then builds the `main` branch from source
 and installs it. There's no signed Arch download, so the build happens locally.
 
-On Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, opt into the experimental package:
+On Fedora 45, Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, opt into the experimental package:
 
 ```sh
 sh decksmith-install.sh --experimental
