@@ -1,4 +1,8 @@
 import os
+import subprocess
+import sys
+import tempfile
+import time
 import unittest
 from unittest.mock import Mock, patch
 from system_controls import Controls, COMMANDS, LABELS
@@ -139,6 +143,7 @@ class HyprlandControlTests(unittest.TestCase):
         c.setting = Mock()
         with (
             patch("system_controls.run", side_effect=run),
+            patch("system_controls.run_action", side_effect=lambda *argv: calls.append(argv) or True),
             patch("system_controls.shutil.which", return_value="/usr/bin/x"),
         ):
             off = {"available": True, "active": False, "text": "Off"}
@@ -161,3 +166,48 @@ class HyprlandControlTests(unittest.TestCase):
         ):
             self.assertFalse(Controls().state("dnd")["available"])
             self.assertFalse(Controls().state("night_light")["available"])
+
+    def test_omarchy_night_light_failure_is_reported(self):
+        with (patch("system_controls.run", return_value=None),
+              patch("system_controls.run_action", return_value=False),
+              patch("system_controls.shutil.which", return_value="/usr/bin/x")):
+            with self.assertRaisesRegex(ValueError, "Control unavailable"):
+                Controls().execute("night_light")
+
+
+class ActionProcessTests(unittest.TestCase):
+    def test_action_does_not_wait_for_a_background_child_to_close_output(self):
+        from system_controls import run_action
+
+        # Model Omarchy's launcher: its child inherits stdout and stays alive
+        # after the helper exits. Capturing a pipe would wait for that child.
+        with tempfile.TemporaryDirectory() as directory:
+            pidfile = os.path.join(directory, "child.pid")
+            code = (
+                "import subprocess,sys; "
+                "p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(8)']); "
+                "open(sys.argv[1], 'w').write(str(p.pid))"
+            )
+            try:
+                start = time.monotonic()
+                self.assertTrue(run_action(sys.executable, "-c", code, pidfile))
+                self.assertLess(time.monotonic() - start, 4)
+            finally:
+                if os.path.exists(pidfile):
+                    try:
+                        with open(pidfile) as child_pid:
+                            os.kill(int(child_pid.read()), 15)
+                    except ProcessLookupError:
+                        pass
+
+    def test_action_timeout_is_failure(self):
+        from system_controls import run_action
+
+        with patch("system_controls.subprocess.run", side_effect=subprocess.TimeoutExpired("helper", 5)):
+            self.assertFalse(run_action(sys.executable, "-c", "pass"))
+
+    def test_query_timeout_is_unavailable(self):
+        from system_controls import run
+
+        with patch("system_controls.subprocess.run", side_effect=subprocess.TimeoutExpired("helper", 5)):
+            self.assertIsNone(run(sys.executable, "-c", "pass"))

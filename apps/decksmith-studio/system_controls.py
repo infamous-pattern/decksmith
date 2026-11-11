@@ -45,14 +45,31 @@ def run(*argv):
     """Run a fixed argv (no shell); return stdout, or None on any failure."""
     if not shutil.which(argv[0]):
         return None
-    result = subprocess.run(
-        argv,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        timeout=5,
-    )
+    try:
+        result = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     return result.stdout.strip() if result.returncode == 0 else None
+
+
+def run_action(*argv):
+    """Run an action without pipes that a background child could inherit."""
+    if not shutil.which(argv[0]):
+        return False
+    try:
+        result = subprocess.run(
+            argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
 
 
 class Controls:
@@ -337,7 +354,9 @@ class Controls:
         elif command == "dnd":
             ok = run("makoctl", "mode", "-t", "do-not-disturb")
         elif shutil.which("omarchy-toggle-nightlight"):
-            ok = run("omarchy-toggle-nightlight")
+            if not run_action("omarchy-toggle-nightlight"):
+                raise ValueError("Control unavailable")
+            return
         else:
             value = "6500" if active else "4000"
             ok = run("hyprctl", "hyprsunset", "temperature", value)
