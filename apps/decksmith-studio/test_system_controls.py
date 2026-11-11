@@ -174,6 +174,29 @@ class HyprlandControlTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Control unavailable"):
                 Controls().execute("night_light")
 
+    def test_omarchy_lock_uses_shell_and_rejects_failure(self):
+        def helper(*argv):
+            if argv == ("omarchy-shell", "lock", "status"):
+                return '{"passwordPam":true,"realScreens":1}'
+            if argv == ("omarchy-shell", "lock", "lock"):
+                return "ok"
+            return None
+
+        with patch("system_controls.run", side_effect=helper) as run:
+            controls = Controls()
+            self.assertTrue(controls.state("lock")["available"])
+            controls.execute("lock")
+            self.assertIn(unittest.mock.call("omarchy-shell", "lock", "lock"), run.call_args_list)
+        with patch("system_controls.run", side_effect=lambda *args: helper(*args) if args[-1] == "status" else "failed"):
+            with self.assertRaisesRegex(ValueError, "Control unavailable"):
+                Controls().execute("lock")
+
+    def test_no_locker_does_not_claim_lock_is_available(self):
+        with patch("system_controls.run", return_value=None):
+            self.assertFalse(Controls().state("lock")["available"])
+            with self.assertRaisesRegex(ValueError, "Control unavailable"):
+                Controls().execute("lock")
+
 
 class ActionProcessTests(unittest.TestCase):
     def test_action_does_not_wait_for_a_background_child_to_close_output(self):

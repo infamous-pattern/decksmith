@@ -72,6 +72,18 @@ def run_action(*argv):
     return result.returncode == 0
 
 
+def omarchy_lock_ready():
+    """Check that the Omarchy shell can lock a real graphical session."""
+    status = run("omarchy-shell", "lock", "status")
+    if status is None:
+        return False
+    try:
+        value = json.loads(status)
+        return bool(value.get("passwordPam") and value.get("realScreens", 0) > 0)
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
 class Controls:
     def __init__(self, authorize=None):
         self.buses = {}
@@ -319,7 +331,9 @@ class Controls:
 
         unavailable = dict(available=False, active=False, text="Unavailable")
         if command == "lock":
-            return dict(available=True, active=False, text="Ready")
+            if omarchy_lock_ready() or run("pgrep", "-u", str(os.getuid()), "-x", "hypridle"):
+                return dict(available=True, active=False, text="Ready")
+            return unavailable
         if command == "dnd":
             value = run("omarchy-shell", "notifications", "isDnd")
             if value in ("on", "off"):
@@ -338,6 +352,11 @@ class Controls:
 
     def hypr_execute(self, command, active):
         if command == "lock":
+            if omarchy_lock_ready():
+                self.authorize()
+                if run("omarchy-shell", "lock", "lock") != "ok":
+                    raise ValueError("Control unavailable")
+                return
             # logind asks hypridle to run its lock_cmd (hyprlock, Omarchy...).
             return self.call(
                 True,
