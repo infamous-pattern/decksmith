@@ -193,3 +193,143 @@ pub fn run(args: &[String]) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod live_lock_tests {
+    use super::*;
+    use decksmith_core::device_model::ControlAddress;
+
+    /// Exercises the real guarded native helper through a VirtualDeck key.
+    /// The operator configures the disposable guest's locker before each run.
+    #[test]
+    #[ignore = "requires an explicitly prepared disposable Hyprland VM"]
+    fn virtual_key_runs_real_guarded_lock_action() {
+        assert_eq!(std::env::var("DECKSMITH_ISOLATED_TEST").as_deref(), Ok("1"));
+        assert!(
+            std::env::var("DBUS_SESSION_BUS_ADDRESS")
+                .is_ok_and(|value| value.starts_with("unix:path=/tmp/dbus-"))
+        );
+        assert!(std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some());
+        let mode = std::env::var("DECKSMITH_LOCK_CASE").unwrap();
+        assert!(matches!(mode.as_str(), "slow" | "unconfigured"));
+        let root = std::env::temp_dir().join(format!("decksmith-live-lock-{}", std::process::id()));
+        let store = Store::create(&root).unwrap();
+        let discovery = Discovery::new(vec![Candidate::new(
+            0,
+            DeviceModel::Mk2,
+            Some("lock-test-mk2"),
+        )])
+        .unwrap();
+        let id = random_device_id().unwrap();
+        store
+            .enroll(0, &discovery, 0, Enrollment::new(id, "Lock test", 50, None))
+            .unwrap();
+        let catalog = store.load().unwrap();
+        let mut value: serde_json::Value =
+            serde_json::from_slice(catalog.profile(id).unwrap().document().bytes()).unwrap();
+        value["pages"][0]["keys"][0] =
+            serde_json::json!({"label":"Lock", "action":{"type":"system", "command":"lock"}});
+        store
+            .save_profile(
+                id,
+                1,
+                &serde_json::to_vec(&value).unwrap(),
+                0,
+                "Lock test",
+                50,
+            )
+            .unwrap();
+        let backend = crate::shared_native_media::NativeBackend::connect_daily().unwrap();
+        let mut runtime =
+            Runtime::start(store.load().unwrap(), vec![Box::new(backend)], None).unwrap();
+        let revision = runtime
+            .discover(Discovery::new(discovery.candidates().to_vec()).unwrap())
+            .unwrap();
+        let deck = Arc::new(Mutex::new(VirtualDeck::new(DeviceModel::Mk2)));
+        runtime
+            .attach(revision, &discovery, 0, Box::new(Probe(deck.clone())))
+            .unwrap();
+        let ready = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < ready
+            && runtime
+                .statuses()
+                .iter()
+                .any(|s| !s.input_ready || !s.display_ready)
+        {
+            runtime.tick();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            runtime
+                .statuses()
+                .iter()
+                .all(|s| s.input_ready && s.display_ready)
+        );
+        for (time, pressed) in [(1, true), (2, false)] {
+            deck.lock()
+                .unwrap()
+                .inject(InputEvent {
+                    timestamp_ms: time,
+                    event: RawEvent::Key { index: 0, pressed },
+                })
+                .unwrap();
+        }
+        let started = Instant::now();
+        let end = started + Duration::from_secs(27);
+        let result = loop {
+            let result = runtime
+                .tick()
+                .into_iter()
+                .find(|f| f.scope.device.control == ControlAddress::Key(0));
+            if let Some(feedback) = result {
+                break feedback.result;
+            }
+            assert!(Instant::now() < end, "no lock action feedback");
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        let elapsed = started.elapsed();
+        if mode == "slow" {
+            assert_eq!(result, Ok(()));
+            assert!(
+                elapsed >= Duration::from_secs(3),
+                "fixture did not exceed the old timeout"
+            );
+        } else {
+            assert_eq!(result, Err("lock_unconfirmed"));
+            assert!(
+                elapsed >= Duration::from_secs(8),
+                "lock confirmation returned prematurely"
+            );
+            // A lock that was not confirmed might still happen later. Preserve
+            // the existing fail-closed builtin fence until controls restart.
+            for (time, pressed) in [(3, true), (4, false)] {
+                deck.lock()
+                    .unwrap()
+                    .inject(InputEvent {
+                        timestamp_ms: time,
+                        event: RawEvent::Key { index: 0, pressed },
+                    })
+                    .unwrap();
+            }
+            let end = Instant::now() + Duration::from_secs(5);
+            let retry = loop {
+                if let Some(feedback) = runtime
+                    .tick()
+                    .into_iter()
+                    .find(|f| f.scope.device.control == ControlAddress::Key(0))
+                {
+                    break feedback.result;
+                }
+                assert!(Instant::now() < end, "no blocked retry feedback");
+                std::thread::sleep(Duration::from_millis(10));
+            };
+            assert_eq!(retry, Err("native_builtin_effect_blocked"));
+        }
+        println!(
+            "PASS full VirtualDeck lock action: case={mode}, result={result:?}, elapsed_ms={}",
+            elapsed.as_millis()
+        );
+        assert!(runtime.stop().iter().all(|(_, result)| result.is_ok()));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}

@@ -1,6 +1,7 @@
 //! Ordinary built-ins use the existing adapters with an explicit per-effect
 //! grant after discovery. A lost reply never causes an automatic replay.
 use crate::{audio_target::Connection, pages::Action};
+use std::time::Duration;
 type Result<T> = std::result::Result<T, &'static str>;
 #[derive(serde::Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
@@ -22,13 +23,27 @@ impl Client {
         if self.helper.is_none() {
             self.helper = Some(Connection::start_helper("shared_builtin.py", &[])?);
         }
+        // Lock confirmation can take eight seconds after the side effect and
+        // invokes a bounded subprocess. Preserve the shorter default for all
+        // other built-ins and for audio helper clients.
+        let timeout = reply_timeout(action);
         let result = conversation(action, current, |request| {
-            self.helper.as_mut().unwrap().exchange(request)
+            self.helper
+                .as_mut()
+                .unwrap()
+                .exchange_with_timeout(request, timeout)
         });
         if result.is_err() {
             self.helper = None;
         }
         result
+    }
+}
+fn reply_timeout(action: &Action) -> Duration {
+    if matches!(action, Action::System { command } if command == "lock") {
+        Duration::from_secs(25)
+    } else {
+        Duration::from_secs(3)
     }
 }
 fn conversation(
@@ -66,6 +81,7 @@ fn conversation(
                 return Err(match code.as_str() {
                     "stale" => "stale_action_scope",
                     "unavailable" => "builtin_unavailable",
+                    "lock_unconfirmed" => "lock_unconfirmed",
                     "unsupported" => "unsupported_shared_builtin_action",
                     _ => uncertain("helper_error", apply_attempts),
                 });
@@ -87,6 +103,34 @@ fn uncertain(reason: &'static str, apply_attempts: usize) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn lock_has_bounded_longer_wait_and_unconfirmed_result_is_preserved() {
+        let lock = Action::System {
+            command: "lock".into(),
+        };
+        let other = Action::System {
+            command: "dnd".into(),
+        };
+        assert_eq!(reply_timeout(&lock), Duration::from_secs(25));
+        assert_eq!(reply_timeout(&other), Duration::from_secs(3));
+        let mut calls = 0;
+        assert_eq!(
+            conversation(
+                &lock,
+                || true,
+                |_| {
+                    calls += 1;
+                    Ok(if calls == 1 {
+                        br#"{"status":"ready"}"#.to_vec()
+                    } else {
+                        br#"{"status":"error","code":"lock_unconfirmed"}"#.to_vec()
+                    })
+                }
+            ),
+            Err("lock_unconfirmed")
+        );
+        assert_eq!(calls, 2);
+    }
     #[test]
     fn scope_revoked_after_discovery_aborts_each_effect() {
         let current = std::cell::Cell::new(true);

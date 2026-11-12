@@ -21,7 +21,7 @@ from Hyprland's event socket and matches its window class to a `.desktop` entry,
 so app pages switch the same way they do on GNOME. When Hyprland is running,
 these system actions use Hyprland tools in place of GNOME services:
 
-- **Lock** uses the Omarchy shell when available, or asks logind to run your configured hypridle `lock_cmd`. It reports success only if Hyprland confirms the session is locked; an unconfigured or failing locker is reported as an error.
+- **Lock** uses the Omarchy shell when available, or asks logind to run your configured hypridle `lock_cmd`. It reports success only if Hyprland confirms the session is locked. If confirmation fails, check whether the desktop is locked, fix the locker, and restart Background controls before retrying; the lock may still happen late.
 - **Do Not Disturb** uses the Omarchy shell, or `makoctl` mode `do-not-disturb`.
 - **Night Light** uses `omarchy-toggle-nightlight`, or hyprsunset directly.
 

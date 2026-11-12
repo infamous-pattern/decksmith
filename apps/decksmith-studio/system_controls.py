@@ -85,7 +85,11 @@ def omarchy_lock_ready():
         return False
 
 
-def wait_for_hyprland_lock(timeout=4):
+class LockUnconfirmed(ValueError):
+    """The compositor did not confirm a requested lock."""
+
+
+def wait_for_hyprland_lock(timeout=8):
     """Only report success after Hyprland confirms the session is locked."""
     deadline = time.monotonic() + timeout
     while True:
@@ -384,7 +388,7 @@ class Controls:
                     "Lock",
                 )
             if not wait_for_hyprland_lock():
-                raise ValueError("Lock not confirmed; desktop may be unlocked")
+                raise LockUnconfirmed("Lock not confirmed; desktop may be unlocked")
             return
         self.authorize()
         if command == "dnd" and shutil.which("omarchy-shell"):

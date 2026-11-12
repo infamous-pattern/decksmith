@@ -79,6 +79,13 @@ impl Connection {
         &mut self,
         request: &impl serde::Serialize,
     ) -> Result<Vec<u8>, &'static str> {
+        self.exchange_with_timeout(request, Duration::from_secs(3))
+    }
+    pub(crate) fn exchange_with_timeout(
+        &mut self,
+        request: &impl serde::Serialize,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, &'static str> {
         use std::io::Write;
         let bytes = serde_json::to_vec(request).map_err(|_| "audio_target_failed")?;
         if bytes.len() > 8191 {
@@ -90,7 +97,7 @@ impl Connection {
             .and_then(|()| self.input.flush())
             .map_err(|_| "audio_target_failed")?;
         self.output
-            .recv_timeout(Duration::from_secs(3))
+            .recv_timeout(timeout)
             .map_err(|error| match error {
                 std::sync::mpsc::RecvTimeoutError::Timeout => "audio_target_timeout",
                 std::sync::mpsc::RecvTimeoutError::Disconnected => "audio_target_failed",
