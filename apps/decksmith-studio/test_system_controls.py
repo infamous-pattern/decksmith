@@ -145,6 +145,7 @@ class HyprlandControlTests(unittest.TestCase):
             patch("system_controls.run", side_effect=run),
             patch("system_controls.run_action", side_effect=lambda *argv: calls.append(argv) or True),
             patch("system_controls.shutil.which", return_value="/usr/bin/x"),
+            patch("system_controls.wait_for_hyprland_lock", return_value=True),
         ):
             off = {"available": True, "active": False, "text": "Off"}
             on = {"available": True, "active": True, "text": "On"}
@@ -182,7 +183,9 @@ class HyprlandControlTests(unittest.TestCase):
                 return "ok"
             return None
 
-        with patch("system_controls.run", side_effect=helper) as run:
+        with patch("system_controls.run", side_effect=helper) as run, patch(
+            "system_controls.wait_for_hyprland_lock", return_value=True
+        ):
             controls = Controls()
             self.assertTrue(controls.state("lock")["available"])
             controls.execute("lock")
@@ -196,6 +199,29 @@ class HyprlandControlTests(unittest.TestCase):
             self.assertFalse(Controls().state("lock")["available"])
             with self.assertRaisesRegex(ValueError, "Control unavailable"):
                 Controls().execute("lock")
+
+    def test_hypridle_without_confirmed_lock_reports_failure(self):
+        def helper(*argv):
+            return "123" if argv[0] == "pgrep" else None
+
+        controls = Controls()
+        controls.call = Mock()
+        with patch("system_controls.run", side_effect=helper), patch(
+            "system_controls.wait_for_hyprland_lock", return_value=False
+        ):
+            self.assertEqual(controls.state("lock")["text"], "Check")
+            with self.assertRaisesRegex(ValueError, "Lock not confirmed"):
+                controls.execute("lock")
+        self.assertEqual(controls.call.call_args.args[4], "Lock")
+
+    def test_lock_confirmation_requires_true_compositor_state(self):
+        from system_controls import wait_for_hyprland_lock
+
+        with patch("system_controls.run", return_value='{"locked":true}'):
+            self.assertTrue(wait_for_hyprland_lock(timeout=0))
+        for status in ('{"locked":false}', '{}', 'unrecognized', None):
+            with self.subTest(status=status), patch("system_controls.run", return_value=status):
+                self.assertFalse(wait_for_hyprland_lock(timeout=0))
 
 
 class ActionProcessTests(unittest.TestCase):

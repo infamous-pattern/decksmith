@@ -5,6 +5,7 @@ Persistent JSON-lines worker; no shell execution.
 
 import json, sys, os
 import shutil, subprocess
+import time
 from pathlib import Path
 from gi.repository import Gio, GLib
 
@@ -82,6 +83,21 @@ def omarchy_lock_ready():
         return bool(value.get("passwordPam") and value.get("realScreens", 0) > 0)
     except (ValueError, TypeError, AttributeError):
         return False
+
+
+def wait_for_hyprland_lock(timeout=4):
+    """Only report success after Hyprland confirms the session is locked."""
+    deadline = time.monotonic() + timeout
+    while True:
+        status = run("hyprctl", "-j", "locked")
+        try:
+            if json.loads(status or "null").get("locked") is True:
+                return True
+        except (ValueError, TypeError, AttributeError):
+            pass
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.1)
 
 
 class Controls:
@@ -331,8 +347,10 @@ class Controls:
 
         unavailable = dict(available=False, active=False, text="Unavailable")
         if command == "lock":
-            if omarchy_lock_ready() or run("pgrep", "-u", str(os.getuid()), "-x", "hypridle"):
+            if omarchy_lock_ready():
                 return dict(available=True, active=False, text="Ready")
+            if run("pgrep", "-u", str(os.getuid()), "-x", "hypridle"):
+                return dict(available=True, active=False, text="Check")
             return unavailable
         if command == "dnd":
             value = run("omarchy-shell", "notifications", "isDnd")
@@ -356,15 +374,18 @@ class Controls:
                 self.authorize()
                 if run("omarchy-shell", "lock", "lock") != "ok":
                     raise ValueError("Control unavailable")
-                return
-            # logind asks hypridle to run its lock_cmd (hyprlock, Omarchy...).
-            return self.call(
-                True,
-                "org.freedesktop.login1",
-                "/org/freedesktop/login1/session/auto",
-                "org.freedesktop.login1.Session",
-                "Lock",
-            )
+            else:
+                # logind asks hypridle to run its configured lock_cmd.
+                self.call(
+                    True,
+                    "org.freedesktop.login1",
+                    "/org/freedesktop/login1/session/auto",
+                    "org.freedesktop.login1.Session",
+                    "Lock",
+                )
+            if not wait_for_hyprland_lock():
+                raise ValueError("Lock not confirmed; desktop may be unlocked")
+            return
         self.authorize()
         if command == "dnd" and shutil.which("omarchy-shell"):
             value = "off" if active else "on"

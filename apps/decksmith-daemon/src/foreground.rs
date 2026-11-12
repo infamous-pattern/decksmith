@@ -1,6 +1,5 @@
 //! Latest application identity only. No titles, focus polling, or manual override timer.
 use serde::Serialize;
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader, ErrorKind, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
@@ -87,19 +86,16 @@ fn hyprland_dir() -> Option<PathBuf> {
 }
 /// Hyprland reports focus on its event socket; no extension or D-Bus source.
 fn hyprland(weak: std::sync::Weak<Mutex<Snapshot>>, dir: PathBuf) {
-    let mut ids = HashMap::new();
     while weak.strong_count() > 0 {
         if let Ok(events) = UnixStream::connect(dir.join(".socket2.sock")) {
             let _ = events.set_read_timeout(Some(Duration::from_secs(2)));
             let class = active_class(&dir).unwrap_or_default();
-            let mut report = |class: &str| match weak.upgrade() {
+            let report = |class: &str| match weak.upgrade() {
                 Some(inner) => {
-                    let id = ids.entry(class.to_owned()).or_insert_with(|| {
-                        let dirs = application_dirs();
-                        desktop_id(class, &dirs)
-                    });
-                    let id = id.clone();
-                    let _ = Foreground(inner).report(&id);
+                    // Desktop entries can be added, removed or edited while the
+                    // daemon is running. Resolve on focus events so both misses
+                    // and previously successful mappings can recover.
+                    report_class(&Foreground(inner), class, &application_dirs());
                     true
                 }
                 None => false,
@@ -135,6 +131,9 @@ fn hyprland(weak: std::sync::Weak<Mutex<Snapshot>>, dir: PathBuf) {
         }
         std::thread::sleep(Duration::from_secs(2));
     }
+}
+fn report_class(foreground: &Foreground, class: &str, dirs: &[PathBuf]) {
+    let _ = foreground.report(&desktop_id(class, dirs));
 }
 /// `activewindow>>CLASS,TITLE` -> CLASS.
 fn event_class(line: &str) -> Option<&str> {
@@ -208,6 +207,30 @@ fn desktop_id(class: &str, dirs: &[PathBuf]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn focus_resolves_entries_again_after_install_edit_and_removal() {
+        let root =
+            std::env::temp_dir().join(format!("decksmith-focus-refresh-{}", std::process::id()));
+        let apps = root.join("applications");
+        std::fs::create_dir_all(&apps).unwrap();
+        let dirs = [apps.clone()];
+        let f = Foreground::default();
+        report_class(&f, "DynamicApp", &dirs);
+        assert_eq!(f.snapshot().application, None);
+        let entry = apps.join("dynamic.desktop");
+        std::fs::write(&entry, "[Desktop Entry]\nStartupWMClass=DynamicApp\n").unwrap();
+        report_class(&f, "DynamicApp", &dirs);
+        assert_eq!(f.snapshot().application.as_deref(), Some("dynamic.desktop"));
+        std::fs::write(&entry, "[Desktop Entry]\nStartupWMClass=Other\n").unwrap();
+        report_class(&f, "DynamicApp", &dirs);
+        assert_eq!(f.snapshot().application, None);
+        std::fs::write(&entry, "[Desktop Entry]\nStartupWMClass=DynamicApp\n").unwrap();
+        report_class(&f, "DynamicApp", &dirs);
+        std::fs::remove_file(&entry).unwrap();
+        report_class(&f, "DynamicApp", &dirs);
+        assert_eq!(f.snapshot().application, None);
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn hyprland_event_line_yields_window_class() {
         let line = "activewindow>>google-chrome,Inbox, mail\n";
