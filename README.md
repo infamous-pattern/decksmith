@@ -67,6 +67,8 @@ needed to run them.
 | Pop!_OS 24.04, COSMIC | Experimental preview; Ubuntu 24.04 library baseline | [COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1) · [Guide and limits](docs/popos-preview-installation.md) |
 | Fedora Workstation 45, GNOME/Wayland | Experimental installer using the Fedora 44 v1.5.1 bundle | Use `--experimental` with the [simplified installer](docs/install-decksmith.md) |
 | openSUSE Tumbleweed, GNOME/Wayland | Development test environment | [OS testing plan](docs/ROADMAP.md#os-testing-host-policy--october-10); no public package |
+| Arch Linux, Hyprland | Initial VM testing; changes under review | [PR #2](https://github.com/infamous-pattern/decksmith/pull/2); no supported release |
+| Omarchy, Hyprland | Initial VM testing; changes under review | [PR #2](https://github.com/infamous-pattern/decksmith/pull/2); no supported release |
 
 [Retained Fedora V1 release](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) · [V1 manual guide](docs/v1-verified-installation.md).
 
