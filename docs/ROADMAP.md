@@ -374,6 +374,7 @@ Copy/Paste and discovery/rendering work are implemented, not proposed again.
 | Throughout interface work | Apply refreshed Impeccable native review questions to actual GTK windows. | Clear scroll markers and reachable Save and Apply; long labels, focus, contrast, unavailable/recovery states, keyboard/Orca and light/dark themes checked without increasing interface density. |
 | Integration qualification; vendor maintenance conditional | Add initially empty Homebridge discovery/recovery, brightness-range and correct-target scenarios. Review Govee updates only after checking the actual installed plugin/model/version. | Temporary absence recovers without borrowed targets or lost assignments; no vendor scaling added blindly to Decksmith. Live bridge updates remain a separate maintenance decision. |
 | Optional bounded development trial | Evaluate current RepoWise on a clean source copy before expanding the editor refactor. | Findings checked against real Python/GTK/GI/D-Bus and Rust paths; record useful results, misses, cost and license/dependency implications. No automatic hooks, transcript ingestion or hosted analysis. |
+| V2 website actions | Let each Open website key use the system default browser or a browser selected from installed applications. | Existing website keys keep using the system default; a selected browser opens that key's URL without changing the desktop default. Preserve the choice through saving, layout export/import and restart; clearly identify an unavailable browser and let the user choose a replacement. |
 | V2 exploration | Design and trial an interactive local virtual Deck, distinct from the existing test backend. | Explicit pairing/permissions, sensible default geometry, GNOME focus behavior, display/touch removal and reconnection, lock handling and push-to-talk cancellation accepted independently. No implied browser/phone remote control. |
 | V2 plugin work | Define catalogue admission checks and declarative settings before integrating third-party plugins. | Validate identity, manifests, compatible versions, permissions, dependencies, artifacts/assets and licenses; do not treat catalogue membership as trust or compatibility. |
 | Optional later visual work | Select new Tabler monitor/media/status icons when needed; explore stereo/spectrum meter styles separately. | Preserve existing artwork identity and notices and keep current simple gauges as default; compare measured CPU/render cost and avoid unverified calibrated-meter claims. |
@@ -1799,9 +1800,30 @@ separate future work. This schedules FR-APPEAR-002/003 from the v0.4 baseline;
 wallpaper is not yet an implemented V1 feature.
 
 Later candidates from the recording review include launch-or-focus application
-behavior, browser selection for website actions, multi-action sequences, and idle
+behavior, multi-action sequences, and idle
 dimming/sleep. Application-associated pages and Auto-Lock are detailed below.
 These remain separate milestones; their presence in the recordings does not establish Fedora compatibility.
+
+**Website browser selection — V2, requested November 13:** add an optional
+browser picker to Open website in the key editor. Offer **System default** and
+recognizable installed browsers, including Edge when available, without requiring
+a manually created desktop shortcut or changing the system-wide default. Keep the
+selection specific to each key; do not assume all web links belong in one browser.
+Existing layouts and newly created actions default to System default.
+
+Identify browser choices using installed desktop entries, including supported
+packaging formats, and refresh discovery so installs and removals are reflected.
+Store a stable application identity, preserve it across save, restart and layout
+export/import, and show an actionable unavailable state if it is absent on another
+machine. Do not silently open an explicitly selected browser's URL in a different
+browser. Keep the existing HTTP(S) validation and pass the URL as a literal
+argument through the desktop launch mechanism; do not expose a shell command field.
+Do not persist browser credentials or promise a particular browser profile.
+
+Test default and explicit selection, discovery refresh, missing and reinstalled
+browsers, saved and imported layouts, URL validation and launch failures. Verify
+actual key launches with at least two installed browsers, including Edge where
+available, and confirm other website keys and the desktop default remain unchanged.
 
 ## Everyday control feedback — core implemented September 14
 
