@@ -79,6 +79,21 @@ does not inherit GNOME-only integrations. Review the
 linked limits before installing. Broader supported compatibility remains separate
 from the focused V1.5 multi-device release.
 
+**Arch Linux and Omarchy — initial testing:** Changes for Hyprland, Arch Linux
+and Omarchy are under review in [PR #2](https://github.com/infamous-pattern/decksmith/pull/2).
+They are not part of the current public release or a supported installation.
+Initial tests of PR candidates in Arch and Omarchy virtual machines covered the
+native editor, VirtualDeck, application-based page switching, Night Light, and
+desktop lock and unlock. The Arch lock check used a configured test locker;
+an unconfigured locker was also checked for a clear failure response.
+
+These checks used virtual devices, not physical Stream Deck hardware. They do
+not establish physical USB, audio or device-recovery support. The isolated
+installation trial used a staged PR bundle with dependencies already present;
+it did not validate a fresh OS installation or the public upstream download.
+Testing is ongoing, and the contributor's detailed testing coverage is still
+being clarified.
+
 ### New dial gauges
 
 ![Dual-arc gauges with configured volume, independent audio activity and green microphone Live status](docs/images/decksmith-dial-gauges.png?v=0b74777f09e5)
