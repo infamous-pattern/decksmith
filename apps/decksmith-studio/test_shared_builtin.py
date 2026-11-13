@@ -11,6 +11,14 @@ def abort():raise ValueError('Stale action scope')
 
 
 class SharedBuiltinTests(unittest.TestCase):
+    def test_unconfirmed_lock_is_sent_as_distinct_failure(self):
+        from system_controls import LockUnconfirmed
+        source=io.StringIO('{"type":"system","command":"lock"}\n')
+        output=io.StringIO()
+        with patch.object(shared,'execute',side_effect=LockUnconfirmed('Lock not confirmed')):
+            shared.serve(source,output)
+        self.assertEqual(json.loads(output.getvalue()),{'status':'error','code':'lock_unconfirmed'})
+
     def test_application_discovery_precedes_grant_and_stale_never_launches(self):
         app=Mock();app.should_show.return_value=True
         with patch.object(launch.Gio.DesktopAppInfo,'new',return_value=app) as discover:

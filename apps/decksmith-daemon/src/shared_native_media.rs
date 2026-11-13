@@ -372,7 +372,10 @@ impl Backend for NativeBackend {
                     return Err("native_builtin_effect_blocked");
                 }
                 let result = self.builtin.execute(action, || fence.accepts());
-                if result == Err("native_builtin_effect_uncertain") {
+                if matches!(
+                    result,
+                    Err("native_builtin_effect_uncertain" | "lock_unconfirmed")
+                ) {
                     self.blocked_builtin = true;
                     self.uncertain.store(true, Ordering::Release);
                 }

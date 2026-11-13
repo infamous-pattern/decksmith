@@ -40,7 +40,7 @@ def execute(action, source, output, *, launcher=None, controls=None, grant=None)
 def serve(source, output):
     from shared_audio_native import authorize, message, send
     # Sharing one system adapter avoids duplicated persistent GSettings caches.
-    from system_controls import Controls,GLib
+    from system_controls import Controls,GLib,LockUnconfirmed
     controls=Controls()
     while True:
         try:action=message(source)
@@ -63,7 +63,7 @@ def serve(source, output):
         except Exception as error:
             # Ordinary adapter exceptions may follow an issued effect. Only a
             # known authorization abort is definitely stale; never replay others.
-            code='stale' if not grants and str(error)=='Stale action scope' else 'unsupported' if str(error)=='Unsupported built-in' else 'unavailable' if str(error)=='Application unavailable' else 'uncertain'
+            code='lock_unconfirmed' if isinstance(error,LockUnconfirmed) else 'stale' if not grants and str(error)=='Stale action scope' else 'unsupported' if str(error)=='Unsupported built-in' else 'unavailable' if str(error)=='Application unavailable' else 'uncertain'
             reply={'status':'error','code':code}
         send(output,reply)
         if reply['status']=='error':return

@@ -131,6 +131,12 @@ pub fn failed(check: Check, name: String, code: &str) -> Notice {
             "Not set",
             "Set brightness",
         ),
+        "lock_unconfirmed" => (
+            "The desktop lock could not be confirmed",
+            "Check the desktop lock, fix the locker, then restart Background controls before retrying.",
+            "Lock unclear",
+            "Check lock",
+        ),
         code if code.ends_with("timeout") => (
             "The action timed out; completion is unknown",
             "Check the target before retrying; a partial change may have occurred.",
@@ -495,5 +501,19 @@ mod tests {
         let timed_out = failed(c, "MPZ".into(), "launch_timeout");
         assert!(timed_out.detail.contains("unknown"));
         assert!(timed_out.hint.contains("before retrying"));
+        let lock = failed(
+            Check {
+                page: 0,
+                slot: 0,
+                label: "Lock".into(),
+                kind: "action".into(),
+                target: "Lock".into(),
+                command: String::new(),
+            },
+            "Lock".into(),
+            "lock_unconfirmed",
+        );
+        assert!(lock.detail.contains("could not be confirmed"));
+        assert!(lock.hint.contains("restart Background controls"));
     }
 }
