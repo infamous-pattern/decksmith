@@ -26,12 +26,12 @@ from runtime_dependencies import runtime_packages
 RELEASES = {
     ('fedora', '44'): {
         'target': 'fedora44', 'label': 'Fedora Workstation 44 GNOME/Wayland',
-        'version': 'v1.5.1', 'source': '4891555b388f1806ca0cda909d77af6dbd77a8ee',
+        'version': 'v1.5.2', 'source': '831411fabcb0308169a827c3eefc5e6827a9020c',
         'manager': 'dnf', 'experimental': False,
     },
     ('fedora', '45'): {
         'target': 'fedora44', 'label': 'Fedora Workstation 45 GNOME/Wayland (Fedora 44 bundle)',
-        'version': 'v1.5.1', 'source': '4891555b388f1806ca0cda909d77af6dbd77a8ee',
+        'version': 'v1.5.2', 'source': '831411fabcb0308169a827c3eefc5e6827a9020c',
         'manager': 'dnf', 'experimental': True,
     },
     ('debian', '13'): {
