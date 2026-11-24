@@ -208,7 +208,9 @@ print('PASS terminal input',flush=True)
              patch.object(BOOT, 'download') as download, patch.object(BOOT, 'install_dependencies') as install, \
              patch.object(BOOT.subprocess, 'run') as run, patch('sys.stdout', new_callable=io.StringIO):
             report = BOOT.main(['--check'])
-            self.assertEqual(report['release'], 'v1.5.1')
+            self.assertEqual(report['release'], 'v1.5.2')
+            self.assertEqual(BOOT.RELEASES['fedora', '44']['source'],
+                             '831411fabcb0308169a827c3eefc5e6827a9020c')
             self.assertIn('2.102.0', report['verification_requirement'])
             download.assert_not_called(); install.assert_not_called(); run.assert_not_called()
 

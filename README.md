@@ -11,7 +11,7 @@ login while the editor stays closed.
 and the standard 15-key MK.2, including both together.** Each device keeps its own
 layouts, pages and brightness. Debian, Ubuntu and COSMIC retain separate experimental previews.
 
-**Latest: V1.5.1.** Fresh setups use the Maker’s Mark theme with small white
+**Latest: [V1.5.2](https://github.com/infamous-pattern/decksmith/releases/tag/v1.5.2).** Fresh setups use the Maker’s Mark theme with small white
 bottom labels, transparent backgrounds and 85% icons. Each device’s Home page
 has a bottom-left Maker’s Mark key linking to this repository. Saved layouts stay intact.
 
@@ -61,25 +61,22 @@ needed to run them.
 
 | System | Status | Download and installation details |
 |---|---|---|
-| Fedora Workstation 44, GNOME/Wayland | **Supported V1.5** | [v1.5.1](https://github.com/infamous-pattern/decksmith/releases/tag/v1.5.1) · [Verified guide](docs/v1.5-verified-installation.md) |
+| Fedora Workstation 44, GNOME/Wayland | **Supported V1.5** | [v1.5.2](https://github.com/infamous-pattern/decksmith/releases/tag/v1.5.2) · [Verified guide](docs/v1.5-verified-installation.md) |
 | Debian 13, GNOME/Wayland | Experimental native preview | [Debian preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-debian-preview.1) · [Guide and limits](docs/debian-preview-installation.md) |
 | Ubuntu 26.04, GNOME/Wayland | Experimental native preview | [Ubuntu preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-ubuntu-preview.1) · [Guide and limits](docs/ubuntu-preview-installation.md) |
 | Pop!_OS 24.04, COSMIC | Experimental preview; Ubuntu 24.04 library baseline | [COSMIC preview](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0-popos-preview.1) · [Guide and limits](docs/popos-preview-installation.md) |
-| Fedora Workstation 45, GNOME/Wayland | Experimental installer using the Fedora 44 v1.5.1 bundle | Use `--experimental` with the [simplified installer](docs/install-decksmith.md) |
+| Fedora Workstation 45, GNOME/Wayland | Experimental installer using the Fedora 44 V1.5.2 bundle | Use `--experimental` with the [simplified installer](docs/install-decksmith.md) |
 | openSUSE Tumbleweed, GNOME/Wayland | Development test environment | [OS testing plan](docs/ROADMAP.md#os-testing-host-policy--october-10); no public package |
 | Arch Linux, Hyprland | Initial VM testing; changes under review | [PR #2](https://github.com/infamous-pattern/decksmith/pull/2); no supported release |
 | Omarchy, Hyprland | Initial VM testing; changes under review | [PR #2](https://github.com/infamous-pattern/decksmith/pull/2); no supported release |
 
 [Retained Fedora V1 release](https://github.com/infamous-pattern/decksmith/releases/tag/v1.0.0) · [V1 manual guide](docs/v1-verified-installation.md).
 
-On Fedora 45, the maintainer reports that a later locally installed 1.5.2 build
-works with both Stream Deck models, audio controls, application switching and
-lock/unlock. The public v1.5.1 bundle is an earlier Fedora 44 build and has not
-received equivalent physical-session testing on Fedora 45. Preview VM checks on
-other platforms do not establish physical USB/audio or lifecycle support. COSMIC
-does not inherit GNOME-only integrations. Review the
-linked limits before installing. Broader supported compatibility remains separate
-from the focused V1.5 multi-device release.
+On Fedora 45, the maintainer tested both Stream Deck models, audio controls,
+application switching and session recovery with the released signed build
+`1.5.2-c5adfda3e093` and confirmed it has been stable in daily use. The Fedora 45
+installer requires `--experimental`. Login startup verification on Fedora 45
+is still pending.
 
 **Arch Linux and Omarchy — initial testing:** Changes for Hyprland, Arch Linux
 and Omarchy are under review in [PR #2](https://github.com/infamous-pattern/decksmith/pull/2).

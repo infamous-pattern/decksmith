@@ -16,13 +16,11 @@ sh scripts/install.sh
 On Fedora 45, Debian 13, Ubuntu 26.04 or Pop!_OS 24.04, read the corresponding
 [preview limits](../README.md#downloads-and-compatibility) and add `--experimental`.
 
-Fedora 44 selects `v1.5.1`. On Fedora 45 the experimental option selects the
-same signed Fedora 44 bundle. A later local 1.5.2 build has been used on the
-maintainer's Fedora 45 desktop with both supported Stream Deck models, audio,
-application switching and lock/unlock. The published v1.5.1 bundle has not had
-equivalent physical-session testing on Fedora 45. Debian, Ubuntu and COSMIC
-select their own published previews. Other versions and architectures are not
-automatically routed to a download.
+Fedora 44 selects `v1.5.2`. On Fedora 45, `--experimental` selects the same signed
+Fedora 44 bundle. The maintainer confirmed operation and daily stability of this
+exact build on Fedora 45. Login startup verification on Fedora 45 is still pending.
+Debian, Ubuntu and COSMIC select their own published previews. The installer
+requires a matching entry for the distribution version and architecture.
 
 ## Downloadable shortcut
 
